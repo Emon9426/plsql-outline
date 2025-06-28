@@ -1,0 +1,44 @@
+{
+  "name": "plsql-outline",
+  "displayName": "PL/SQL Outline",
+  "description": "Professional PL/SQL code outline view for VS Code",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/example/plsql-outline"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:plsql",
+    "onView:plsqlOutline"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "id": "plsqlOutline",
+          "name": "PL/SQL Outline"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "release": "standard-version && vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.0.4",
+    "vsce": "^2.15.0",
+    "standard-version": "^9.5.0"
+  }
+}
