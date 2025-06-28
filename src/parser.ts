@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { PLSQLNode, ParserResult } from './types';
 
-const PLSQL_OBJECT_REGEX = /CREATE\s+(OR\s+REPLACE\s+)?(PACKAGE|PROCEDURE|FUNCTION|TRIGGER)\s+([^\s(]+)/i;
+const PLSQL_OBJECT_REGEX = /CREATE\s+(OR\s+REPLACE\s+)?(PACKAGE\s+BODY|PACKAGE|PROCEDURE|FUNCTION|TRIGGER)\s+([^\s(]+)/i;
 const NESTED_OBJECT_REGEX = /(PROCEDURE|FUNCTION)\s+([^\s(]+)/i;
 const BLOCK_START_REGEX = /(DECLARE|BEGIN|EXCEPTION)/i;
 const END_REGEX = /END(\s+[^\s;]+)?\s*;/i;
@@ -13,58 +13,67 @@ export function parsePLSQL(text: string): ParserResult {
     const errors: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+        const line = lines[i].trim();
         const objectMatch = line.match(PLSQL_OBJECT_REGEX);
+        const nestedMatch = line.match(NESTED_OBJECT_REGEX);
         const blockMatch = line.match(BLOCK_START_REGEX);
         const endMatch = line.match(END_REGEX);
 
         if (objectMatch) {
-            const node = createNode(objectMatch[3], objectMatch[2].toLowerCase(), i);
+            const type = objectMatch[2].toLowerCase().includes('package') ? 'package' : objectMatch[2].toLowerCase();
+            const node = createNode(objectMatch[3], type, i);
+            addNodeToParent(stack, rootNodes, node);
+            stack.push(node);
+        } else if (nestedMatch) {
+            // 处理嵌套的函数和过程，优先级高于BEGIN块
+            const node = createNode(nestedMatch[2], nestedMatch[1].toLowerCase(), i);
             addNodeToParent(stack, rootNodes, node);
             stack.push(node);
         } else if (blockMatch) {
+            // 处理所有BEGIN/DECLARE/EXCEPTION块
             const node = createNode(blockMatch[1], blockMatch[1].toLowerCase(), i);
             addNodeToParent(stack, rootNodes, node);
             stack.push(node);
-        } else {
-            const nestedMatch = line.match(NESTED_OBJECT_REGEX);
-            if (nestedMatch) {
-                const node = createNode(nestedMatch[2], nestedMatch[1].toLowerCase(), i);
-                addNodeToParent(stack, rootNodes, node);
-                stack.push(node);
-            }
         }
         
         if (endMatch && stack.length > 0) {
             const endName = endMatch[1]?.trim();
             if (endName) {
-                // 有名称的END语句，弹出到对应的过程/函数
-                while (stack.length > 0) {
-                    const poppedNode = stack.pop();
-                    if (poppedNode) {
+                // 有名称的END语句，弹出从匹配节点到栈顶的所有节点
+                for (let j = stack.length - 1; j >= 0; j--) {
+                    if (stack[j].label === endName) {
+                        // 弹出从匹配节点到栈顶的所有节点
+                        const nodesToPop = stack.splice(j);
+                        nodesToPop.forEach(node => {
+                            node.range = new vscode.Range(
+                                new vscode.Position(node.range?.start.line || i, 0),
+                                new vscode.Position(i, line.length)
+                            );
+                        });
+                        break;
+                    }
+                }
+            } else {
+                // 无名称的END语句，弹出最近的非package节点
+                for (let j = stack.length - 1; j >= 0; j--) {
+                    if (stack[j].type !== 'package') {
+                        const poppedNode = stack.splice(j, 1)[0];
                         poppedNode.range = new vscode.Range(
                             new vscode.Position(poppedNode.range?.start.line || i, 0),
                             new vscode.Position(i, line.length)
                         );
-                        if (poppedNode.label === endName) {
-                            break;
-                        }
+                        break;
                     }
-                }
-            } else {
-                // 无名称的END语句，只弹出最近的节点
-                const poppedNode = stack.pop();
-                if (poppedNode) {
-                    poppedNode.range = new vscode.Range(
-                        new vscode.Position(poppedNode.range?.start.line || i, 0),
-                        new vscode.Position(i, line.length)
-                    );
                 }
             }
         }
     }
 
     return { nodes: rootNodes, errors };
+}
+
+function isInsideFunctionOrProcedure(stack: PLSQLNode[]): boolean {
+    return stack.some(node => node.type === 'function' || node.type === 'procedure');
 }
 
 function createNode(label: string, type: string, line: number): PLSQLNode {
@@ -84,13 +93,31 @@ function createNode(label: string, type: string, line: number): PLSQLNode {
 function addNodeToParent(stack: PLSQLNode[], rootNodes: PLSQLNode[], node: PLSQLNode) {
     if (stack.length > 0) {
         let parent = stack[stack.length - 1];
-        // 如果当前父节点是begin/declare/exception，则使用其父节点作为真正的父节点
-        if (parent.type === 'begin' || parent.type === 'declare' || parent.type === 'exception') {
-            // 如果栈顶节点有父节点（即栈顶节点不是根节点）
-            if (parent.parent) {
-                parent = parent.parent;
+        
+        // 对于函数和过程，需要找到合适的父节点
+        if (node.type === 'function' || node.type === 'procedure') {
+            // 在package body中，函数和过程应该直接属于package
+            // 跳过所有的begin/declare/exception块，找到package或其他合适的父节点
+            while (parent && (parent.type === 'begin' || parent.type === 'declare' || parent.type === 'exception')) {
+                if (parent.parent) {
+                    parent = parent.parent;
+                } else {
+                    break;
+                }
             }
         }
+        // 对于EXCEPTION块，需要与BEGIN块处于同一层级
+        else if (node.type === 'exception') {
+            // 跳过BEGIN/DECLARE块，找到函数/过程节点作为父节点
+            while (parent && (parent.type === 'begin' || parent.type === 'declare')) {
+                if (parent.parent) {
+                    parent = parent.parent;
+                } else {
+                    break;
+                }
+            }
+        }
+        
         parent.children?.push(node);
         node.parent = parent;
     } else {
