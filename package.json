@@ -8,7 +8,7 @@
     "url": "https://github.com/example/plsql-outline"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.101.0"
   },
   "categories": [
     "Other"
@@ -36,9 +36,9 @@
     "release": "standard-version && vsce package"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.101.0",
+    "standard-version": "^9.5.0",
     "typescript": "^5.0.4",
-    "vsce": "^2.15.0",
-    "standard-version": "^9.5.0"
+    "vsce": "^2.15.0"
   }
 }
