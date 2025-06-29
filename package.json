@@ -2,7 +2,7 @@
   "name": "plsql-outline",
   "displayName": "PL/SQL Outline",
   "description": "Professional PL/SQL code outline view for VS Code",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/example/plsql-outline"
@@ -37,11 +37,6 @@
     },
     "commands": [
       {
-        "command": "plsqlOutline.expandAll",
-        "title": "Expand All",
-        "icon": "$(expand-all)"
-      },
-      {
         "command": "plsqlOutline.refresh",
         "title": "Refresh",
         "icon": "$(refresh)"
@@ -50,15 +45,16 @@
         "command": "plsqlOutline.openSettings",
         "title": "Settings",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "plsqlOutline.expandAll",
+        "title": "Expand All",
+        "icon": "$(expand-all)"
       }
     ],
     "menus": {
       "view/title": [
-        {
-          "command": "plsqlOutline.expandAll",
-          "when": "view == plsqlOutline",
-          "group": "navigation@1"
-        },
+
         {
           "command": "plsqlOutline.refresh",
           "when": "view == plsqlOutline",
@@ -68,6 +64,11 @@
           "command": "plsqlOutline.openSettings",
           "when": "view == plsqlOutline",
           "group": "navigation@3"
+        },
+        {
+          "command": "plsqlOutline.expandAll",
+          "when": "view == plsqlOutline",
+          "group": "navigation@1"
         }
       ]
     },
