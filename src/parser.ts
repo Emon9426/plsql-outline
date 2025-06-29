@@ -45,8 +45,10 @@ export function parsePLSQL(text: string): ParserResult {
                         // 弹出从匹配节点到栈顶的所有节点
                         const nodesToPop = stack.splice(j);
                         nodesToPop.forEach(node => {
+                            // 保持原始开始位置，只更新结束位置
+                            const startLine = node.range?.start.line || 0;
                             node.range = new vscode.Range(
-                                new vscode.Position(node.range?.start.line || i, 0),
+                                new vscode.Position(startLine, 0),
                                 new vscode.Position(i, line.length)
                             );
                         });
@@ -58,8 +60,10 @@ export function parsePLSQL(text: string): ParserResult {
                 for (let j = stack.length - 1; j >= 0; j--) {
                     if (stack[j].type !== 'package') {
                         const poppedNode = stack.splice(j, 1)[0];
+                        // 保持原始开始位置，只更新结束位置
+                        const startLine = poppedNode.range?.start.line || 0;
                         poppedNode.range = new vscode.Range(
-                            new vscode.Position(poppedNode.range?.start.line || i, 0),
+                            new vscode.Position(startLine, 0),
                             new vscode.Position(i, line.length)
                         );
                         break;
