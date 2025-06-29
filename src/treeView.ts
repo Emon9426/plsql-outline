@@ -14,7 +14,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<PLSQLNode> 
 
     refresh(): void {
         const editor = vscode.window.activeTextEditor;
-        if (editor && editor.document.languageId === 'plsql') {
+        if (editor && this.isPLSQLFile(editor.document)) {
             const text = editor.document.getText();
             const result = parsePLSQL(text);
             this.nodes = result.nodes;
@@ -22,6 +22,12 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<PLSQLNode> 
             this.nodes = [];
         }
         this._onDidChangeTreeData.fire(undefined);
+    }
+
+    private isPLSQLFile(document: vscode.TextDocument): boolean {
+        const ext = document.fileName.toLowerCase();
+        return ext.endsWith('.sql') || ext.endsWith('.pks') || ext.endsWith('.pkb') || 
+               document.languageId === 'plsql';
     }
 
     reveal(node: PLSQLNode): void {

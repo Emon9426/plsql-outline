@@ -14,16 +14,40 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:plsql",
-    "onView:plsqlOutline"
+    "onStartupFinished"
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "plsqlOutlineContainer",
+          "title": "PL/SQL Outline",
+          "icon": "$(symbol-class)"
+        }
+      ]
+    },
     "views": {
-      "explorer": [
+      "plsqlOutlineContainer": [
         {
           "id": "plsqlOutline",
           "name": "PL/SQL Outline"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "plsqlOutline.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "plsqlOutline.refresh",
+          "when": "view == plsqlOutline",
+          "group": "navigation"
         }
       ]
     }
