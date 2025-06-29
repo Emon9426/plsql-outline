@@ -6,7 +6,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<PLSQLNode> 
     private _onDidChangeTreeData = new vscode.EventEmitter<PLSQLNode | undefined>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-    private nodes: PLSQLNode[] = [];
+    public nodes: PLSQLNode[] = [];
     private writeLog: (message: string) => void = () => {};
 
     constructor() {
@@ -26,9 +26,18 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<PLSQLNode> 
     }
 
     private isPLSQLFile(document: vscode.TextDocument): boolean {
-        const ext = document.fileName.toLowerCase();
-        return ext.endsWith('.sql') || ext.endsWith('.pks') || ext.endsWith('.pkb') || 
-               document.languageId === 'plsql';
+        const config = vscode.workspace.getConfiguration('plsqlOutline');
+        const extensions = config.get<string[]>('fileExtensions', ['.sql', '.pks', '.pkb', '.fcn', '.prc', '.typ', '.vw']);
+        const fileName = document.fileName.toLowerCase();
+        
+        this.writeLog(`isPLSQLFile: Checking file ${fileName}`);
+        this.writeLog(`isPLSQLFile: Configured extensions: ${extensions.join(', ')}`);
+        
+        // 严格模式：只检查用户配置的扩展名
+        const result = extensions.some(ext => fileName.endsWith(ext.toLowerCase()));
+        
+        this.writeLog(`isPLSQLFile: Extension match result: ${result}`);
+        return result;
     }
 
     reveal(node: PLSQLNode): void {
@@ -87,6 +96,23 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<PLSQLNode> 
 
     getParent(element: PLSQLNode): vscode.ProviderResult<PLSQLNode> {
         return element.parent;
+    }
+
+    expandAll(): void {
+        this.writeLog('ExpandAll: Starting to expand all nodes');
+        this.expandAllNodes(this.nodes);
+    }
+
+
+    private expandAllNodes(nodes: PLSQLNode[]): void {
+        for (const node of nodes) {
+            if (node.children && node.children.length > 0) {
+                this.writeLog(`ExpandAll: Expanding node ${node.label} with ${node.children.length} children`);
+                // 递归展开子节点
+                this.expandAllNodes(node.children);
+            }
+        }
+        this.writeLog('ExpandAll: Completed expanding all nodes');
     }
 
     findNodeAtPosition(position: vscode.Position): PLSQLNode | undefined {

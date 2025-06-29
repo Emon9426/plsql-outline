@@ -37,19 +37,52 @@
     },
     "commands": [
       {
+        "command": "plsqlOutline.expandAll",
+        "title": "Expand All",
+        "icon": "$(expand-all)"
+      },
+      {
         "command": "plsqlOutline.refresh",
         "title": "Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "plsqlOutline.openSettings",
+        "title": "Settings",
+        "icon": "$(settings-gear)"
       }
     ],
     "menus": {
       "view/title": [
         {
+          "command": "plsqlOutline.expandAll",
+          "when": "view == plsqlOutline",
+          "group": "navigation@1"
+        },
+        {
           "command": "plsqlOutline.refresh",
           "when": "view == plsqlOutline",
-          "group": "navigation"
+          "group": "navigation@2"
+        },
+        {
+          "command": "plsqlOutline.openSettings",
+          "when": "view == plsqlOutline",
+          "group": "navigation@3"
         }
       ]
+    },
+    "configuration": {
+      "title": "PL/SQL Outline",
+      "properties": {
+        "plsqlOutline.fileExtensions": {
+          "type": "array",
+          "default": [".sql", ".pks", ".pkb", ".fcn", ".prc", ".typ", ".vw"],
+          "description": "File extensions to be parsed as PL/SQL files",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     }
   },
   "scripts": {
