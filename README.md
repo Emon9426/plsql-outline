@@ -1,6 +1,6 @@
 # PL/SQL Outline - VS Code 扩展
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/example/plsql-outline)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/example/plsql-outline)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 专业的 PL/SQL 代码大纲视图扩展，为 VS Code 提供完整的 PL/SQL 代码结构分析和导航功能。
