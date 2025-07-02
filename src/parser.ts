@@ -60,18 +60,35 @@ export function parsePLSQL(text: string): ParserResult {
                     }
                 }
             } else {
-                // 无名称的END语句，弹出最近的非package节点
+                // 无名称的END语句，使用优先级匹配策略
+                let foundIndex = -1;
+                
+                // 优先匹配最近的function或procedure
                 for (let j = stack.length - 1; j >= 0; j--) {
-                    if (stack[j].type !== 'package') {
-                        const poppedNode = stack.splice(j, 1)[0];
-                        // 保持原始开始位置，只更新结束位置
-                        const startLine = poppedNode.range?.start.line || 0;
-                        poppedNode.range = new vscode.Range(
-                            new vscode.Position(startLine, 0),
-                            new vscode.Position(i, line.length)
-                        );
+                    if (stack[j].type === 'function' || stack[j].type === 'procedure') {
+                        foundIndex = j;
                         break;
                     }
+                }
+                
+                // 如果没找到function/procedure，则匹配最近的非package块
+                if (foundIndex === -1) {
+                    for (let j = stack.length - 1; j >= 0; j--) {
+                        if (stack[j].type !== 'package') {
+                            foundIndex = j;
+                            break;
+                        }
+                    }
+                }
+                
+                if (foundIndex !== -1) {
+                    const poppedNode = stack.splice(foundIndex, 1)[0];
+                    // 保持原始开始位置，只更新结束位置
+                    const startLine = poppedNode.range?.start.line || 0;
+                    poppedNode.range = new vscode.Range(
+                        new vscode.Position(startLine, 0),
+                        new vscode.Position(i, line.length)
+                    );
                 }
             }
         }
