@@ -11,9 +11,13 @@ export function parsePLSQL(text: string): ParserResult {
     const stack: PLSQLNode[] = [];
     const rootNodes: PLSQLNode[] = [];
     const errors: string[] = [];
+    let inMultiLineComment = false;
 
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
+        const [cleanLine, newCommentState] = removeComments(lines[i], inMultiLineComment);
+        inMultiLineComment = newCommentState;
+        const line = cleanLine.trim();
+        if (!line) continue; // 跳过空行
         const objectMatch = line.match(PLSQL_OBJECT_REGEX);
         const nestedMatch = line.match(NESTED_OBJECT_REGEX);
         const blockMatch = line.match(BLOCK_START_REGEX);
@@ -74,6 +78,43 @@ export function parsePLSQL(text: string): ParserResult {
     }
 
     return { nodes: rootNodes, errors };
+}
+
+function removeComments(line: string, inMultiLineComment: boolean): [string, boolean] {
+    let result = line;
+    let newInMultiLineComment = inMultiLineComment;
+    
+    // 处理多行注释
+    if (newInMultiLineComment) {
+        const endIndex = result.indexOf('*/');
+        if (endIndex !== -1) {
+            result = result.substring(endIndex + 2);
+            newInMultiLineComment = false;
+        } else {
+            return ['', newInMultiLineComment]; // 整行都在注释中
+        }
+    }
+    
+    // 处理单行注释
+    const singleLineIndex = result.indexOf('--');
+    if (singleLineIndex !== -1) {
+        result = result.substring(0, singleLineIndex);
+    }
+    
+    // 处理多行注释开始
+    const multiLineStartIndex = result.indexOf('/*');
+    if (multiLineStartIndex !== -1) {
+        const multiLineEndIndex = result.indexOf('*/', multiLineStartIndex + 2);
+        if (multiLineEndIndex !== -1) {
+            result = result.substring(0, multiLineStartIndex) + 
+                     result.substring(multiLineEndIndex + 2);
+        } else {
+            result = result.substring(0, multiLineStartIndex);
+            newInMultiLineComment = true;
+        }
+    }
+    
+    return [result, newInMultiLineComment];
 }
 
 function isInsideFunctionOrProcedure(stack: PLSQLNode[]): boolean {
