@@ -3,7 +3,7 @@ import { PLSQLNode, ParserResult } from './types';
 
 const PLSQL_OBJECT_REGEX = /CREATE\s+(OR\s+REPLACE\s+)?(PACKAGE\s+BODY|PACKAGE|PROCEDURE|FUNCTION|TRIGGER)\s+([^\s(]+)/i;
 const NESTED_OBJECT_REGEX = /(PROCEDURE|FUNCTION)\s+([^\s(]+)/i;
-const BLOCK_START_REGEX = /(DECLARE|BEGIN|EXCEPTION)/i;
+const BLOCK_START_REGEX = /\b(DECLARE|BEGIN|EXCEPTION)\b/i;
 const END_REGEX = /END(\s+[^\s;]+)?\s*;/i;
 
 export function parsePLSQL(text: string): ParserResult {
@@ -16,7 +16,10 @@ export function parsePLSQL(text: string): ParserResult {
     for (let i = 0; i < lines.length; i++) {
         const [cleanLine, newCommentState] = removeComments(lines[i], inMultiLineComment);
         inMultiLineComment = newCommentState;
-        const line = cleanLine.trim();
+        
+        // 移除字符串字面量
+        const lineWithoutStrings = removeStringLiterals(cleanLine);
+        const line = lineWithoutStrings.trim();
         if (!line) continue; // 跳过空行
         const objectMatch = line.match(PLSQL_OBJECT_REGEX);
         const nestedMatch = line.match(NESTED_OBJECT_REGEX);
@@ -97,6 +100,33 @@ export function parsePLSQL(text: string): ParserResult {
     return { nodes: rootNodes, errors };
 }
 
+function removeStringLiterals(line: string): string {
+    let result = '';
+    let inString = false;
+    let i = 0;
+    
+    while (i < line.length) {
+        if (line[i] === "'" && (i === 0 || line[i-1] !== '\\')) {
+            if (inString) {
+                // 字符串结束
+                inString = false;
+                result += ' '; // 用空格替换字符串内容
+            } else {
+                // 字符串开始
+                inString = true;
+                result += ' ';
+            }
+        } else if (!inString) {
+            result += line[i];
+        } else {
+            result += ' '; // 字符串内容用空格替换
+        }
+        i++;
+    }
+    
+    return result;
+}
+
 function removeComments(line: string, inMultiLineComment: boolean): [string, boolean] {
     let result = line;
     let newInMultiLineComment = inMultiLineComment;
@@ -160,6 +190,17 @@ function addNodeToParent(stack: PLSQLNode[], rootNodes: PLSQLNode[], node: PLSQL
         if (node.type === 'function' || node.type === 'procedure') {
             // 在package body中，函数和过程应该直接属于package
             // 跳过所有的begin/declare/exception块，找到package或其他合适的父节点
+            while (parent && (parent.type === 'begin' || parent.type === 'declare' || parent.type === 'exception')) {
+                if (parent.parent) {
+                    parent = parent.parent;
+                } else {
+                    break;
+                }
+            }
+        }
+        // 对于BEGIN块，需要找到最近的function/procedure作为父节点
+        else if (node.type === 'begin') {
+            // 跳过其他begin/declare/exception块，找到function/procedure
             while (parent && (parent.type === 'begin' || parent.type === 'declare' || parent.type === 'exception')) {
                 if (parent.parent) {
                     parent = parent.parent;
