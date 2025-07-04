@@ -4,7 +4,7 @@ import { PLSQLNode, ParserResult } from './types';
 const PLSQL_OBJECT_REGEX = /CREATE\s+(OR\s+REPLACE\s+)?(PACKAGE\s+BODY|PACKAGE|PROCEDURE|FUNCTION|TRIGGER)\s+([^\s(]+)/i;
 const NESTED_OBJECT_START_REGEX = /\b(PROCEDURE|FUNCTION)\s+([a-zA-Z_][a-zA-Z0-9_]*)/i;
 const IS_AS_KEYWORD_REGEX = /\b(IS|AS)\b/i;
-const BLOCK_START_REGEX = /\b(DECLARE|BEGIN|EXCEPTION)\b/i;
+const BLOCK_START_REGEX = /^\s*(DECLARE|BEGIN|EXCEPTION)\s*$/i; 
 const END_REGEX = /END(\s+[^\s;]+)?\s*;/i;
 
 export function parsePLSQL(text: string): ParserResult {
