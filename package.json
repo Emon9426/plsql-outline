@@ -3,7 +3,7 @@
   "displayName": "PL/SQL Outline",
   "author": "emon zhang",
   "description": "Professional PL/SQL code outline view for VS Code",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/example/plsql-outline"
