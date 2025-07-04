@@ -1,8 +1,9 @@
 {
   "name": "plsql-outline",
   "displayName": "PL/SQL Outline",
+  "author": "emon zhang",
   "description": "Professional PL/SQL code outline view for VS Code",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/example/plsql-outline"
@@ -54,7 +55,6 @@
     ],
     "menus": {
       "view/title": [
-
         {
           "command": "plsqlOutline.refresh",
           "when": "view == plsqlOutline",
@@ -77,7 +77,15 @@
       "properties": {
         "plsqlOutline.fileExtensions": {
           "type": "array",
-          "default": [".sql", ".pks", ".pkb", ".fcn", ".prc", ".typ", ".vw"],
+          "default": [
+            ".sql",
+            ".pks",
+            ".pkb",
+            ".fcn",
+            ".prc",
+            ".typ",
+            ".vw"
+          ],
           "description": "File extensions to be parsed as PL/SQL files",
           "items": {
             "type": "string"
