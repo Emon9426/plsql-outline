@@ -3,7 +3,7 @@
   "displayName": "PL/SQL Outline",
   "author": "emon zhang",
   "description": "Professional PL/SQL code outline view for VS Code",
-  "version": "1.2.0",
+  "version": "1.2.7",
   "repository": {
     "type": "git",
     "url": "https://github.com/example/plsql-outline"
@@ -33,6 +33,13 @@
         {
           "id": "plsqlOutline",
           "name": "PL/SQL Outline"
+        }
+      ],
+      "explorer": [
+        {
+          "id": "plsqlOutlineExplorer",
+          "name": "PL/SQL Outline",
+          "when": "resourceExtname == .sql || resourceExtname == .pks || resourceExtname == .pkb || resourceExtname == .fcn || resourceExtname == .prc || resourceExtname == .typ || resourceExtname == .vw || resourceExtname == .plsql || resourceExtname == .pl || resourceExtname == .ora || resourceExtname == .ddl || resourceExtname == .dml"
         }
       ]
     },
@@ -84,7 +91,12 @@
             ".fcn",
             ".prc",
             ".typ",
-            ".vw"
+            ".vw",
+            ".plsql",
+            ".pl",
+            ".ora",
+            ".ddl",
+            ".dml"
           ],
           "description": "File extensions to be parsed as PL/SQL files",
           "items": {
@@ -102,9 +114,13 @@
     "release": "standard-version && vsce package"
   },
   "devDependencies": {
+    "@types/node": "^24.0.10",
     "@types/vscode": "^1.74.0",
     "standard-version": "^9.5.0",
     "typescript": "^5.0.4",
     "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "flatted": "^3.3.3"
   }
 }

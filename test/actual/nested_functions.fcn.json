@@ -1,0 +1,89 @@
+{
+  "nodes": [
+    {
+      "label": "level1_function",
+      "type": "function",
+      "icon": "symbol-function",
+      "children": [
+        {
+          "label": "level2_function",
+          "type": "function",
+          "icon": "symbol-function",
+          "children": [
+            {
+              "label": "level3_function",
+              "type": "function",
+              "icon": "symbol-function",
+              "children": [
+                {
+                  "label": "level4_function",
+                  "type": "function",
+                  "icon": "symbol-function",
+                  "children": [
+                    {
+                      "label": "BEGIN",
+                      "type": "begin",
+                      "icon": "symbol-namespace",
+                      "children": [],
+                      "range": {
+                        "startLine": 12,
+                        "endLine": 12
+                      }
+                    }
+                  ],
+                  "range": {
+                    "startLine": 10,
+                    "endLine": 15
+                  }
+                },
+                {
+                  "label": "BEGIN",
+                  "type": "begin",
+                  "icon": "symbol-namespace",
+                  "children": [],
+                  "range": {
+                    "startLine": 17,
+                    "endLine": 17
+                  }
+                }
+              ],
+              "range": {
+                "startLine": 7,
+                "endLine": 19
+              }
+            },
+            {
+              "label": "BEGIN",
+              "type": "begin",
+              "icon": "symbol-namespace",
+              "children": [],
+              "range": {
+                "startLine": 21,
+                "endLine": 21
+              }
+            }
+          ],
+          "range": {
+            "startLine": 4,
+            "endLine": 23
+          }
+        },
+        {
+          "label": "BEGIN",
+          "type": "begin",
+          "icon": "symbol-namespace",
+          "children": [],
+          "range": {
+            "startLine": 25,
+            "endLine": 25
+          }
+        }
+      ],
+      "range": {
+        "startLine": 1,
+        "endLine": 27
+      }
+    }
+  ],
+  "errors": []
+}

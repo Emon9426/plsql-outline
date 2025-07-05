@@ -1,0 +1,142 @@
+{
+  "nodes": [
+    {
+      "label": "long_procedure",
+      "type": "procedure",
+      "icon": "symbol-method",
+      "children": [
+        {
+          "label": "factorial",
+          "type": "function",
+          "icon": "symbol-function",
+          "children": [
+            {
+              "label": "BEGIN",
+              "type": "begin",
+              "icon": "symbol-namespace",
+              "children": [],
+              "range": {
+                "startLine": 9,
+                "endLine": 9
+              }
+            }
+          ],
+          "range": {
+            "startLine": 7,
+            "endLine": 14
+          }
+        },
+        {
+          "label": "print_stars",
+          "type": "procedure",
+          "icon": "symbol-method",
+          "children": [
+            {
+              "label": "BEGIN",
+              "type": "begin",
+              "icon": "symbol-namespace",
+              "children": [],
+              "range": {
+                "startLine": 18,
+                "endLine": 18
+              }
+            }
+          ],
+          "range": {
+            "startLine": 17,
+            "endLine": 23
+          }
+        },
+        {
+          "label": "BEGIN",
+          "type": "begin",
+          "icon": "symbol-namespace",
+          "children": [
+            {
+              "label": "DECLARE",
+              "type": "declare",
+              "icon": "symbol-variable",
+              "children": [
+                {
+                  "label": "BEGIN",
+                  "type": "begin",
+                  "icon": "symbol-namespace",
+                  "children": [
+                    {
+                      "label": "DECLARE",
+                      "type": "declare",
+                      "icon": "symbol-variable",
+                      "children": [
+                        {
+                          "label": "BEGIN",
+                          "type": "begin",
+                          "icon": "symbol-namespace",
+                          "children": [],
+                          "range": {
+                            "startLine": 37,
+                            "endLine": 41
+                          }
+                        },
+                        {
+                          "label": "BEGIN",
+                          "type": "begin",
+                          "icon": "symbol-namespace",
+                          "children": [],
+                          "range": {
+                            "startLine": 49,
+                            "endLine": 52
+                          }
+                        },
+                        {
+                          "label": "EXCEPTION",
+                          "type": "exception",
+                          "icon": "error",
+                          "children": [],
+                          "range": {
+                            "startLine": 55,
+                            "endLine": 55
+                          }
+                        }
+                      ],
+                      "range": {
+                        "startLine": 35,
+                        "endLine": 35
+                      }
+                    }
+                  ],
+                  "range": {
+                    "startLine": 32,
+                    "endLine": 32
+                  }
+                }
+              ],
+              "range": {
+                "startLine": 30,
+                "endLine": 30
+              }
+            }
+          ],
+          "range": {
+            "startLine": 25,
+            "endLine": 25
+          }
+        },
+        {
+          "label": "EXCEPTION",
+          "type": "exception",
+          "icon": "error",
+          "children": [],
+          "range": {
+            "startLine": 43,
+            "endLine": 46
+          }
+        }
+      ],
+      "range": {
+        "startLine": 1,
+        "endLine": 46
+      }
+    }
+  ],
+  "errors": []
+}

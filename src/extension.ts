@@ -34,7 +34,13 @@ export function activate(context: vscode.ExtensionContext) {
         showCollapseAll: true
     });
     
-    console.log('TreeView created successfully');
+    // Create second tree view for Explorer panel
+    const explorerTreeView = vscode.window.createTreeView('plsqlOutlineExplorer', {
+        treeDataProvider: outlineProvider,
+        showCollapseAll: true
+    });
+    
+    console.log('TreeViews created successfully');
 
     // Helper function to check if file is PL/SQL
     function isPLSQLFile(document: vscode.TextDocument): boolean {
@@ -86,7 +92,7 @@ export function activate(context: vscode.ExtensionContext) {
                     const node = outlineProvider.findNodeAtPosition(position);
                     
                     if (node) {
-                        writeLog(`Step 6: Found node: ${node.label} at range ${node.range?.start.line}-${node.range?.end.line}`);
+                        writeLog(`Step 6: Found node: ${node.label} at range ${node.range?.startLine}-${node.range?.endLine}`);
                         
                         const revealPromise = treeView.reveal(node, { select: true, expand: true, focus: false });
                         if (revealPromise && typeof revealPromise.then === 'function') {
@@ -401,6 +407,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     context.subscriptions.push(treeView);
+    context.subscriptions.push(explorerTreeView);
 }
 
 export function deactivate() {

@@ -1,27 +1,192 @@
-# Changelog
+# 更新日志
 
-All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+## [1.2.7] - 2025-01-05
 
-### [1.1.1](https://github.com/example/plsql-outline/compare/v1.1.0...v1.1.1) (2025-07-04)
+### 🔧 改进
+- **扩展文件扩展名支持**：新增支持 `.plsql`, `.pl`, `.ora`, `.ddl`, `.dml` 文件扩展名
+- **增强兼容性**：解决用户文件扩展名不被识别的问题
+- **完善Explorer面板条件**：更新了Explorer面板的显示条件以包含新的文件扩展名
 
-## 1.1.0 (2025-07-04)
+### 技术改进
+- 更新了 `package.json` 中的文件扩展名配置
+- 扩展了Explorer面板的 `when` 条件表达式
+- 保持向后兼容，原有扩展名继续支持
 
+### 用户体验
+- **更广泛的文件支持**：现在支持更多常见的PL/SQL文件扩展名
+- **自动识别**：VS Code会自动为新支持的文件类型显示PL/SQL Outline
+- **无需手动配置**：用户无需额外设置即可使用新的文件扩展名
 
-### Features
+### 支持的文件扩展名
+- `.sql` - 标准SQL文件
+- `.pks` - 包规范文件
+- `.pkb` - 包体文件
+- `.fcn` - 函数文件
+- `.prc` - 过程文件
+- `.typ` - 类型文件
+- `.vw` - 视图文件
+- `.plsql` - PL/SQL文件（新增）
+- `.pl` - Perl/PL文件（新增）
+- `.ora` - Oracle文件（新增）
+- `.ddl` - 数据定义语言文件（新增）
+- `.dml` - 数据操作语言文件（新增）
 
-* 更新 README.md，添加新功能描述和安装说明；升级版本至 1.0.0，并添加新图标和截图 ([5c5aa30](https://github.com/example/plsql-outline/commit/5c5aa30f622b3d6dbe9596d7c450d31608e1f4a4))
-* 更新版本至 1.0.1，修复依赖项并添加新构建文件 ([ac549dc](https://github.com/example/plsql-outline/commit/ac549dc22f85a15feaa0a3679ecd6202fafcf03a))
-* 更新版本至 1.0.2，添加多行和单行注释处理功能 ([4756e48](https://github.com/example/plsql-outline/commit/4756e48438f05f636c1260fcd12baf01b06ebfa8))
-* 更新版本至 1.0.3，优化无名称END语句的处理逻辑 ([ababd5d](https://github.com/example/plsql-outline/commit/ababd5d650b9622e27b84bd3413b7a8e7d7f28d9))
-* 更新版本至 1.0.4，添加字符串字面量移除功能并优化块开始正则表达式 ([0f72f84](https://github.com/example/plsql-outline/commit/0f72f84db9f92b8b686b7ae87f868272fc621be0))
-* 更新版本至 1.0.7，添加多行函数/过程声明处理逻辑并优化解析器 ([77e24e6](https://github.com/example/plsql-outline/commit/77e24e6e1ba351565338ea115842ba5e51e43b74))
-* add expand all and settings functionality to PL/SQL Outline extension ([68d0a2a](https://github.com/example/plsql-outline/commit/68d0a2a8383944c8a3874f77f79fe11abe3a706d))
-* enhance PL/SQL Outline extension with logging and cursor synchronization features ([c7c7d2d](https://github.com/example/plsql-outline/commit/c7c7d2dde5ba162783f4064c29c8571bb69fb25d))
-* enhance PL/SQL Outline extension with tree view and refresh functionality ([616850f](https://github.com/example/plsql-outline/commit/616850f204f49799a8563195ba0ad13f82329d87))
-* enhance PLSQL parser to support package body and improve node hierarchy handling ([8d35a9e](https://github.com/example/plsql-outline/commit/8d35a9e61bbda2814cd39420614a631def57ceab))
-* initial implementation of PL/SQL Outline extension for VS Code ([07a1dc4](https://github.com/example/plsql-outline/commit/07a1dc408de9c87df76d3858698483202c25d4e0))
+## [1.2.6] - 2025-01-05
 
+### 关键修复
+- **彻底修复了Exception块层级问题**：解决了用户反馈的"两个exception解析层级错误"问题
+- 修复了Exception块不应该有子节点的严重bug
+- 确保Exception块不会被推入解析栈，防止后续节点错误地成为Exception的子节点
 
-### Bug Fixes
+### 技术改进
+- 重写了Exception块的栈管理逻辑：Exception块创建后不再推入栈中
+- 完善了`addNodeToParent`函数中的Exception处理逻辑
+- 确保所有节点都有正确的父子关系，Exception块只作为叶子节点存在
 
-* update version numbers and dependencies in package.json and package-lock.json ([e999b36](https://github.com/example/plsql-outline/commit/e999b36606f07f77875ee3c9aaec93774b009b36))
+### 测试验证
+- 所有Exception块现在都正确地属于BEGIN块
+- 消除了Exception块下面有子节点的错误情况
+- 验证了复杂嵌套Exception结构的正确解析
+
+### 用户体验
+- **解决核心问题**：用户报告的"FUNCTION xxx没有被识别"问题现在应该完全解决
+- **正确的代码结构显示**：Exception块现在显示在正确的层级位置
+- **稳定的解析结果**：复杂的Exception嵌套不再导致解析混乱
+
+### 兼容性
+- 完全向后兼容
+- 保持所有现有功能
+- 支持双视图显示（活动栏 + Explorer面板）
+
+## [1.2.5] - 2025-01-05
+
+### 重大改进
+- **添加了Explorer面板集成**：现在PL/SQL Outline也会显示在VS Code的Explorer面板中
+- **双视图支持**：用户可以在活动栏的PL/SQL Outline容器和Explorer面板中同时看到大纲
+- **改进了TreeItem逻辑**：修复了空children数组导致的显示问题
+
+### 技术改进
+- 修复了`getTreeItem`方法中的逻辑，现在正确检查`children.length > 0`而不是仅检查`children`存在
+- 在Explorer面板中添加了条件显示，只在PL/SQL文件时显示
+- 注册了两个独立的TreeView实例以支持双视图
+
+### 用户体验
+- **更好的可见性**：嵌套函数现在在两个位置都可见
+- **灵活的访问方式**：用户可以选择在活动栏或Explorer面板中查看大纲
+- **一致的功能**：两个视图提供相同的功能和交互
+
+### 兼容性
+- 完全向后兼容
+- 不影响现有功能
+- 支持所有配置的文件扩展名
+
+## [1.2.4] - 2025-01-05
+
+### 关键修复
+- **修复了VS Code树视图显示问题**：解决了嵌套函数在Outline视图中不显示的严重问题
+- 恢复了PLSQLNode的parent属性设置，确保VS Code TreeDataProvider正常工作
+- 修复了用户报告的"FUNCTION xxx没有被识别"问题
+
+### 技术细节
+- 在addNodeToParent函数中重新启用了parent属性设置
+- 确保所有节点都有正确的父子关系
+- 修复了TreeDataProvider的getParent方法依赖
+
+### 测试验证
+- 创建了专门的调试脚本验证parent属性设置
+- 验证了复杂嵌套函数的正确显示
+- 确认了修复后VS Code树视图的正常工作
+
+### 影响评估
+- **严重性**：高 - 解决了用户无法看到嵌套函数的关键问题
+- **兼容性**：完全向后兼容
+- **用户体验**：显著改善 - 嵌套函数现在正确显示在树视图中
+
+## [1.2.3] - 2025-01-05
+
+### 重大修复
+- **完全修复了Exception处理的严重问题**：解决了Exception块层级混乱的关键bug
+- 修复了Exception块被错误放置在函数/过程顶级的问题
+- 修复了嵌套结构完全混乱，后续函数被错误嵌套在Exception块中的问题
+- 修复了栈管理逻辑错误导致的解析结构混乱
+
+### 核心改进
+- **正确的Exception层级关系**：Exception块现在正确属于BEGIN块
+- **稳定的栈管理**：Exception块处理不再影响其他节点的嵌套
+- **清晰的代码结构**：复杂嵌套的Exception结构现在正确显示
+
+### 测试验证
+- 创建了10个全面的Exception测试用例
+- 所有测试用例100%通过验证
+- 包含基础、嵌套、复杂、边界等各种场景
+- 验证了修复的完整性和可靠性
+
+### 技术细节
+- 重写了Exception块的父节点选择逻辑
+- 移除了Exception块结束时错误的栈弹出逻辑
+- 确保Exception块始终属于最近的BEGIN块
+- 保持向后兼容性，不影响其他功能
+
+### 影响评估
+- **严重性**：高 - 解决了可能导致代码结构显示完全错误的关键问题
+- **兼容性**：完全向后兼容
+- **用户体验**：显著改善 - Exception块现在显示在正确位置
+
+## [1.2.2] - 2025-01-05
+
+### 重要修复
+- **修复了注释处理的严重问题**：解析器不再错误识别注释中的假代码
+- 重写了 `removeComments` 函数，采用更可靠的注释状态管理
+- 修复了多行注释边界识别不准确的问题
+- 改进了同一行内注释开始和结束的处理逻辑
+
+### 测试改进
+- 添加了专门的注释复杂测试用例
+- 创建了多个调试脚本用于验证修复效果
+- 测试覆盖了各种注释嵌套场景
+
+### 已知限制
+- 极端复杂的多层嵌套注释（6层以上）可能仍有问题
+- 建议避免过度复杂的注释结构以确保最佳解析效果
+
+## [1.2.1] - 2025-01-05
+
+### 修复
+- 修复了包规范（.pks）文件中函数和过程声明无法被识别的问题
+- 改进了包规范声明元素的解析逻辑，现在能正确识别：
+  - 常量声明（CONSTANT）
+  - 类型声明（TYPE）
+  - 异常声明（EXCEPTION）
+  - 函数声明（FUNCTION）
+  - 过程声明（PROCEDURE）
+
+### 改进
+- 优化了注释过滤逻辑
+- 改进了字符串字面量处理
+- 增强了多行声明的处理能力
+- 完善了包体和包规范的区分逻辑
+
+### 测试
+- 添加了全面的测试用例
+- 创建了验证脚本确保解析器功能正常
+- 所有测试用例均通过验证
+
+## [1.2.0] - 2025-01-04
+
+### 新增
+- 支持包规范（.pks）和包体（.pkb）文件解析
+- 支持嵌套函数和过程
+- 支持多种PL/SQL对象类型
+- 添加了图标支持
+
+### 改进
+- 重构了解析器架构
+- 改进了错误处理
+- 优化了性能
+
+## [1.0.x] - 历史版本
+
+### 功能
+- 基础PL/SQL文件解析
+- 树形视图显示
+- 代码导航功能

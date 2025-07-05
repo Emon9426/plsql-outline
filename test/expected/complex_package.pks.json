@@ -1,0 +1,15 @@
+{
+  "nodes": [
+    {
+      "label": "complex_package",
+      "type": "package",
+      "icon": "package",
+      "children": [],
+      "range": {
+        "startLine": 1,
+        "endLine": 1
+      }
+    }
+  ],
+  "errors": []
+}

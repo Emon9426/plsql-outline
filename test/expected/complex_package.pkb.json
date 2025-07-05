@@ -1,0 +1,174 @@
+{
+  "nodes": [
+    {
+      "label": "complex_package",
+      "type": "package",
+      "icon": "package",
+      "children": [
+        {
+          "label": "calculate_bonus",
+          "type": "function",
+          "icon": "symbol-function",
+          "children": [
+            {
+              "label": "validate_factor",
+              "type": "function",
+              "icon": "symbol-function",
+              "children": [
+                {
+                  "label": "BEGIN",
+                  "type": "begin",
+                  "icon": "symbol-namespace",
+                  "children": [],
+                  "range": {
+                    "startLine": 8,
+                    "endLine": 8
+                  }
+                }
+              ],
+              "range": {
+                "startLine": 7,
+                "endLine": 10
+              }
+            },
+            {
+              "label": "BEGIN",
+              "type": "begin",
+              "icon": "symbol-namespace",
+              "children": [],
+              "range": {
+                "startLine": 12,
+                "endLine": 12
+              }
+            }
+          ],
+          "range": {
+            "startLine": 3,
+            "endLine": 19
+          }
+        },
+        {
+          "label": "process_employees",
+          "type": "procedure",
+          "icon": "symbol-method",
+          "children": [
+            {
+              "label": "update_salary",
+              "type": "procedure",
+              "icon": "symbol-method",
+              "children": [
+                {
+                  "label": "BEGIN",
+                  "type": "begin",
+                  "icon": "symbol-namespace",
+                  "children": [],
+                  "range": {
+                    "startLine": 27,
+                    "endLine": 27
+                  }
+                }
+              ],
+              "range": {
+                "startLine": 26,
+                "endLine": 29
+              }
+            },
+            {
+              "label": "BEGIN",
+              "type": "begin",
+              "icon": "symbol-namespace",
+              "children": [],
+              "range": {
+                "startLine": 31,
+                "endLine": 31
+              }
+            }
+          ],
+          "range": {
+            "startLine": 22,
+            "endLine": 38
+          }
+        },
+        {
+          "label": "format_name",
+          "type": "function",
+          "icon": "symbol-function",
+          "children": [
+            {
+              "label": "capitalize",
+              "type": "function",
+              "icon": "symbol-function",
+              "children": [
+                {
+                  "label": "BEGIN",
+                  "type": "begin",
+                  "icon": "symbol-namespace",
+                  "children": [],
+                  "range": {
+                    "startLine": 46,
+                    "endLine": 46
+                  }
+                }
+              ],
+              "range": {
+                "startLine": 45,
+                "endLine": 48
+              }
+            },
+            {
+              "label": "BEGIN",
+              "type": "begin",
+              "icon": "symbol-namespace",
+              "children": [
+                {
+                  "label": "DECLARE",
+                  "type": "declare",
+                  "icon": "symbol-variable",
+                  "children": [
+                    {
+                      "label": "BEGIN",
+                      "type": "begin",
+                      "icon": "symbol-namespace",
+                      "children": [],
+                      "range": {
+                        "startLine": 55,
+                        "endLine": 55
+                      }
+                    }
+                  ],
+                  "range": {
+                    "startLine": 52,
+                    "endLine": 52
+                  }
+                }
+              ],
+              "range": {
+                "startLine": 50,
+                "endLine": 50
+              }
+            },
+            {
+              "label": "EXCEPTION",
+              "type": "exception",
+              "icon": "error",
+              "children": [],
+              "range": {
+                "startLine": 61,
+                "endLine": 64
+              }
+            }
+          ],
+          "range": {
+            "startLine": 41,
+            "endLine": 64
+          }
+        }
+      ],
+      "range": {
+        "startLine": 1,
+        "endLine": 72
+      }
+    }
+  ],
+  "errors": []
+}

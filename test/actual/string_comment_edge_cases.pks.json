@@ -1,0 +1,107 @@
+{
+  "nodes": [
+    {
+      "label": "string_comment_test",
+      "type": "package",
+      "icon": "package",
+      "children": [
+        {
+          "label": "C_SQL_TEMPLATE",
+          "type": "constant",
+          "icon": "symbol-constant",
+          "children": [],
+          "range": {
+            "startLine": 8,
+            "endLine": 8
+          }
+        },
+        {
+          "label": "C_COMMENT_CHARS",
+          "type": "constant",
+          "icon": "symbol-constant",
+          "children": [],
+          "range": {
+            "startLine": 11,
+            "endLine": 11
+          }
+        },
+        {
+          "label": "t_comment_record",
+          "type": "type",
+          "icon": "symbol-class",
+          "children": [],
+          "range": {
+            "startLine": 20,
+            "endLine": 20
+          }
+        },
+        {
+          "label": "t_string_array",
+          "type": "type",
+          "icon": "symbol-class",
+          "children": [],
+          "range": {
+            "startLine": 25,
+            "endLine": 25
+          }
+        },
+        {
+          "label": "e_string_parse_error",
+          "type": "exception",
+          "icon": "error",
+          "children": [],
+          "range": {
+            "startLine": 28,
+            "endLine": 28
+          }
+        },
+        {
+          "label": "parse_sql_with_comments",
+          "type": "function",
+          "icon": "symbol-function",
+          "children": [
+            {
+              "label": "C_COMPLEX_STRING",
+              "type": "constant",
+              "icon": "symbol-constant",
+              "children": [],
+              "range": {
+                "startLine": 62,
+                "endLine": 62
+              }
+            },
+            {
+              "label": "C_ESCAPED_STRING",
+              "type": "constant",
+              "icon": "symbol-constant",
+              "children": [],
+              "range": {
+                "startLine": 73,
+                "endLine": 73
+              }
+            },
+            {
+              "label": "get_complex_sql_template",
+              "type": "function",
+              "icon": "symbol-function",
+              "children": [],
+              "range": {
+                "startLine": 85,
+                "endLine": 85
+              }
+            }
+          ],
+          "range": {
+            "startLine": 31,
+            "endLine": 31
+          }
+        }
+      ],
+      "range": {
+        "startLine": 3,
+        "endLine": 3
+      }
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,68 @@
+{
+  "nodes": [
+    {
+      "label": "comment_test",
+      "type": "procedure",
+      "icon": "symbol-method",
+      "children": [
+        {
+          "label": "commented_func",
+          "type": "function",
+          "icon": "symbol-function",
+          "children": [
+            {
+              "label": "begin",
+              "type": "begin",
+              "icon": "symbol-namespace",
+              "children": [],
+              "range": {
+                "startLine": 6,
+                "endLine": 8
+              }
+            }
+          ],
+          "range": {
+            "startLine": 5,
+            "endLine": 8
+          }
+        },
+        {
+          "label": "func_after_comment",
+          "type": "function",
+          "icon": "symbol-function",
+          "children": [
+            {
+              "label": "begin",
+              "type": "begin",
+              "icon": "symbol-namespace",
+              "children": [],
+              "range": {
+                "startLine": 17,
+                "endLine": 20
+              }
+            }
+          ],
+          "range": {
+            "startLine": 11,
+            "endLine": 20
+          }
+        },
+        {
+          "label": "BEGIN",
+          "type": "begin",
+          "icon": "symbol-namespace",
+          "children": [],
+          "range": {
+            "startLine": 21,
+            "endLine": 23
+          }
+        }
+      ],
+      "range": {
+        "startLine": 0,
+        "endLine": 0
+      }
+    }
+  ],
+  "errors": []
+}

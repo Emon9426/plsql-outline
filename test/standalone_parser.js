@@ -1,26 +1,15 @@
-import { PLSQLNode, ParserResult } from './types';
-
-
+// 独立的解析器，不依赖VS Code模块
 const PLSQL_OBJECT_REGEX = /CREATE\s+(OR\s+REPLACE\s+)?(PACKAGE\s+BODY|PACKAGE|PROCEDURE|FUNCTION|TRIGGER)\s+([^\s(]+)/i;
 const NESTED_OBJECT_START_REGEX = /\b(PROCEDURE|FUNCTION)\s+([a-zA-Z_][a-zA-Z0-9_]*)/i;
 const IS_AS_KEYWORD_REGEX = /\b(IS|AS)\b/i;
 const BLOCK_START_REGEX = /^\s*(DECLARE|BEGIN|EXCEPTION)\s*$/i; 
 const END_REGEX = /END(\s+[^\s;]+)?\s*;/i;
 
-// 包规范声明元素的正则表达式
-const CONSTANT_REGEX = /^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s+CONSTANT\s+/i;
-const TYPE_REGEX = /^\s*TYPE\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+IS\s+/i;
-const EXCEPTION_REGEX = /^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s+EXCEPTION\s*;/i;
-const FUNCTION_DECLARATION_REGEX = /^\s*FUNCTION\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/i;
-const PROCEDURE_DECLARATION_REGEX = /^\s*PROCEDURE\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/i;
-const FUNCTION_DECLARATION_END_REGEX = /RETURN\s+[^;]+;$/i;
-const PROCEDURE_DECLARATION_END_REGEX = /\)\s*;$/i;
-
-export function parsePLSQL(text: string): ParserResult {
+function parsePLSQL(text) {
     const lines = text.split('\n');
-    const stack: PLSQLNode[] = [];
-    const rootNodes: PLSQLNode[] = [];
-    const errors: string[] = [];
+    const stack = [];
+    const rootNodes = [];
+    const errors = [];
     let inMultiLineComment = false;
     
     // 多行函数/过程声明缓冲
@@ -60,7 +49,6 @@ export function parsePLSQL(text: string): ParserResult {
         const blockMatch = line.match(BLOCK_START_REGEX);
         const endMatch = line.match(END_REGEX);
 
-
         if (objectMatch) {
             // 正确识别包体和包规范
             let type = objectMatch[2].toLowerCase();
@@ -97,24 +85,6 @@ export function parsePLSQL(text: string): ParserResult {
             // Exception块不应该被推入栈中，因为它不应该有子节点
             if (node.type !== 'exception') {
                 stack.push(node);
-            }
-        } else {
-            // 检查包规范中的声明元素（只在包规范中处理）
-            if (stack.length > 0 && stack[0].type === 'package') {
-                const constantMatch = line.match(CONSTANT_REGEX);
-                const typeMatch = line.match(TYPE_REGEX);
-                const exceptionMatch = line.match(EXCEPTION_REGEX);
-                
-                if (constantMatch) {
-                    const node = createNode(constantMatch[1], 'constant', i);
-                    addNodeToParent(stack, rootNodes, node);
-                } else if (typeMatch) {
-                    const node = createNode(typeMatch[1], 'type', i);
-                    addNodeToParent(stack, rootNodes, node);
-                } else if (exceptionMatch) {
-                    const node = createNode(exceptionMatch[1], 'exception', i);
-                    addNodeToParent(stack, rootNodes, node);
-                }
             }
         }
         
@@ -155,7 +125,7 @@ export function parsePLSQL(text: string): ParserResult {
                     }
                     
                     // 弹出代码块
-                    const blockNode = stack.pop()!;
+                    const blockNode = stack.pop();
                     const startLine = blockNode.range?.startLine || i;
                     blockNode.range = { startLine, endLine: i };
                     
@@ -164,20 +134,20 @@ export function parsePLSQL(text: string): ParserResult {
                     if (functionIndex !== -1 && functionIndex < stack.length) {
                         const funcNode = stack[functionIndex];
                         
-                    if (blockNode.type === 'begin') {
+                        if (blockNode.type === 'begin') {
                             // 对于BEGIN块，检查是否是函数/过程的唯一主体
                             if (funcNode.children && funcNode.children.length === 1 && 
                                 funcNode.children[0] === blockNode) {
                                 // 弹出function/procedure
-                            const poppedFunc = stack.splice(functionIndex, 1)[0];
-                            const funcStartLine = poppedFunc.range?.startLine || i;
-                            poppedFunc.range = { startLine: funcStartLine, endLine: i };
+                                const poppedFunc = stack.splice(functionIndex, 1)[0];
+                                const funcStartLine = poppedFunc.range?.startLine || i;
+                                poppedFunc.range = { startLine: funcStartLine, endLine: i };
                             }
                         }
                     }
                 } else {
                     // 如果栈顶是function/procedure/package，直接弹出
-                    const poppedNode = stack.pop()!;
+                    const poppedNode = stack.pop();
                     const startLine = poppedNode.range?.startLine || i;
                     poppedNode.range = { startLine, endLine: i };
                 }
@@ -188,7 +158,7 @@ export function parsePLSQL(text: string): ParserResult {
     return { nodes: rootNodes, errors };
 }
 
-function processFunctionDeclaration(declaration: string, lineNumber: number): PLSQLNode | null {
+function processFunctionDeclaration(declaration, lineNumber) {
     // 移除注释和字符串
     const cleanDeclaration = removeStringLiterals(removeComments(declaration, false)[0]);
     
@@ -200,7 +170,7 @@ function processFunctionDeclaration(declaration: string, lineNumber: number): PL
     return null;
 }
 
-function removeStringLiterals(line: string): string {
+function removeStringLiterals(line) {
     let result = '';
     let inString = false;
     let stringChar = '';
@@ -255,7 +225,7 @@ function removeStringLiterals(line: string): string {
     return result;
 }
 
-function removeComments(line: string, inMultiLineComment: boolean): [string, boolean] {
+function removeComments(line, inMultiLineComment) {
     // 如果整行都在多行注释中，直接返回空字符串
     if (inMultiLineComment) {
         // 检查是否有注释结束符
@@ -345,22 +315,16 @@ function removeComments(line: string, inMultiLineComment: boolean): [string, boo
     return [result, newInMultiLineComment];
 }
 
-function isInsideFunctionOrProcedure(stack: PLSQLNode[]): boolean {
-    return stack.some(node => node.type === 'function' || node.type === 'procedure');
-}
-
-function createNode(label: string, type: string, line: number): PLSQLNode {
-    const icon = getIconForType(type);
+function createNode(label, type, line) {
     return {
         label,
         type,
-        icon,
         children: [],
         range: { startLine: line, endLine: line }
     };
 }
 
-function addNodeToParent(stack: PLSQLNode[], rootNodes: PLSQLNode[], node: PLSQLNode) {
+function addNodeToParent(stack, rootNodes, node) {
     if (stack.length > 0) {
         let parent = stack[stack.length - 1];
         
@@ -458,18 +422,4 @@ function addNodeToParent(stack: PLSQLNode[], rootNodes: PLSQLNode[], node: PLSQL
     }
 }
 
-function getIconForType(type: string): string {
-    switch (type.toLowerCase()) {
-        case 'package': return 'package';
-        case 'package body': return 'package';
-        case 'procedure': return 'symbol-method';
-        case 'function': return 'symbol-function';
-        case 'trigger': return 'zap';
-        case 'declare': return 'symbol-variable';
-        case 'begin': return 'symbol-namespace';
-        case 'exception': return 'error';
-        case 'constant': return 'symbol-constant';
-        case 'type': return 'symbol-class';
-        default: return 'symbol-misc';
-    }
-}
+module.exports = { parsePLSQL };

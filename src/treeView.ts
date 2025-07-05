@@ -41,7 +41,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<PLSQLNode> 
     }
 
     reveal(node: PLSQLNode): void {
-        this.writeLog(`Reveal: Called for node ${node.label} with range ${node.range?.start.line}-${node.range?.end.line}`);
+        this.writeLog(`Reveal: Called for node ${node.label} with range ${node.range?.startLine}-${node.range?.endLine}`);
         
         if (node.range) {
             const editor = vscode.window.activeTextEditor;
@@ -49,13 +49,21 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<PLSQLNode> 
             
             if (editor) {
                 this.writeLog(`Reveal: Editor document: ${editor.document.fileName}`);
-                this.writeLog(`Reveal: Revealing range ${node.range.start.line}:${node.range.start.character} to ${node.range.end.line}:${node.range.end.character}`);
+                this.writeLog(`Reveal: Revealing range ${node.range.startLine}:0 to ${node.range.endLine}:0`);
                 
                 // 跳转到指定范围并高亮显示
-                editor.revealRange(node.range, vscode.TextEditorRevealType.InCenter);
+                // 根据自定义范围创建 vscode.Range
+                const range = new vscode.Range(
+                    new vscode.Position(node.range.startLine, 0),
+                    new vscode.Position(node.range.endLine, 0)
+                );
+                editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
                 
-                // 设置光标位置和选择范围
-                editor.selection = new vscode.Selection(node.range.start, node.range.start);
+                // 设置光标位置到节点开始处
+                editor.selection = new vscode.Selection(
+                    new vscode.Position(node.range.startLine, 0),
+                    new vscode.Position(node.range.startLine, 0)
+                );
                 
                 // 确保编辑器获得焦点
                 vscode.window.showTextDocument(editor.document, editor.viewColumn, false);
@@ -72,7 +80,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<PLSQLNode> 
     getTreeItem(element: PLSQLNode): vscode.TreeItem {
         const item = new vscode.TreeItem(
             element.label,
-            element.children ? 
+            element.children && element.children.length > 0 ? 
                 vscode.TreeItemCollapsibleState.Collapsed : 
                 vscode.TreeItemCollapsibleState.None
         );
@@ -121,7 +129,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<PLSQLNode> 
         
         // 显示所有根节点的信息
         this.nodes.forEach((node, index) => {
-            this.writeLog(`Root node ${index}: ${node.label}, type: ${node.type}, range: ${node.range?.start.line}-${node.range?.end.line}`);
+            this.writeLog(`Root node ${index}: ${node.label}, type: ${node.type}, range: ${node.range?.startLine}-${node.range?.endLine}`);
         });
         
         const result = this.findNodeInTree(this.nodes, position);
@@ -134,11 +142,11 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<PLSQLNode> 
         
         for (const node of nodes) {
             this.writeLog(`Checking: ${node.label}, type: ${node.type}`);
-            this.writeLog(`Range: start=${node.range?.start.line}, end=${node.range?.end.line}, pos=${position.line}`);
+            this.writeLog(`Range: start=${node.range?.startLine}, end=${node.range?.endLine}, pos=${position.line}`);
             
             if (node.range) {
                 const inRange = this.isPositionInRange(position, node.range);
-                this.writeLog(`Range check: ${position.line} in [${node.range.start.line}-${node.range.end.line}] = ${inRange}`);
+                this.writeLog(`Range check: ${position.line} in [${node.range.startLine}-${node.range.endLine}] = ${inRange}`);
                 
                 if (inRange) {
                     this.writeLog(`✓ MATCH: ${node.label}`);
@@ -164,9 +172,9 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<PLSQLNode> 
         return bestMatch;
     }
 
-    private isPositionInRange(position: vscode.Position, range: vscode.Range): boolean {
-        const result = position.line >= range.start.line && position.line <= range.end.line;
-        this.writeLog(`Range calc: ${position.line} >= ${range.start.line} && ${position.line} <= ${range.end.line} = ${result}`);
+    private isPositionInRange(position: vscode.Position, range: { startLine: number; endLine: number }): boolean {
+        const result = position.line >= range.startLine && position.line <= range.endLine;
+        this.writeLog(`Range calc: ${position.line} >= ${range.startLine} && ${position.line} <= ${range.endLine} = ${result}`);
         return result;
     }
 }

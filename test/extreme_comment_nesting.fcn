@@ -1,0 +1,428 @@
+-- 极端注释嵌套测试
+-- 测试解析器在极端注释情况下的健壮性
+
+/* 
+ * 文件开头的复杂多行注释
+ * 包含多层嵌套和假代码结构
+ * 
+ * CREATE OR REPLACE FUNCTION fake_outer_function RETURN NUMBER IS
+ *   /* 嵌套注释开始
+ *    * FUNCTION fake_inner_function RETURN VARCHAR2 IS
+ *    * BEGIN
+ *    *   /* 更深层的注释
+ *    *    * DECLARE
+ *    *    *   fake_var NUMBER;
+ *    *    * BEGIN
+ *    *    *   fake_var := 1;
+ *    *    * END;
+ *    *    */
+ *    *   RETURN 'fake';
+ *    * END fake_inner_function;
+ *    * 嵌套注释结束 */
+ * BEGIN
+ *   RETURN fake_inner_function();
+ * END fake_outer_function;
+ */
+
+CREATE OR REPLACE FUNCTION extreme_comment_test(
+    p_input VARCHAR2 DEFAULT 'test /* default with comment */ value'
+) RETURN NUMBER IS
+    
+    -- 局部变量声明
+    v_counter NUMBER := 0; -- 'Counter /* not comment */ value'
+    v_result NUMBER;
+    
+    /* 复杂的多行注释，包含各种干扰内容
+     * 
+     * 假的函数声明:
+     * FUNCTION nested_fake_func(p_param NUMBER) RETURN VARCHAR2 IS
+     *   v_local VARCHAR2(100);
+     * BEGIN
+     *   -- 假的单行注释
+     *   v_local := 'value /* 假注释 */ test';
+     *   
+     *   /* 假的嵌套多行注释
+     *    * DECLARE
+     *    *   another_fake_var NUMBER;
+     *    * BEGIN
+     *    *   another_fake_var := p_param * 2;
+     *    *   /* 更深的假注释
+     *    *    * IF another_fake_var > 10 THEN
+     *    *    *   RETURN 'high';
+     *    *    * ELSE
+     *    *    *   RETURN 'low';
+     *    *    * END IF;
+     *    *    */
+     *    * EXCEPTION
+     *    *   WHEN OTHERS THEN
+     *    *     RETURN NULL;
+     *    * END;
+     *    */
+     *   
+     *   RETURN v_local;
+     * EXCEPTION
+     *   WHEN NO_DATA_FOUND THEN
+     *     RETURN 'no_data';
+     *   WHEN TOO_MANY_ROWS THEN
+     *     RETURN 'too_many';
+     * END nested_fake_func;
+     */
+    
+    -- 真实的嵌套函数
+    FUNCTION real_nested_function(
+        p_value NUMBER -- 'Parameter /* comment in param */ description'
+    ) RETURN NUMBER IS
+        v_temp NUMBER; -- 'Temp variable /* temp comment */'
+        
+        /* 函数内的多行注释
+         * 包含假的异常处理:
+         * EXCEPTION
+         *   WHEN VALUE_ERROR THEN
+         *     /* 假的嵌套异常注释
+         *      * WHEN INVALID_NUMBER THEN
+         *      *   RETURN -1;
+         *      * WHEN ZERO_DIVIDE THEN  
+         *      *   RETURN -2;
+         *      */
+         *     RETURN -999;
+         */
+        
+    BEGIN
+        -- 单行注释中包含假代码: DECLARE v_fake NUMBER; BEGIN v_fake := 1; END;
+        
+        v_temp := p_value;
+        
+        /* 多行注释包含字符串和假结构
+         * 'String with /* nested comment chars */ inside'
+         * 
+         * IF v_temp > 0 THEN
+         *   /* 假的IF块注释
+         *    * WHILE v_temp < 100 LOOP
+         *    *   v_temp := v_temp + 1;
+         *    *   /* 假的LOOP注释
+         *    *    * FOR i IN 1..10 LOOP
+         *    *    *   v_temp := v_temp + i;
+         *    *    * END LOOP;
+         *    *    */
+         *    * END LOOP;
+         *    */
+         *   RETURN v_temp * 2;
+         * END IF;
+         */
+        
+        -- 条件逻辑
+        IF v_temp > 0 THEN -- 'Condition /* inline comment */ check'
+            /* 真实IF块内的注释
+             * 包含假的CASE语句:
+             * CASE v_temp
+             *   WHEN 1 THEN RETURN 'one';
+             *   WHEN 2 THEN RETURN 'two';
+             *   ELSE RETURN 'other';
+             * END CASE;
+             */
+            v_temp := v_temp * 2;
+        ELSE
+            -- 单行注释: CASE WHEN v_temp = 0 THEN 'zero' ELSE 'negative' END
+            v_temp := 0;
+        END IF;
+        
+        RETURN v_temp;
+        
+    EXCEPTION
+        WHEN OTHERS THEN
+            /* 异常处理中的复杂注释
+             * 包含假的异常重新抛出:
+             * 
+             * DECLARE
+             *   v_error_code NUMBER;
+             *   v_error_msg VARCHAR2(4000);
+             * BEGIN
+             *   v_error_code := SQLCODE;
+             *   v_error_msg := SQLERRM;
+             *   
+             *   /* 假的错误处理逻辑
+             *    * IF v_error_code = -1 THEN
+             *    *   RAISE_APPLICATION_ERROR(-20001, 'Custom error');
+             *    * ELSIF v_error_code = -2 THEN
+             *    *   /* 更深的假注释
+             *    *    * ROLLBACK TO SAVEPOINT sp1;
+             *    *    * COMMIT;
+             *    *    */
+             *    *   RAISE;
+             *    * END IF;
+             *    */
+             *   
+             *   DBMS_OUTPUT.PUT_LINE('Error: ' || v_error_msg);
+             * END;
+             */
+            RETURN -1;
+    END real_nested_function;
+    
+    -- 另一个嵌套过程
+    PROCEDURE /* 注释分割 */ nested_procedure IS
+        -- 局部声明
+        v_local_counter NUMBER := 0; -- 'Local /* counter */ variable'
+        
+        /* 过程内的复杂注释结构
+         * 包含假的游标声明和处理:
+         * 
+         * CURSOR c_fake_cursor IS
+         *   SELECT /* 假查询注释 */ col1, col2
+         *   FROM fake_table
+         *   WHERE condition = 'value /* 假条件注释 */ test';
+         * 
+         * TYPE t_fake_record IS RECORD (
+         *   field1 VARCHAR2(100), -- 'Field /* comment */ 1'
+         *   field2 NUMBER         -- 'Field /* comment */ 2'  
+         * );
+         * 
+         * v_fake_rec t_fake_record;
+         */
+        
+    BEGIN
+        -- 循环处理
+        FOR i IN 1..10 LOOP -- 'Loop /* iteration */ counter'
+            /* 循环内的注释
+             * 包含假的游标循环:
+             * FOR rec IN c_fake_cursor LOOP
+             *   /* 假的记录处理
+             *    * v_fake_rec.field1 := rec.col1;
+             *    * v_fake_rec.field2 := rec.col2;
+             *    * 
+             *    * /* 假的条件处理
+             *    *  * IF v_fake_rec.field2 > 100 THEN
+             *    *  *   UPDATE fake_table SET status = 'high';
+             *    *  * ELSE
+             *    *  *   UPDATE fake_table SET status = 'low';
+             *    *  * END IF;
+             *    *  */
+             *    */
+             *   COMMIT;
+             * END LOOP;
+             */
+            
+            v_local_counter := v_local_counter + i;
+            
+            -- 嵌套块
+            DECLARE
+                v_nested_var VARCHAR2(100); -- 'Nested /* variable */ declaration'
+            BEGIN
+                /* 嵌套块内的注释
+                 * 包含假的动态SQL:
+                 * EXECUTE IMMEDIATE 'SELECT /* dynamic */ count(*) FROM ' || 'fake_table'
+                 *   INTO v_nested_var;
+                 * 
+                 * /* 假的批量处理
+                 *  * FORALL idx IN 1..fake_array.COUNT
+                 *  *   INSERT INTO fake_target VALUES fake_array(idx);
+                 *  */
+                 */
+                
+                v_nested_var := 'iteration_' || TO_CHAR(i);
+                
+                -- 字符串包含注释符号
+                DBMS_OUTPUT.PUT_LINE('Processing /* not comment */ item: ' || v_nested_var);
+                
+            EXCEPTION
+                WHEN OTHERS THEN
+                    /* 嵌套异常处理注释
+                     * 包含假的事务控制:
+                     * ROLLBACK;
+                     * SAVEPOINT sp_nested;
+                     * /* 假的重试逻辑
+                     *  * FOR retry_count IN 1..3 LOOP
+                     *  *   BEGIN
+                     *  *     -- 重试操作
+                     *  *     EXIT; -- 成功退出
+                     *  *   EXCEPTION
+                     *  *     WHEN OTHERS THEN
+                     *  *       IF retry_count = 3 THEN
+                     *  *         RAISE;
+                     *  *       END IF;
+                     *  *   END;
+                     *  * END LOOP;
+                     *  */
+                     */
+                    NULL; -- 'Ignore /* nested */ errors'
+            END;
+            
+        END LOOP;
+        
+        v_counter := v_local_counter;
+        
+    END nested_procedure;
+
+BEGIN
+    -- 主函数体开始
+    
+    /* 主体中的超复杂注释
+     * 包含完整的假包结构:
+     * 
+     * CREATE OR REPLACE PACKAGE fake_package IS
+     *   /* 假包规范注释
+     *    * TYPE t_fake_type IS TABLE OF VARCHAR2(100);
+     *    * 
+     *    * FUNCTION fake_func(p_param NUMBER) RETURN t_fake_type;
+     *    * PROCEDURE fake_proc(p_data IN OUT t_fake_type);
+     *    */
+     *   
+     *   CONSTANT c_fake_const NUMBER := 42; -- 'Fake /* constant */ value'
+     *   
+     * END fake_package;
+     * /
+     * 
+     * CREATE OR REPLACE PACKAGE BODY fake_package IS
+     *   /* 假包体注释
+     *    * FUNCTION fake_func(p_param NUMBER) RETURN t_fake_type IS
+     *    *   v_result t_fake_type := t_fake_type();
+     *    * BEGIN
+     *    *   /* 假函数体注释
+     *    *    * FOR i IN 1..p_param LOOP
+     *    *    *   v_result.EXTEND;
+     *    *    *   v_result(i) := 'item_' || i;
+     *    *    * END LOOP;
+     *    *    */
+     *    *   RETURN v_result;
+     *    * END fake_func;
+     *    */
+     * END fake_package;
+     * /
+     */
+    
+    -- 调用嵌套函数
+    v_result := real_nested_function(LENGTH(p_input));
+    
+    -- 调用嵌套过程  
+    nested_procedure; -- 'Call /* procedure */ here'
+    
+    /* 最终计算的注释
+     * 包含假的复杂表达式:
+     * v_result := (v_counter * 2) + 
+     *             CASE 
+     *               WHEN v_result > 10 THEN v_result * 0.8
+     *               WHEN v_result > 5 THEN v_result * 0.9  
+     *               ELSE v_result
+     *             END +
+     *             /* 假的函数调用
+     *              * NVL(fake_package.fake_func(v_counter).COUNT, 0) +
+     *              * GREATEST(v_result, v_counter, 1)
+     *              */
+     *             0;
+     */
+    
+    RETURN v_result + v_counter;
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        /* 主异常处理的超复杂注释
+         * 包含假的完整错误处理框架:
+         * 
+         * DECLARE
+         *   v_error_stack VARCHAR2(32767);
+         *   v_call_stack VARCHAR2(32767);
+         *   v_backtrace VARCHAR2(32767);
+         * BEGIN
+         *   v_error_stack := DBMS_UTILITY.FORMAT_ERROR_STACK;
+         *   v_call_stack := DBMS_UTILITY.FORMAT_CALL_STACK;
+         *   v_backtrace := DBMS_UTILITY.FORMAT_ERROR_BACKTRACE;
+         *   
+         *   /* 假的日志记录
+         *    * INSERT INTO error_log (
+         *    *   error_date,
+         *    *   error_stack,
+         *    *   call_stack,
+         *    *   backtrace,
+         *    *   /* 假的额外字段
+         *    *    * user_name,
+         *    *    * session_id,
+         *    *    * module_name
+         *    *    */
+         *    *   additional_info
+         *    * ) VALUES (
+         *    *   SYSDATE,
+         *    *   v_error_stack,
+         *    *   v_call_stack,
+         *    *   v_backtrace,
+         *    *   'Function: extreme_comment_test'
+         *    * );
+         *    * 
+         *    * COMMIT;
+         *    */
+         *   
+         *   /* 假的通知机制
+         *    * DBMS_ALERT.SIGNAL('ERROR_ALERT', 'Critical error occurred');
+         *    * 
+         *    * /* 假的邮件发送
+         *    *  * UTL_MAIL.SEND(
+         *    *  *   sender => 'system@company.com',
+         *    *  *   recipients => 'admin@company.com',
+         *    *  *   subject => 'Database Error Alert',
+         *    *  *   message => v_error_stack
+         *    *  * );
+         *    *  */
+         *    */
+         * END;
+         */
+        
+        -- 简单的错误返回
+        RETURN -999; -- 'Error /* code */ returned'
+        
+END extreme_comment_test;
+/
+
+/* 文件结尾的终极复杂注释
+ * 包含假的完整应用程序结构:
+ * 
+ * -- 假的表结构
+ * CREATE TABLE fake_table (
+ *   id NUMBER PRIMARY KEY, -- 'Primary /* key */ field'
+ *   name VARCHAR2(100), -- 'Name /* field */ description'
+ *   status VARCHAR2(20) DEFAULT 'ACTIVE', -- 'Status /* field */ with default'
+ *   created_date DATE DEFAULT SYSDATE -- 'Created /* date */ field'
+ * );
+ * 
+ * -- 假的索引
+ * CREATE INDEX idx_fake_table_name ON fake_table(name);
+ * /* 索引注释: 用于 /* 快速 */ 查询 */
+ * 
+ * -- 假的触发器
+ * CREATE OR REPLACE TRIGGER trg_fake_table_audit
+ *   BEFORE UPDATE ON fake_table
+ *   FOR EACH ROW
+ * BEGIN
+ *   /* 假的审计逻辑
+ *    * INSERT INTO audit_table (
+ *    *   table_name,
+ *    *   operation,
+ *    *   old_values,
+ *    *   new_values,
+ *    *   /* 假的审计字段
+ *    *    * user_name,
+ *    *    * timestamp,
+ *    *    * session_info
+ *    *    */
+ *    *   change_date
+ *    * ) VALUES (
+ *    *   'fake_table',
+ *    *   'UPDATE',
+ *    *   :OLD.name || '|' || :OLD.status,
+ *    *   :NEW.name || '|' || :NEW.status,
+ *    *   SYSDATE
+ *    * );
+ *    */
+ * END;
+ * /
+ * 
+ * 这个测试文件验证解析器能否正确处理:
+ * 1. 极深层次的注释嵌套
+ * 2. 注释中包含完整的假代码结构
+ * 3. 字符串与注释符号的复杂交互
+ * 4. 各种PL/SQL结构在注释中的干扰
+ * 5. 多行注释与单行注释的混合使用
+ * 
+ * 期望解析结果应该只包含真实的代码结构:
+ * - 函数: extreme_comment_test
+ *   - 嵌套函数: real_nested_function  
+ *   - 嵌套过程: nested_procedure
+ *   - 各种BEGIN/EXCEPTION/DECLARE块
+ */

@@ -1,0 +1,154 @@
+{
+  "nodes": [
+    {
+      "label": "comment_test_procedure",
+      "type": "procedure",
+      "icon": "symbol-method",
+      "children": [
+        {
+          "label": "calculate_value",
+          "type": "function",
+          "icon": "symbol-function",
+          "children": [
+            {
+              "label": "BEGIN",
+              "type": "begin",
+              "icon": "symbol-namespace",
+              "children": [],
+              "range": {
+                "startLine": 43,
+                "endLine": 43
+              }
+            },
+            {
+              "label": "EXCEPTION",
+              "type": "exception",
+              "icon": "error",
+              "children": [],
+              "range": {
+                "startLine": 68,
+                "endLine": 68
+              }
+            }
+          ],
+          "range": {
+            "startLine": 27,
+            "endLine": 79
+          }
+        },
+        {
+          "label": "nested_proc",
+          "type": "procedure",
+          "icon": "symbol-method",
+          "children": [
+            {
+              "label": "BEGIN",
+              "type": "begin",
+              "icon": "symbol-namespace",
+              "children": [
+                {
+                  "label": "DECLARE",
+                  "type": "declare",
+                  "icon": "symbol-variable",
+                  "children": [
+                    {
+                      "label": "BEGIN",
+                      "type": "begin",
+                      "icon": "symbol-namespace",
+                      "children": [
+                        {
+                          "label": "BEGIN",
+                          "type": "begin",
+                          "icon": "symbol-namespace",
+                          "children": [
+                            {
+                              "label": "DECLARE",
+                              "type": "declare",
+                              "icon": "symbol-variable",
+                              "children": [
+                                {
+                                  "label": "BEGIN",
+                                  "type": "begin",
+                                  "icon": "symbol-namespace",
+                                  "children": [
+                                    {
+                                      "label": "EXCEPTION",
+                                      "type": "exception",
+                                      "icon": "error",
+                                      "children": [],
+                                      "range": {
+                                        "startLine": 196,
+                                        "endLine": 196
+                                      }
+                                    }
+                                  ],
+                                  "range": {
+                                    "startLine": 156,
+                                    "endLine": 156
+                                  }
+                                }
+                              ],
+                              "range": {
+                                "startLine": 153,
+                                "endLine": 153
+                              }
+                            }
+                          ],
+                          "range": {
+                            "startLine": 144,
+                            "endLine": 144
+                          }
+                        }
+                      ],
+                      "range": {
+                        "startLine": 120,
+                        "endLine": 120
+                      }
+                    }
+                  ],
+                  "range": {
+                    "startLine": 118,
+                    "endLine": 118
+                  }
+                }
+              ],
+              "range": {
+                "startLine": 101,
+                "endLine": 101
+              }
+            },
+            {
+              "label": "EXCEPTION",
+              "type": "exception",
+              "icon": "error",
+              "children": [],
+              "range": {
+                "startLine": 132,
+                "endLine": 140
+              }
+            }
+          ],
+          "range": {
+            "startLine": 82,
+            "endLine": 140
+          }
+        },
+        {
+          "label": "EXCEPTION",
+          "type": "exception",
+          "icon": "error",
+          "children": [],
+          "range": {
+            "startLine": 185,
+            "endLine": 194
+          }
+        }
+      ],
+      "range": {
+        "startLine": 16,
+        "endLine": 194
+      }
+    }
+  ],
+  "errors": []
+}
