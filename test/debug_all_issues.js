@@ -11,7 +11,10 @@ const testFiles = [
     'test/nested_function_issue.sql',
     'test/exception_complex_cases.sql',
     'test/simple_nested_function.sql',
-    'test/complex_nested_functions.sql'
+    'test/complex_nested_functions.sql',
+    'test/multiline_function_test.sql',
+    'test/extreme_multiline_test.sql',
+    'test/comma_leading_params_test.sql'
 ];
 
 function analyzeNode(node, depth = 0, path = '') {
@@ -25,14 +28,29 @@ function analyzeNode(node, depth = 0, path = '') {
         console.log(`${indent}  ✓ 函数被识别: ${node.label}`);
     }
     
-    // 检查问题2：Exception块是否有子节点
+    // 检查问题2：Exception块的子节点情况
     if (node.type === 'exception' && node.children && node.children.length > 0) {
-        console.log(`${indent}  ❌ 错误: Exception块有子节点!`);
+        const whenChildren = node.children.filter(child => child.type === 'when');
+        const nonWhenChildren = node.children.filter(child => child.type !== 'when');
+        
+        console.log(`${indent}  📍 EXCEPTION 块详情:`);
         console.log(`${indent}     路径: ${currentPath}`);
-        console.log(`${indent}     子节点数量: ${node.children.length}`);
-        node.children.forEach(child => {
-            console.log(`${indent}     - ${child.label} (${child.type})`);
-        });
+        console.log(`${indent}     WHEN 子节点数量: ${whenChildren.length}`);
+        console.log(`${indent}     其他子节点数量: ${nonWhenChildren.length}`);
+        
+        if (whenChildren.length > 0) {
+            console.log(`${indent}     ✅ WHEN 子节点:`);
+            whenChildren.forEach(child => {
+                console.log(`${indent}       - ${child.label} (${child.type})`);
+            });
+        }
+        
+        if (nonWhenChildren.length > 0) {
+            console.log(`${indent}     ⚠️  非WHEN子节点 (可能有问题):`);
+            nonWhenChildren.forEach(child => {
+                console.log(`${indent}       - ${child.label} (${child.type})`);
+            });
+        }
     }
     
     // 检查问题3：函数是否在错误的位置

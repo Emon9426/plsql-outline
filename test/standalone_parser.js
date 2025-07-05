@@ -4,6 +4,7 @@ const NESTED_OBJECT_START_REGEX = /\b(PROCEDURE|FUNCTION)\s+([a-zA-Z_][a-zA-Z0-9
 const IS_AS_KEYWORD_REGEX = /\b(IS|AS)\b/i;
 const BLOCK_START_REGEX = /^\s*(DECLARE|BEGIN|EXCEPTION)\s*$/i; 
 const END_REGEX = /END(\s+[^\s;]+)?\s*;/i;
+const WHEN_REGEX = /^\s*WHEN\s+(.+?)\s+THEN\s*$/i;
 
 function parsePLSQL(text) {
     const lines = text.split('\n');
@@ -16,6 +17,7 @@ function parsePLSQL(text) {
     let functionBuffer = '';
     let inFunctionDeclaration = false;
     let functionStartLine = 0;
+    let pendingFunctionKeyword = false; // 新增：标记是否遇到了单独的FUNCTION/PROCEDURE关键字
 
     for (let i = 0; i < lines.length; i++) {
         const [cleanLine, newCommentState] = removeComments(lines[i], inMultiLineComment);
@@ -38,10 +40,28 @@ function parsePLSQL(text) {
                 }
                 inFunctionDeclaration = false;
                 functionBuffer = '';
+                pendingFunctionKeyword = false;
                 continue;
             }
             // 如果当前行不包含IS/AS，继续收集
             continue;
+        }
+        
+        // 检查是否有单独的FUNCTION/PROCEDURE关键字（用于处理函数名在下一行的情况）
+        if (pendingFunctionKeyword) {
+            // 检查当前行是否是函数名
+            const nameMatch = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)/i);
+            if (nameMatch) {
+                // 开始多行函数声明
+                inFunctionDeclaration = true;
+                functionBuffer = functionBuffer + ' ' + line;
+                pendingFunctionKeyword = false;
+                continue;
+            } else {
+                // 不是函数名，重置状态
+                pendingFunctionKeyword = false;
+                functionBuffer = '';
+            }
         }
         
         const objectMatch = line.match(PLSQL_OBJECT_REGEX);
@@ -58,7 +78,10 @@ function parsePLSQL(text) {
                 type = 'package';
             }
             const node = createNode(objectMatch[3], type, i);
-            addNodeToParent(stack, rootNodes, node);
+            
+            // 对于顶级对象（PACKAGE、FUNCTION、PROCEDURE），清空栈并添加到根节点
+            stack.length = 0;
+            rootNodes.push(node);
             stack.push(node);
         } else if (nestedMatch) {
             // 检查是否包含IS/AS关键字
@@ -82,9 +105,25 @@ function parsePLSQL(text) {
             const node = createNode(blockMatch[1], blockMatch[1].toLowerCase(), i);
             addNodeToParent(stack, rootNodes, node);
             
-            // Exception块不应该被推入栈中，因为它不应该有子节点
-            if (node.type !== 'exception') {
-                stack.push(node);
+            // 所有块都应该被推入栈中，包括EXCEPTION块（它可以有WHEN子节点）
+            stack.push(node);
+        } else {
+            // 检查WHEN语句
+            const whenMatch = line.match(WHEN_REGEX);
+            if (whenMatch) {
+                // 创建WHEN节点
+                const whenCondition = whenMatch[1].trim();
+                const node = createNode(`WHEN ${whenCondition}`, 'when', i);
+                addNodeToParent(stack, rootNodes, node);
+                // WHEN节点不需要推入栈中，因为它们通常是叶子节点
+                continue;
+            }
+            // 检查是否是单独的FUNCTION/PROCEDURE关键字（用于处理函数名在下一行的情况）
+            const standaloneKeywordMatch = line.match(/^(CREATE\s+(OR\s+REPLACE\s+)?)?(\s*)(FUNCTION|PROCEDURE)\s*$/i);
+            if (standaloneKeywordMatch) {
+                pendingFunctionKeyword = true;
+                functionBuffer = line;
+                functionStartLine = i;
             }
         }
         
@@ -114,34 +153,29 @@ function parsePLSQL(text) {
                 const topNode = stack[stack.length - 1];
                 
                 if (topNode.type === 'begin' || topNode.type === 'declare' || topNode.type === 'exception') {
-                    // 如果栈顶是代码块，检查是否应该同时结束包含的函数/过程
-                    // 查找最近的function/procedure
-                    let functionIndex = -1;
-                    for (let j = stack.length - 2; j >= 0; j--) {
-                        if (stack[j].type === 'function' || stack[j].type === 'procedure') {
-                            functionIndex = j;
-                            break;
-                        }
-                    }
-                    
-                    // 弹出代码块
+                    // 如果栈顶是代码块，弹出代码块
                     const blockNode = stack.pop();
                     const startLine = blockNode.range?.startLine || i;
                     blockNode.range = { startLine, endLine: i };
                     
-                    // 对于EXCEPTION块，通常意味着整个函数/过程的结束
-                    // 对于BEGIN块，需要检查是否是函数/过程的唯一主体
-                    if (functionIndex !== -1 && functionIndex < stack.length) {
-                        const funcNode = stack[functionIndex];
+                    // 检查是否还有栈顶元素，以及是否应该同时结束包含的函数/过程
+                    if (stack.length > 0) {
+                        const nextTopNode = stack[stack.length - 1];
                         
-                        if (blockNode.type === 'begin') {
-                            // 对于BEGIN块，检查是否是函数/过程的唯一主体
-                            if (funcNode.children && funcNode.children.length === 1 && 
-                                funcNode.children[0] === blockNode) {
-                                // 弹出function/procedure
-                                const poppedFunc = stack.splice(functionIndex, 1)[0];
-                                const funcStartLine = poppedFunc.range?.startLine || i;
-                                poppedFunc.range = { startLine: funcStartLine, endLine: i };
+                        // 如果栈顶现在是function/procedure，并且刚弹出的是BEGIN块
+                        if ((nextTopNode.type === 'function' || nextTopNode.type === 'procedure') && 
+                            blockNode.type === 'begin') {
+                            
+                            // 简化判断：如果BEGIN块是函数/过程的直接子节点，则认为是主体BEGIN块
+                            // 检查这个BEGIN块是否是该函数/过程的直接子节点
+                            const funcChildren = nextTopNode.children || [];
+                            const isDirectChild = funcChildren.includes(blockNode);
+                            
+                            if (isDirectChild) {
+                                // 这是主体BEGIN块，同时结束函数/过程
+                                const funcNode = stack.pop();
+                                const funcStartLine = funcNode.range?.startLine || i;
+                                funcNode.range = { startLine: funcStartLine, endLine: i };
                             }
                         }
                     }
@@ -393,9 +427,23 @@ function addNodeToParent(stack, rootNodes, node) {
                 parent = stack[stack.length - 1];
             }
         }
+        // 对于WHEN节点，应该属于最近的EXCEPTION块
+        else if (node.type === 'when') {
+            // WHEN节点必须属于EXCEPTION块，找到最近的EXCEPTION块
+            for (let i = stack.length - 1; i >= 0; i--) {
+                if (stack[i].type === 'exception') {
+                    parent = stack[i];
+                    break;
+                }
+            }
+            // 如果没有找到EXCEPTION块，则使用栈顶元素（这种情况不应该发生）
+            if (parent.type !== 'exception') {
+                parent = stack[stack.length - 1];
+            }
+        }
         // 对于其他类型的节点，检查是否在Exception块中
         else if (stack.length > 0 && stack[stack.length - 1].type === 'exception') {
-            // Exception块不应该有任何子节点！
+            // 非WHEN节点不应该属于Exception块
             // 新节点应该成为Exception块的同级节点，即Exception块的父节点的子节点
             for (let i = stack.length - 2; i >= 0; i--) {
                 if (stack[i].type === 'begin') {
