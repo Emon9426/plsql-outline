@@ -56,11 +56,31 @@ export class PLSQLOutlineExtension {
             () => this.exportParseResult()
         );
 
+        // 测试展开所有命令
+        const testExpandAllCommand = vscode.commands.registerCommand(
+            'plsqlOutline.testExpandAll',
+            () => {
+                console.log('测试展开所有命令被调用');
+                vscode.window.showInformationMessage('展开所有命令测试成功！');
+            }
+        );
+
+        // 展开所有命令 - 委托给TreeViewManager
+        const expandAllCommand = vscode.commands.registerCommand(
+            'plsqlOutline.expandAll',
+            () => {
+                console.log('展开所有命令被调用，委托给TreeViewManager');
+                return this.treeViewManager.expandAll();
+            }
+        );
+
         context.subscriptions.push(
             parseCurrentFileCommand,
             toggleDebugModeCommand,
             showStatsCommand,
-            exportResultCommand
+            exportResultCommand,
+            testExpandAllCommand,
+            expandAllCommand
         );
     }
 

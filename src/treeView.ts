@@ -8,6 +8,7 @@ import {
     TreeItemData 
 } from './types';
 import { IDataProvider } from './debug';
+import { ExpandDebugger } from './expandDebugger';
 
 /**
  * PL/SQL大纲树数据提供者
@@ -19,6 +20,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     public dataProvider: IDataProvider | null = null;
     private showStructureBlocks: boolean = true;
     private defaultCollapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+    private forceExpandAll: boolean = false; // 新增：强制展开所有节点的标志
 
     constructor() {
         this.loadConfiguration();
@@ -268,6 +270,11 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         const hasStructureBlocks = this.showStructureBlocks && this.shouldShowStructureBlocks(node);
         
         if (hasChildren || hasStructureBlocks) {
+            // 如果强制展开标志为true，直接返回展开状态
+            if (this.forceExpandAll) {
+                return vscode.TreeItemCollapsibleState.Expanded;
+            }
+            
             // 使用配置中的默认展开设置
             const config = vscode.workspace.getConfiguration('plsql-outline');
             const expandByDefault = config.get('view.expandByDefault', true);
@@ -275,6 +282,13 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         } else {
             return vscode.TreeItemCollapsibleState.None;
         }
+    }
+
+    /**
+     * 设置强制展开所有节点
+     */
+    public setForceExpandAll(force: boolean): void {
+        this.forceExpandAll = force;
     }
 
     /**
@@ -417,9 +431,11 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
 export class TreeViewManager {
     private treeView: vscode.TreeView<TreeItemData>;
     private provider: PLSQLOutlineProvider;
+    private debugger: ExpandDebugger;
 
     constructor(context: vscode.ExtensionContext) {
         this.provider = new PLSQLOutlineProvider();
+        this.debugger = new ExpandDebugger();
         
         this.treeView = vscode.window.createTreeView('plsqlOutline', {
             treeDataProvider: this.provider,
@@ -431,6 +447,10 @@ export class TreeViewManager {
         
         // 监听配置变化
         this.registerConfigurationListener(context);
+
+        // 初始化调试
+        this.debugger.clearLog();
+        this.debugger.log('TreeViewManager初始化完成');
     }
 
     /**
@@ -529,6 +549,85 @@ export class TreeViewManager {
         );
         
         // 移除通知，只在状态栏显示或通过其他方式反馈
+    }
+
+    /**
+     * 展开所有节点
+     */
+    async expandAll(): Promise<void> {
+        this.debugger.debugExpandExecution('开始执行展开所有节点功能');
+        
+        // 生成完整的调试报告
+        await this.debugger.generateDebugReport();
+        
+        // 调试树视图状态
+        this.debugger.debugTreeViewState(this.treeView);
+        
+        // 调试数据提供者状态
+        await this.debugger.debugDataProviderState(this.provider);
+        
+        if (!this.provider.dataProvider) {
+            this.debugger.debugExpandExecution('没有数据提供者');
+            vscode.window.showWarningMessage('没有可用的解析数据');
+            return;
+        }
+
+        try {
+            const parseResult = await this.provider.dataProvider.getParseResult();
+            if (!parseResult || !parseResult.nodes || parseResult.nodes.length === 0) {
+                this.debugger.debugExpandExecution('没有解析结果或节点');
+                vscode.window.showInformationMessage('没有可展开的节点');
+                return;
+            }
+
+            this.debugger.debugExpandExecution(`找到 ${parseResult.nodes.length} 个根节点`, {
+                nodeCount: parseResult.nodes.length,
+                metadata: parseResult.metadata
+            });
+            
+            // 使用新的标志方法
+            await this.expandAllWithFlag();
+            
+        } catch (error) {
+            this.debugger.debugExpandExecution('展开所有节点失败', error);
+            vscode.window.showErrorMessage(`展开所有节点失败: ${error}`);
+        }
+    }
+
+    /**
+     * 使用标志方法展开所有节点
+     */
+    private async expandAllWithFlag(): Promise<void> {
+        this.debugger.debugExpandExecution('使用标志方法展开所有节点');
+        
+        try {
+            // 设置强制展开标志
+            this.debugger.debugExpandExecution('设置强制展开标志为true');
+            this.provider.setForceExpandAll(true);
+            
+            // 调试设置后的状态
+            await this.debugger.debugDataProviderState(this.provider);
+            
+            // 刷新树视图
+            this.debugger.debugExpandExecution('刷新树视图');
+            this.provider.refresh();
+            
+            // 等待刷新完成
+            this.debugger.debugExpandExecution('等待刷新完成');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            this.debugger.debugExpandExecution('展开所有节点完成');
+            vscode.window.showInformationMessage('所有节点已展开');
+            
+            // 显示调试日志路径
+            const logPath = this.debugger.getLogPath();
+            this.debugger.debugExpandExecution('调试日志已保存', { logPath });
+            
+        } finally {
+            // 重置强制展开标志
+            this.debugger.debugExpandExecution('重置强制展开标志为false');
+            this.provider.setForceExpandAll(false);
+        }
     }
 
 
