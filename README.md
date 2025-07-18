@@ -1,69 +1,90 @@
 # PL/SQL Outline
 
-一个强大的 VS Code 扩展，用于解析和显示 PL/SQL 代码结构。
+一个强大的 Visual Studio Code 扩展，为 PL/SQL 代码提供智能结构解析和大纲视图功能。
 
-## 功能特性
+![PL/SQL Outline](res/Icon.png)
 
-### 🔍 智能解析
-- 支持 Package Header (.pks) 和 Package Body (.pkb) 文件
-- 解析函数、存储过程、触发器等 PL/SQL 对象
-- 识别嵌套结构和代码块
-- 准确定位声明、BEGIN、EXCEPTION、END 等关键位置
+## 🚀 功能特性
 
-### 📊 结构化视图
-- 树形大纲视图，清晰展示代码层次结构
-- 显示函数/过程的参数信息
-- 支持结构块（BEGIN/EXCEPTION/END）显示
-- 一键跳转到代码位置
+### 📋 代码结构解析
+- **智能解析**：自动识别 PL/SQL 代码中的包、函数、过程、触发器等结构
+- **多层嵌套**：支持复杂的嵌套结构解析
+- **实时更新**：文件保存或切换时自动重新解析
+- **错误处理**：提供详细的解析错误和警告信息
 
-### 🛠️ 调试支持
-- 详细的解析日志
-- 错误和警告信息
-- 解析统计信息
-- 调试文件导出
+### 🌳 大纲视图
+- **层次结构**：清晰展示代码的层次关系
+- **快速导航**：点击节点直接跳转到对应代码行
+- **结构块显示**：可选显示 BEGIN、EXCEPTION、END 等结构块
+- **智能排序**：按层级、子项数量、行号的顺序显示信息
 
-### ⚙️ 高度可配置
-- 自动解析设置
-- 视图显示选项
-- 性能限制配置
-- 调试模式控制
+### 🔧 可配置的文件支持
+- **自定义扩展名**：支持用户自定义文件扩展名列表
+- **默认支持**：`.sql`、`.fnc`、`.fcn`、`.prc`、`.pks`、`.pkb`、`.typ`
+- **动态管理**：可随时添加、删除或重置文件扩展名
 
-## 支持的文件类型
+### 🎛️ 丰富的操作功能
+- **一键展开/折叠**：快速展开或折叠所有节点
+- **刷新功能**：手动刷新解析结果
+- **统计信息**：查看详细的解析统计数据
+- **结果导出**：将解析结果导出为 JSON 格式
 
-- `.sql` - SQL 脚本文件
-- `.pks` - Package Header 文件
-- `.pkb` - Package Body 文件
-- `.prc` - 存储过程文件
-- `.fnc` - 函数文件
-- `.trg` - 触发器文件
+## 📦 安装
 
-## 安装
+1. 打开 Visual Studio Code
+2. 按 `Ctrl+Shift+X` 打开扩展面板
+3. 搜索 "PL/SQL Outline"
+4. 点击安装
 
-1. 在 VS Code 中打开扩展市场
-2. 搜索 "PL/SQL Outline"
-3. 点击安装
+或者从 VSIX 文件安装：
+```bash
+code --install-extension plsql-outline-1.1.0.vsix
+```
 
-## 使用方法
+## 🎯 使用指南
 
 ### 基本使用
 
-1. 打开任何 PL/SQL 文件
-2. 扩展会自动激活并解析文件
-3. 在资源管理器中查看 "PL/SQL大纲" 面板
-4. 点击树节点跳转到对应代码位置
+1. **打开 PL/SQL 文件**：打开任何支持的 PL/SQL 文件
+2. **查看大纲**：在活动栏中点击 PL/SQL 大纲图标
+3. **自动解析**：扩展会自动解析当前文件并显示结构
+4. **导航代码**：点击大纲中的任意节点跳转到对应代码
 
-### 命令
+### 工具栏按钮
 
-- `PL/SQL Outline: 解析当前文件` - 手动解析当前文件
-- `PL/SQL Outline: 刷新` - 刷新大纲视图
-- `PL/SQL Outline: 切换结构块显示` - 显示/隐藏 BEGIN/END 块
-- `PL/SQL Outline: 切换调试模式` - 启用/禁用调试模式
-- `PL/SQL Outline: 显示解析统计` - 查看解析统计信息
-- `PL/SQL Outline: 导出解析结果` - 导出解析结果为 JSON
+大纲视图顶部提供了以下按钮：
 
-### 配置选项
+| 按钮 | 功能 | 描述 |
+|------|------|------|
+| 🔄 | 刷新 | 重新解析当前文件 |
+| 📄 | 解析当前文件 | 手动触发解析 |
+| ⬇️ | 展开所有 | 展开大纲中的所有节点 |
+| ⬆️ | 折叠所有 | 折叠大纲中的所有节点 |
+| ⚙️ | 管理文件扩展名 | 配置支持的文件类型 |
 
-#### 解析设置
+### 右键菜单
+
+在大纲节点上右键可以：
+- **跳转到行**：快速定位到代码位置
+
+### 命令面板
+
+按 `Ctrl+Shift+P` 打开命令面板，可使用以下命令：
+
+- `PL/SQL Outline: 解析当前文件`
+- `PL/SQL Outline: 刷新`
+- `PL/SQL Outline: 展开所有`
+- `PL/SQL Outline: 折叠所有`
+- `PL/SQL Outline: 切换结构块显示`
+- `PL/SQL Outline: 切换调试模式`
+- `PL/SQL Outline: 显示解析统计`
+- `PL/SQL Outline: 导出解析结果`
+- `PL/SQL Outline: 管理文件扩展名`
+
+## ⚙️ 配置选项
+
+### 解析设置
+
 ```json
 {
   "plsql-outline.parsing.autoParseOnSave": true,
@@ -74,7 +95,14 @@
 }
 ```
 
-#### 视图设置
+- `autoParseOnSave`：保存文件时自动解析
+- `autoParseOnSwitch`：切换到 PL/SQL 文件时自动解析
+- `maxLines`：最大解析行数限制（1000-200000）
+- `maxNestingDepth`：最大嵌套深度限制（5-50）
+- `maxParseTime`：最大解析时间限制，毫秒（5000-120000）
+
+### 视图设置
+
 ```json
 {
   "plsql-outline.view.showStructureBlocks": true,
@@ -82,7 +110,27 @@
 }
 ```
 
-#### 调试设置
+- `showStructureBlocks`：在树视图中显示结构块（BEGIN、EXCEPTION、END）
+- `expandByDefault`：默认展开树节点
+
+### 文件扩展名设置
+
+```json
+{
+  "plsql-outline.fileExtensions": [
+    ".sql",
+    ".fnc", 
+    ".fcn",
+    ".prc",
+    ".pks",
+    ".pkb",
+    ".typ"
+  ]
+}
+```
+
+### 调试设置
+
 ```json
 {
   "plsql-outline.debug.enabled": false,
@@ -93,141 +141,190 @@
 }
 ```
 
-## 解析能力
+## 🔧 文件扩展名管理
 
-### Package Header 解析
-- 函数和过程声明
-- 参数列表和类型
-- 返回类型（函数）
-- 注释和文档
+### 管理界面
 
-### Package Body 解析
-- 函数和过程实现
-- 嵌套子程序
-- BEGIN/EXCEPTION/END 块
-- 局部变量声明
+点击工具栏中的 ⚙️ 按钮，可以：
 
-### 复杂结构支持
-- 多层嵌套函数/过程
-- 复杂参数列表（IN/OUT/IN OUT）
-- 默认参数值
-- 重载函数/过程
-- 异常处理块
+1. **添加扩展名**：输入新的文件扩展名（如 `.tbl`）
+2. **删除扩展名**：从列表中选择要删除的扩展名
+3. **重置为默认值**：恢复到默认的扩展名列表
+4. **查看当前列表**：显示当前配置的所有扩展名
 
-## 示例
+### 添加新扩展名
 
-### Package Header (.pks)
-```sql
-CREATE OR REPLACE PACKAGE my_package AS
-  -- 简单函数声明
-  FUNCTION get_user_name(p_user_id IN NUMBER) RETURN VARCHAR2;
-  
-  -- 复杂过程声明
-  PROCEDURE process_data(
-    p_input_data  IN  CLOB,
-    p_output_data OUT SYS_REFCURSOR,
-    p_status      OUT NUMBER
-  );
-END my_package;
-```
+1. 点击 "添加扩展名"
+2. 输入扩展名（必须以 `.` 开头）
+3. 确认添加
 
-### Package Body (.pkb)
-```sql
-CREATE OR REPLACE PACKAGE BODY my_package AS
-  
-  FUNCTION get_user_name(p_user_id IN NUMBER) RETURN VARCHAR2 IS
-    v_name VARCHAR2(100);
-  BEGIN
-    SELECT name INTO v_name 
-    FROM users 
-    WHERE id = p_user_id;
-    
-    RETURN v_name;
-  EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-      RETURN NULL;
-  END get_user_name;
-  
-  PROCEDURE process_data(
-    p_input_data  IN  CLOB,
-    p_output_data OUT SYS_REFCURSOR,
-    p_status      OUT NUMBER
-  ) IS
-  BEGIN
-    -- 处理逻辑
-    p_status := 1;
-  EXCEPTION
-    WHEN OTHERS THEN
-      p_status := -1;
-  END process_data;
-  
-END my_package;
-```
+### 删除扩展名
 
-## 故障排除
+1. 点击 "删除扩展名"
+2. 从下拉列表中选择要删除的扩展名
+3. 确认删除
 
-### 解析失败
-1. 检查 PL/SQL 语法是否正确
-2. 确认文件编码为 UTF-8
-3. 启用调试模式查看详细错误信息
+### 重置默认值
 
-### 性能问题
-1. 调整 `maxLines` 和 `maxParseTime` 设置
-2. 对于大文件，考虑禁用自动解析
-3. 使用手动解析命令
+点击 "重置为默认值" 将恢复到以下默认扩展名：
+- `.sql` - SQL 脚本文件
+- `.fnc` - 函数文件
+- `.fcn` - 函数文件（备用扩展名）
+- `.prc` - 过程文件
+- `.pks` - 包规范文件
+- `.pkb` - 包体文件
+- `.typ` - 类型定义文件
 
-### 视图问题
-1. 刷新大纲视图
-2. 重新解析当前文件
-3. 检查文件类型是否被正确识别
+## 📊 支持的 PL/SQL 结构
 
-## 技术架构
+### 包结构
+- **Package Header** (`.pks`)：包规范
+- **Package Body** (`.pkb`)：包体
 
-### 核心组件
-- **解析器 (Parser)**: 基于正则表达式的 PL/SQL 语法解析
-- **安全模块 (Safety)**: 性能限制和错误处理
-- **模式匹配 (Patterns)**: PL/SQL 语法模式定义
-- **树视图 (TreeView)**: VS Code 树形视图集成
-- **调试支持 (Debug)**: 日志记录和调试文件生成
+### 子程序
+- **Function**：函数定义
+- **Procedure**：过程定义
+- **Function Declaration**：函数声明
+- **Procedure Declaration**：过程声明
 
-### 解析流程
-1. 文本预处理（注释处理、格式化）
-2. 语法模式匹配
-3. 结构层次分析
-4. 节点关系建立
-5. 元数据收集
+### 其他结构
+- **Trigger**：触发器
+- **Anonymous Block**：匿名块
 
-## 开发
+### 结构块
+- **BEGIN**：执行部分开始
+- **EXCEPTION**：异常处理部分
+- **END**：结构结束
 
-### 构建项目
-```bash
-npm install
-npm run compile
-```
+## 🎨 大纲视图说明
 
-### 运行测试
-```bash
-npm test
-```
+### 节点信息显示
 
-### 打包扩展
-```bash
-npm run package
-```
+每个节点显示以下信息（按顺序）：
+1. **层级**：`L2`、`L3` 等（仅显示 2 级以上）
+2. **子项数量**：`3个子项`（仅当有子项时显示）
+3. **行号**：`第15行`
 
-## 贡献
+### 图标说明
 
-欢迎提交 Issue 和 Pull Request！
+| 图标 | 类型 | 说明 |
+|------|------|------|
+| 📦 | Package | 包（Header/Body） |
+| 🔧 | Function | 函数 |
+| ⚙️ | Procedure | 过程 |
+| ⚡ | Trigger | 触发器 |
+| 📄 | Anonymous Block | 匿名块 |
+| ▶️ | BEGIN | 执行部分开始 |
+| ⚠️ | EXCEPTION | 异常处理部分 |
+| ⏹️ | END | 结构结束 |
 
-## 许可证
+## 🐛 故障排除
 
-MIT License
+### 常见问题
 
-## 更新日志
+**Q: 为什么我的文件没有被解析？**
+A: 请检查：
+1. 文件扩展名是否在支持列表中
+2. 是否启用了自动解析功能
+3. 文件内容是否为有效的 PL/SQL 代码
 
-### 1.0.0
-- 初始版本发布
-- 支持 Package Header 和 Package Body 解析
-- 树形大纲视图
-- 基本调试功能
-- 配置选项支持
+**Q: 如何添加新的文件类型支持？**
+A: 使用文件扩展名管理功能：
+1. 点击工具栏中的 ⚙️ 按钮
+2. 选择 "添加扩展名"
+3. 输入新的扩展名（如 `.tbl`）
+
+**Q: 解析速度很慢怎么办？**
+A: 可以调整以下设置：
+- 减少 `maxLines` 限制
+- 减少 `maxNestingDepth` 限制
+- 增加 `maxParseTime` 限制
+
+**Q: 如何查看解析错误？**
+A: 
+1. 启用调试模式
+2. 使用 "显示解析统计" 命令
+3. 查看输出面板中的错误信息
+
+### 调试模式
+
+启用调试模式可以获得更详细的信息：
+
+1. 打开设置：`Ctrl+,`
+2. 搜索 `plsql-outline.debug.enabled`
+3. 设置为 `true`
+4. 重新解析文件
+
+调试文件将保存在配置的输出路径中。
+
+## 📈 性能优化
+
+### 大文件处理
+
+对于大型 PL/SQL 文件：
+- 调整 `maxLines` 设置
+- 考虑拆分大文件
+- 使用增量解析功能
+
+### 内存使用
+
+- 定期清理调试文件
+- 调整 `maxFiles` 设置
+- 关闭不必要的调试功能
+
+## 🔄 更新日志
+
+### v1.1.0 (2025-01-19)
+- ✨ 新增：可配置的文件扩展名支持
+- ✨ 新增：一键展开/折叠功能
+- ✨ 新增：文件扩展名管理界面
+- 🎨 改进：大纲视图显示顺序（层级-子项-行号）
+- 🎨 改进：视图标题更改为 "PLSQL Outline"
+- 🔧 修复：更新工程图标为 Icon.png
+
+### v1.0.2 (2025-01-19)
+- 🐛 修复：END IF/LOOP/CASE 解析错误
+- 🔧 改进：控制结构识别逻辑
+- ✅ 测试：增加回归测试覆盖
+
+### v1.0.1
+- 🐛 修复：解析器稳定性问题
+- 📝 文档：更新使用说明
+
+### v1.0.0
+- 🎉 首次发布
+- ✨ 基础解析功能
+- 🌳 大纲视图
+- ⚙️ 配置选项
+
+## 🤝 贡献
+
+欢迎贡献代码！请遵循以下步骤：
+
+1. Fork 项目
+2. 创建功能分支：`git checkout -b feature/AmazingFeature`
+3. 提交更改：`git commit -m 'Add some AmazingFeature'`
+4. 推送分支：`git push origin feature/AmazingFeature`
+5. 创建 Pull Request
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+
+## 🔗 相关链接
+
+- [GitHub 仓库](https://github.com/Emon9426/plsql-outline)
+- [问题反馈](https://github.com/Emon9426/plsql-outline/issues)
+- [更新日志](https://github.com/Emon9426/plsql-outline/releases)
+
+## 💡 技术支持
+
+如果您遇到问题或有建议，请：
+
+1. 查看本文档的故障排除部分
+2. 在 GitHub 上创建 Issue
+3. 提供详细的错误信息和复现步骤
+
+---
+
+**享受使用 PL/SQL Outline！** 🎉

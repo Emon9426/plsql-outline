@@ -16,8 +16,9 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     private _onDidChangeTreeData: vscode.EventEmitter<TreeItemData | undefined | null | void> = new vscode.EventEmitter<TreeItemData | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<TreeItemData | undefined | null | void> = this._onDidChangeTreeData.event;
 
-    private dataProvider: IDataProvider | null = null;
+    public dataProvider: IDataProvider | null = null;
     private showStructureBlocks: boolean = true;
+    private defaultCollapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 
     constructor() {
         this.loadConfiguration();
@@ -267,7 +268,10 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         const hasStructureBlocks = this.showStructureBlocks && this.shouldShowStructureBlocks(node);
         
         if (hasChildren || hasStructureBlocks) {
-            return vscode.TreeItemCollapsibleState.Expanded;
+            // 使用配置中的默认展开设置
+            const config = vscode.workspace.getConfiguration('plsql-outline');
+            const expandByDefault = config.get('view.expandByDefault', true);
+            return expandByDefault ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
         } else {
             return vscode.TreeItemCollapsibleState.None;
         }
@@ -276,7 +280,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     /**
      * 是否应该显示结构块
      */
-    private shouldShowStructureBlocks(node: ParseNode): boolean {
+    public shouldShowStructureBlocks(node: ParseNode): boolean {
         // Package Header中的声明不显示结构块
         if (node.type === NodeType.FUNCTION_DECLARATION || 
             node.type === NodeType.PROCEDURE_DECLARATION) {
@@ -370,15 +374,18 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     private getNodeDescription(node: ParseNode): string {
         const parts: string[] = [];
         
+        // 层级
         if (node.level > 1) {
             parts.push(`L${node.level}`);
         }
         
-        parts.push(`第${node.declarationLine}行`);
-        
+        // 子项数量
         if (node.children.length > 0) {
             parts.push(`${node.children.length}个子项`);
         }
+        
+        // 行号
+        parts.push(`第${node.declarationLine}行`);
         
         return parts.join(' • ');
     }
@@ -394,6 +401,13 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         } else {
             return baseContext;
         }
+    }
+
+    /**
+     * 设置默认折叠状态
+     */
+    setDefaultCollapsibleState(state: vscode.TreeItemCollapsibleState): void {
+        this.defaultCollapsibleState = state;
     }
 }
 
@@ -441,10 +455,18 @@ export class TreeViewManager {
             () => this.toggleStructureBlocks()
         );
 
+
+        // 管理文件扩展名
+        const manageFileExtensionsCommand = vscode.commands.registerCommand(
+            'plsqlOutline.manageFileExtensions',
+            () => this.manageFileExtensions()
+        );
+
         context.subscriptions.push(
             goToLineCommand,
             refreshCommand,
-            toggleStructureBlocksCommand
+            toggleStructureBlocksCommand,
+            manageFileExtensionsCommand
         );
     }
 
@@ -506,9 +528,153 @@ export class TreeViewManager {
             vscode.ConfigurationTarget.Workspace
         );
         
-        vscode.window.showInformationMessage(
-            `结构块显示已${!currentValue ? '启用' : '禁用'}`
-        );
+        // 移除通知，只在状态栏显示或通过其他方式反馈
+    }
+
+
+    /**
+     * 获取所有树项
+     */
+    private getAllTreeItems(nodes: ParseNode[]): TreeItemData[] {
+        const items: TreeItemData[] = [];
+        
+        const traverse = (currentNodes: ParseNode[]): void => {
+            for (const node of currentNodes) {
+                items.push({
+                    node,
+                    isStructureBlock: false,
+                    label: `${node.name} (${this.getNodeTypeDisplayName(node.type)})`,
+                    line: node.declarationLine
+                });
+                
+                traverse(node.children);
+            }
+        };
+        
+        traverse(nodes);
+        return items;
+    }
+
+    /**
+     * 获取节点类型显示名称
+     */
+    private getNodeTypeDisplayName(type: NodeType): string {
+        switch (type) {
+            case NodeType.PACKAGE_HEADER: return 'Package Header';
+            case NodeType.PACKAGE_BODY: return 'Package Body';
+            case NodeType.FUNCTION: return 'Function';
+            case NodeType.PROCEDURE: return 'Procedure';
+            case NodeType.FUNCTION_DECLARATION: return 'Function Declaration';
+            case NodeType.PROCEDURE_DECLARATION: return 'Procedure Declaration';
+            case NodeType.TRIGGER: return 'Trigger';
+            case NodeType.ANONYMOUS_BLOCK: return 'Anonymous Block';
+            default: return type;
+        }
+    }
+
+    /**
+     * 管理文件扩展名
+     */
+    private async manageFileExtensions(): Promise<void> {
+        const config = vscode.workspace.getConfiguration('plsql-outline');
+        const currentExtensions = config.get<string[]>('fileExtensions', ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.typ']);
+        
+        const options = [
+            '添加扩展名',
+            '删除扩展名',
+            '重置为默认值',
+            '查看当前列表'
+        ];
+
+        const choice = await vscode.window.showQuickPick(options, {
+            placeHolder: '选择操作'
+        });
+
+        switch (choice) {
+            case '添加扩展名':
+                await this.addFileExtension(currentExtensions);
+                break;
+            case '删除扩展名':
+                await this.removeFileExtension(currentExtensions);
+                break;
+            case '重置为默认值':
+                await this.resetFileExtensions();
+                break;
+            case '查看当前列表':
+                this.showCurrentExtensions(currentExtensions);
+                break;
+        }
+    }
+
+    /**
+     * 添加文件扩展名
+     */
+    private async addFileExtension(currentExtensions: string[]): Promise<void> {
+        const newExtension = await vscode.window.showInputBox({
+            prompt: '输入新的文件扩展名（例如：.tbl）',
+            validateInput: (value) => {
+                if (!value) {
+                    return '扩展名不能为空';
+                }
+                if (!value.startsWith('.')) {
+                    return '扩展名必须以点(.)开头';
+                }
+                if (currentExtensions.includes(value.toLowerCase())) {
+                    return '该扩展名已存在';
+                }
+                return null;
+            }
+        });
+
+        if (newExtension) {
+            const updatedExtensions = [...currentExtensions, newExtension.toLowerCase()];
+            const config = vscode.workspace.getConfiguration('plsql-outline');
+            await config.update('fileExtensions', updatedExtensions, vscode.ConfigurationTarget.Global);
+            vscode.window.showInformationMessage(`已添加扩展名: ${newExtension}`);
+        }
+    }
+
+    /**
+     * 删除文件扩展名
+     */
+    private async removeFileExtension(currentExtensions: string[]): Promise<void> {
+        if (currentExtensions.length === 0) {
+            vscode.window.showWarningMessage('没有可删除的扩展名');
+            return;
+        }
+
+        const extensionToRemove = await vscode.window.showQuickPick(currentExtensions, {
+            placeHolder: '选择要删除的扩展名'
+        });
+
+        if (extensionToRemove) {
+            const updatedExtensions = currentExtensions.filter(ext => ext !== extensionToRemove);
+            const config = vscode.workspace.getConfiguration('plsql-outline');
+            await config.update('fileExtensions', updatedExtensions, vscode.ConfigurationTarget.Global);
+            vscode.window.showInformationMessage(`已删除扩展名: ${extensionToRemove}`);
+        }
+    }
+
+    /**
+     * 重置文件扩展名为默认值
+     */
+    private async resetFileExtensions(): Promise<void> {
+        const defaultExtensions = ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.typ'];
+        const config = vscode.workspace.getConfiguration('plsql-outline');
+        await config.update('fileExtensions', defaultExtensions, vscode.ConfigurationTarget.Global);
+        vscode.window.showInformationMessage('已重置为默认扩展名列表');
+    }
+
+    /**
+     * 显示当前扩展名列表
+     */
+    private showCurrentExtensions(currentExtensions: string[]): void {
+        if (currentExtensions.length === 0) {
+            vscode.window.showInformationMessage('当前没有配置任何文件扩展名');
+        } else {
+            const extensionList = currentExtensions.join(', ');
+            vscode.window.showInformationMessage(`当前支持的文件扩展名: ${extensionList}`);
+        }
     }
 
     /**

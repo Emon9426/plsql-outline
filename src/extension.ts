@@ -3,6 +3,7 @@ import { PLSQLParser } from './parser';
 import { TreeViewManager } from './treeView';
 import { DataBridge, DataProviderFactory } from './debug';
 import { ParseResult } from './types';
+import { SettingsPanel } from './settingsPanel';
 
 /**
  * PL/SQL大纲扩展主类
@@ -211,9 +212,12 @@ export class PLSQLOutlineExtension {
             return true;
         }
         
+        // 从配置中获取支持的文件扩展名
+        const config = vscode.workspace.getConfiguration('plsql-outline');
+        const configuredExtensions = config.get<string[]>('fileExtensions', ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.typ']);
+        
         // 检查文件扩展名
-        const plsqlExtensions = ['.sql', '.pks', '.pkb', '.prc', '.fnc', '.trg'];
-        return plsqlExtensions.some(ext => fileName.endsWith(ext));
+        return configuredExtensions.some(ext => fileName.endsWith(ext.toLowerCase()));
     }
 
     /**
@@ -233,22 +237,15 @@ export class PLSQLOutlineExtension {
         }
 
         const result = this.currentParseResult;
-        const nodeCount = result.nodes.length;
-        const parseTime = result.metadata.parseTime;
         const errorCount = result.metadata.errors.length;
         const warningCount = result.metadata.warnings.length;
 
-        let message = `解析完成: 发现 ${nodeCount} 个节点`;
-        if (parseTime > 0) {
-            message += `, 用时 ${parseTime}ms`;
-        }
-        
+        // 只在有错误或警告时显示通知
         if (errorCount > 0 || warningCount > 0) {
-            message += ` (${errorCount} 个错误, ${warningCount} 个警告)`;
+            const message = `解析完成，但发现问题: ${errorCount} 个错误, ${warningCount} 个警告`;
             vscode.window.showWarningMessage(message);
-        } else {
-            vscode.window.showInformationMessage(message);
         }
+        // 正常情况下不显示通知
     }
 
     /**
@@ -355,15 +352,24 @@ export function activate(context: vscode.ExtensionContext): void {
         // 创建扩展实例
         extensionInstance = new PLSQLOutlineExtension(context);
         
+        // 注册设置页面命令
+        const openSettingsCommand = vscode.commands.registerCommand(
+            'plsqlOutline.openSettings',
+            () => SettingsPanel.createOrShow(context.extensionUri)
+        );
+        
         // 注册扩展实例到上下文
-        context.subscriptions.push({
-            dispose: () => {
-                if (extensionInstance) {
-                    extensionInstance.dispose();
-                    extensionInstance = undefined;
+        context.subscriptions.push(
+            openSettingsCommand,
+            {
+                dispose: () => {
+                    if (extensionInstance) {
+                        extensionInstance.dispose();
+                        extensionInstance = undefined;
+                    }
                 }
             }
-        });
+        );
 
         console.log('PL/SQL Outline 扩展激活成功');
 

@@ -2,9 +2,9 @@
   "name": "plsql-outline",
   "displayName": "PL/SQL Outline",
   "description": "PL/SQL代码结构解析器和大纲视图",
-  "version": "1.0.2",
+  "version": "1.1.3",
   "publisher": "plsql-outline",
-  "icon": "res/screenshot.png",
+  "icon": "res/Icon.png",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -41,7 +41,7 @@
       "plsqlOutlineContainer": [
         {
           "id": "plsqlOutline",
-          "name": "代码结构"
+          "name": "PLSQL Outline"
         }
       ]
     },
@@ -86,6 +86,18 @@
         "title": "导出解析结果",
         "category": "PL/SQL Outline",
         "icon": "$(export)"
+      },
+      {
+        "command": "plsqlOutline.manageFileExtensions",
+        "title": "管理文件扩展名",
+        "category": "PL/SQL Outline",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "plsqlOutline.openSettings",
+        "title": "打开设置页面",
+        "category": "PL/SQL Outline",
+        "icon": "$(settings)"
       }
     ],
     "menus": {
@@ -96,9 +108,9 @@
           "group": "navigation@1"
         },
         {
-          "command": "plsqlOutline.parseCurrentFile",
+          "command": "plsqlOutline.openSettings",
           "when": "view == plsqlOutline",
-          "group": "navigation@2"
+          "group": "navigation@5"
         },
         {
           "command": "plsqlOutline.toggleStructureBlocks",
@@ -236,6 +248,14 @@
           "minimum": 10,
           "maximum": 200,
           "description": "最大保留调试文件数量"
+        },
+        "plsql-outline.fileExtensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [".sql", ".fnc", ".fcn", ".prc", ".pks", ".pkb", ".typ"],
+          "description": "支持解析的文件扩展名列表"
         }
       }
     },
