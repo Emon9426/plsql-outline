@@ -75,12 +75,8 @@
 
 ## 4. 关键字匹配规则
 
-- CREATE OR REPLACE PACKAGE：`CREATE\s+OR\s+REPLACE\s+PACKAGE\s+(\w+)`
-- 函数/过程声明：`^\s*(FUNCTION|PROCEDURE)\s+(\w+)`
-- END：`^\s*END(\s+\w+)?\s*;\s*$`
-- 注释：`^\s*(--.*|\/\*.*\*\/)\s*$`
-- 空行：`^\s*$`
-- 分号结束：`;\s*$`
+按需处理
+
 
 ## 5. 包头特殊处理规则
 

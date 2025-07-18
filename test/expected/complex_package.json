@@ -1,0 +1,83 @@
+{
+  "nodes": [
+    {
+      "type": "PACKAGE_BODY",
+      "name": "complex_package",
+      "declarationLine": 2,
+      "beginLine": null,
+      "exceptionLine": null,
+      "endLine": null,
+      "level": 1,
+      "children": [
+        {
+          "type": "FUNCTION",
+          "name": "calculate_bonus",
+          "declarationLine": 4,
+          "beginLine": 13,
+          "exceptionLine": null,
+          "endLine": 16,
+          "level": 2,
+          "children": [
+            {
+              "type": "FUNCTION",
+              "name": "validate_factor",
+              "declarationLine": 8,
+              "beginLine": 9,
+              "exceptionLine": null,
+              "endLine": 11,
+              "level": 3,
+              "children": []
+            }
+          ]
+        },
+        {
+          "type": "PROCEDURE",
+          "name": "process_employees",
+          "declarationLine": 23,
+          "beginLine": 32,
+          "exceptionLine": null,
+          "endLine": 38,
+          "level": 2,
+          "children": [
+            {
+              "type": "PROCEDURE",
+              "name": "update_salary",
+              "declarationLine": 27,
+              "beginLine": 28,
+              "exceptionLine": null,
+              "endLine": 30,
+              "level": 3,
+              "children": []
+            }
+          ]
+        },
+        {
+          "type": "FUNCTION",
+          "name": "format_name",
+          "declarationLine": 42,
+          "beginLine": 51,
+          "exceptionLine": 62,
+          "endLine": 65,
+          "level": 2,
+          "children": [
+            {
+              "type": "FUNCTION",
+              "name": "capitalize",
+              "declarationLine": 46,
+              "beginLine": 47,
+              "exceptionLine": null,
+              "endLine": 49,
+              "level": 3,
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "sourceFile": "complex_package.pkb",
+    "totalLines": 50,
+    "maxNestingDepth": 3
+  }
+}

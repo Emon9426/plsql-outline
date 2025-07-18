@@ -1,0 +1,91 @@
+{
+  "nodes": [
+    {
+      "type": "FUNCTION",
+      "name": "comma_leading_func",
+      "declarationLine": 4,
+      "beginLine": 14,
+      "exceptionLine": null,
+      "endLine": 16,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "PROCEDURE",
+      "name": "comma_leading_proc",
+      "declarationLine": 19,
+      "beginLine": 29,
+      "exceptionLine": null,
+      "endLine": 31,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "PROCEDURE",
+      "name": "main_comma_proc",
+      "declarationLine": 34,
+      "beginLine": 48,
+      "exceptionLine": null,
+      "endLine": 50,
+      "level": 1,
+      "children": [
+        {
+          "type": "FUNCTION",
+          "name": "nested_comma_func",
+          "declarationLine": 36,
+          "beginLine": 44,
+          "exceptionLine": null,
+          "endLine": 46,
+          "level": 2,
+          "children": []
+        }
+      ]
+    },
+    {
+      "type": "PACKAGE_BODY",
+      "name": "comma_test_pkg",
+      "declarationLine": 53,
+      "beginLine": 78,
+      "exceptionLine": null,
+      "endLine": null,
+      "level": 1,
+      "children": [
+        {
+          "type": "FUNCTION",
+          "name": "pkg_comma_func",
+          "declarationLine": 55,
+          "beginLine": 63,
+          "exceptionLine": null,
+          "endLine": 65,
+          "level": 2,
+          "children": []
+        }
+      ]
+    },
+    {
+      "type": "FUNCTION",
+      "name": "mixed_comma_func",
+      "declarationLine": 70,
+      "beginLine": null,
+      "exceptionLine": null,
+      "endLine": 80,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "FUNCTION",
+      "name": "extreme_comma_func",
+      "declarationLine": 83,
+      "beginLine": 92,
+      "exceptionLine": null,
+      "endLine": 94,
+      "level": 1,
+      "children": []
+    }
+  ],
+  "metadata": {
+    "sourceFile": "comma_leading_params_test.sql",
+    "totalLines": 77,
+    "maxNestingDepth": 2
+  }
+}

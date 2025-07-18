@@ -1,0 +1,29 @@
+{
+  "nodes": [
+    {
+      "type": "FUNCTION",
+      "name": "test_multiple_when",
+      "declarationLine": 1,
+      "beginLine": 2,
+      "exceptionLine": 5,
+      "endLine": 14,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "PROCEDURE",
+      "name": "complex_exception_proc",
+      "declarationLine": 16,
+      "beginLine": 18,
+      "exceptionLine": 32,
+      "endLine": 39,
+      "level": 1,
+      "children": []
+    }
+  ],
+  "metadata": {
+    "sourceFile": "exception_when_test.sql",
+    "totalLines": 33,
+    "maxNestingDepth": 1
+  }
+}

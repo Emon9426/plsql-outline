@@ -1,0 +1,40 @@
+{
+  "nodes": [
+    {
+      "type": "PROCEDURE",
+      "name": "comment_test_procedure",
+      "declarationLine": 17,
+      "beginLine": 145,
+      "exceptionLine": 197,
+      "endLine": 225,
+      "level": 1,
+      "children": [
+        {
+          "type": "FUNCTION",
+          "name": "calculate_value",
+          "declarationLine": 28,
+          "beginLine": 44,
+          "exceptionLine": null,
+          "endLine": 65,
+          "level": 2,
+          "children": []
+        },
+        {
+          "type": "PROCEDURE",
+          "name": "nested_proc",
+          "declarationLine": 83,
+          "beginLine": 102,
+          "exceptionLine": null,
+          "endLine": 143,
+          "level": 2,
+          "children": []
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "sourceFile": "comment_complex_cases.sql",
+    "totalLines": 57,
+    "maxNestingDepth": 2
+  }
+}

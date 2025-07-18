@@ -1,0 +1,290 @@
+{
+  "name": "plsql-outline",
+  "displayName": "PL/SQL Outline",
+  "description": "PL/SQL代码结构解析器和大纲视图",
+  "version": "1.0.1",
+  "publisher": "plsql-outline",
+  "icon": "res/screenshot.png",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "plsql",
+    "oracle",
+    "sql",
+    "outline",
+    "parser",
+    "structure"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:plsql",
+    "onLanguage:sql",
+    "onCommand:plsqlOutline.parseCurrentFile"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "plsqlOutlineContainer",
+          "title": "PL/SQL大纲",
+          "icon": "$(symbol-structure)"
+        }
+      ]
+    },
+    "views": {
+      "plsqlOutlineContainer": [
+        {
+          "id": "plsqlOutline",
+          "name": "代码结构"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "plsqlOutline.parseCurrentFile",
+        "title": "解析当前文件",
+        "category": "PL/SQL Outline",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "plsqlOutline.refresh",
+        "title": "刷新",
+        "category": "PL/SQL Outline",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "plsqlOutline.goToLine",
+        "title": "跳转到行",
+        "category": "PL/SQL Outline"
+      },
+      {
+        "command": "plsqlOutline.toggleStructureBlocks",
+        "title": "切换结构块显示",
+        "category": "PL/SQL Outline",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "plsqlOutline.toggleDebugMode",
+        "title": "切换调试模式",
+        "category": "PL/SQL Outline",
+        "icon": "$(debug)"
+      },
+      {
+        "command": "plsqlOutline.showStats",
+        "title": "显示解析统计",
+        "category": "PL/SQL Outline",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "plsqlOutline.exportResult",
+        "title": "导出解析结果",
+        "category": "PL/SQL Outline",
+        "icon": "$(export)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "plsqlOutline.refresh",
+          "when": "view == plsqlOutline",
+          "group": "navigation@1"
+        },
+        {
+          "command": "plsqlOutline.parseCurrentFile",
+          "when": "view == plsqlOutline",
+          "group": "navigation@2"
+        },
+        {
+          "command": "plsqlOutline.toggleStructureBlocks",
+          "when": "view == plsqlOutline",
+          "group": "1_structure@1"
+        },
+        {
+          "command": "plsqlOutline.toggleDebugMode",
+          "when": "view == plsqlOutline",
+          "group": "2_debug@1"
+        },
+        {
+          "command": "plsqlOutline.showStats",
+          "when": "view == plsqlOutline",
+          "group": "3_info@1"
+        },
+        {
+          "command": "plsqlOutline.exportResult",
+          "when": "view == plsqlOutline",
+          "group": "3_info@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "plsqlOutline.goToLine",
+          "when": "view == plsqlOutline",
+          "group": "navigation@1"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "plsqlOutline.parseCurrentFile",
+          "when": "resourceExtname =~ /\\.(sql|pks|pkb|prc|fnc|trg)$/i",
+          "group": "plsql@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "plsqlOutline.parseCurrentFile",
+          "when": "resourceExtname =~ /\\.(sql|pks|pkb|prc|fnc|trg)$/i"
+        },
+        {
+          "command": "plsqlOutline.refresh",
+          "when": "resourceExtname =~ /\\.(sql|pks|pkb|prc|fnc|trg)$/i"
+        },
+        {
+          "command": "plsqlOutline.toggleStructureBlocks"
+        },
+        {
+          "command": "plsqlOutline.toggleDebugMode"
+        },
+        {
+          "command": "plsqlOutline.showStats",
+          "when": "resourceExtname =~ /\\.(sql|pks|pkb|prc|fnc|trg)$/i"
+        },
+        {
+          "command": "plsqlOutline.exportResult",
+          "when": "resourceExtname =~ /\\.(sql|pks|pkb|prc|fnc|trg)$/i"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "PL/SQL Outline",
+      "properties": {
+        "plsql-outline.parsing.autoParseOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "保存文件时自动解析"
+        },
+        "plsql-outline.parsing.autoParseOnSwitch": {
+          "type": "boolean",
+          "default": true,
+          "description": "切换到PL/SQL文件时自动解析"
+        },
+        "plsql-outline.parsing.maxLines": {
+          "type": "number",
+          "default": 50000,
+          "minimum": 1000,
+          "maximum": 200000,
+          "description": "最大解析行数限制"
+        },
+        "plsql-outline.parsing.maxNestingDepth": {
+          "type": "number",
+          "default": 20,
+          "minimum": 5,
+          "maximum": 50,
+          "description": "最大嵌套深度限制"
+        },
+        "plsql-outline.parsing.maxParseTime": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 5000,
+          "maximum": 120000,
+          "description": "最大解析时间限制（毫秒）"
+        },
+        "plsql-outline.view.showStructureBlocks": {
+          "type": "boolean",
+          "default": true,
+          "description": "在树视图中显示结构块（BEGIN、EXCEPTION、END）"
+        },
+        "plsql-outline.view.expandByDefault": {
+          "type": "boolean",
+          "default": true,
+          "description": "默认展开树节点"
+        },
+        "plsql-outline.debug.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "启用调试模式"
+        },
+        "plsql-outline.debug.outputPath": {
+          "type": "string",
+          "default": "${workspaceFolder}/.plsql-debug",
+          "description": "调试文件输出路径"
+        },
+        "plsql-outline.debug.logLevel": {
+          "type": "string",
+          "enum": [
+            "ERROR",
+            "WARN",
+            "INFO",
+            "DEBUG"
+          ],
+          "default": "INFO",
+          "description": "日志级别"
+        },
+        "plsql-outline.debug.keepFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "保留调试文件"
+        },
+        "plsql-outline.debug.maxFiles": {
+          "type": "number",
+          "default": 50,
+          "minimum": 10,
+          "maximum": 200,
+          "description": "最大保留调试文件数量"
+        }
+      }
+    },
+    "languages": [
+      {
+        "id": "plsql",
+        "aliases": [
+          "PL/SQL",
+          "plsql"
+        ],
+        "extensions": [
+          ".pks",
+          ".pkb",
+          ".prc",
+          ".fnc",
+          ".trg"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "eslint": "^8.28.0",
+    "typescript": "^4.9.4",
+    "@vscode/test-electron": "^2.2.0",
+    "@vscode/vsce": "^2.15.0"
+  },
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Emon9426/plsql-outline.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Emon9426/plsql-outline/issues"
+  },
+  "homepage": "https://github.com/Emon9426/plsql-outline#readme",
+  "license": "MIT"
+}

@@ -1,0 +1,19 @@
+{
+  "nodes": [
+    {
+      "type": "FUNCTION",
+      "name": "real_function",
+      "declarationLine": 11,
+      "beginLine": 12,
+      "exceptionLine": null,
+      "endLine": 14,
+      "level": 1,
+      "children": []
+    }
+  ],
+  "metadata": {
+    "sourceFile": "debug_comment.sql",
+    "totalLines": 5,
+    "maxNestingDepth": 1
+  }
+}

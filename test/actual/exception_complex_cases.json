@@ -1,0 +1,163 @@
+{
+  "nodes": [
+    {
+      "type": "FUNCTION",
+      "name": "basic_exception_test",
+      "declarationLine": 5,
+      "beginLine": 7,
+      "exceptionLine": 10,
+      "endLine": 15,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "PROCEDURE",
+      "name": "proc_with_exception",
+      "declarationLine": 19,
+      "beginLine": 21,
+      "exceptionLine": 24,
+      "endLine": 29,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "FUNCTION",
+      "name": "nested_begin_exception",
+      "declarationLine": 33,
+      "beginLine": 35,
+      "exceptionLine": 61,
+      "endLine": 65,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "FUNCTION",
+      "name": "deep_nested_exception",
+      "declarationLine": 69,
+      "beginLine": 93,
+      "exceptionLine": 101,
+      "endLine": 104,
+      "level": 1,
+      "children": [
+        {
+          "type": "FUNCTION",
+          "name": "level1_func",
+          "declarationLine": 73,
+          "beginLine": 85,
+          "exceptionLine": 88,
+          "endLine": 91,
+          "level": 2,
+          "children": [
+            {
+              "type": "FUNCTION",
+              "name": "level2_func",
+              "declarationLine": 77,
+              "beginLine": 78,
+              "exceptionLine": 80,
+              "endLine": 83,
+              "level": 3,
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "PACKAGE_BODY",
+      "name": "exception_test_pkg",
+      "declarationLine": 114,
+      "beginLine": 174,
+      "exceptionLine": null,
+      "endLine": null,
+      "level": 1,
+      "children": [
+        {
+          "type": "FUNCTION",
+          "name": "pkg_func_with_exception",
+          "declarationLine": 120,
+          "beginLine": 122,
+          "exceptionLine": 130,
+          "endLine": 134,
+          "level": 2,
+          "children": []
+        },
+        {
+          "type": "PROCEDURE",
+          "name": "pkg_proc_with_exception",
+          "declarationLine": 144,
+          "beginLine": null,
+          "exceptionLine": null,
+          "endLine": null,
+          "level": 2,
+          "children": [
+            {
+              "type": "PROCEDURE",
+              "name": "inner_proc",
+              "declarationLine": 148,
+              "beginLine": 149,
+              "exceptionLine": null,
+              "endLine": 153,
+              "level": 3,
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "PROCEDURE",
+      "name": "exception_with_code_after",
+      "declarationLine": 172,
+      "beginLine": null,
+      "exceptionLine": 203,
+      "endLine": 206,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "FUNCTION",
+      "name": "complex_exception_nesting",
+      "declarationLine": 210,
+      "beginLine": 212,
+      "exceptionLine": 250,
+      "endLine": 253,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "PROCEDURE",
+      "name": "edge_case_exception",
+      "declarationLine": 257,
+      "beginLine": 258,
+      "exceptionLine": 260,
+      "endLine": 263,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "FUNCTION",
+      "name": "multiple_exceptions",
+      "declarationLine": 267,
+      "beginLine": 269,
+      "exceptionLine": 297,
+      "endLine": 300,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "FUNCTION",
+      "name": "comment_exception_test",
+      "declarationLine": 304,
+      "beginLine": 315,
+      "exceptionLine": 319,
+      "endLine": 322,
+      "level": 1,
+      "children": []
+    }
+  ],
+  "metadata": {
+    "sourceFile": "exception_complex_cases.sql",
+    "totalLines": 238,
+    "maxNestingDepth": 3
+  }
+}

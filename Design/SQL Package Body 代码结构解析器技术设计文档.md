@@ -106,14 +106,8 @@
 
 ## 4. 关键字匹配规则
 
-- CREATE OR REPLACE PACKAGE BODY：`CREATE\s+OR\s+REPLACE\s+PACKAGE\s+BODY\s+(\w+)`
-- 包体内函数/过程：`^\s*(FUNCTION|PROCEDURE)\s+(\w+)`
-- IS/AS语句：`^\s*(IS|AS)\s*$`
-- BEGIN：`^\s*BEGIN\s*$`
-- EXCEPTION：`^\s*EXCEPTION\s*$`
-- END：`^\s*END(\s+\w+)?\s*;\s*$`
-- 注释：`^\s*(--.*|\/\*.*\*\/)\s*$`
-- 空行：`^\s*$`
+按需处理
+
 
 ## 5. 包体特殊处理规则
 

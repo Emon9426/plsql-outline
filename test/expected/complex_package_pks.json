@@ -1,0 +1,50 @@
+{
+  "nodes": [
+    {
+      "type": "PACKAGE_HEADER",
+      "name": "complex_package",
+      "declarationLine": 2,
+      "beginLine": null,
+      "exceptionLine": null,
+      "endLine": null,
+      "level": 1,
+      "children": [
+        {
+          "type": "FUNCTION_DECLARATION",
+          "name": "calculate_bonus",
+          "declarationLine": 19,
+          "beginLine": null,
+          "exceptionLine": null,
+          "endLine": null,
+          "level": 2,
+          "children": []
+        },
+        {
+          "type": "PROCEDURE_DECLARATION",
+          "name": "process_employees",
+          "declarationLine": 22,
+          "beginLine": null,
+          "exceptionLine": null,
+          "endLine": null,
+          "level": 2,
+          "children": []
+        },
+        {
+          "type": "FUNCTION_DECLARATION",
+          "name": "format_name",
+          "declarationLine": 25,
+          "beginLine": null,
+          "exceptionLine": null,
+          "endLine": null,
+          "level": 2,
+          "children": []
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "sourceFile": "complex_package.pks",
+    "totalLines": 14,
+    "maxNestingDepth": 2
+  }
+}

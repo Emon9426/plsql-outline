@@ -1,0 +1,40 @@
+{
+  "nodes": [
+    {
+      "type": "FUNCTION",
+      "name": "extreme_comment_test",
+      "declarationLine": 27,
+      "beginLine": null,
+      "exceptionLine": null,
+      "endLine": null,
+      "level": 1,
+      "children": [
+        {
+          "type": "FUNCTION",
+          "name": "real_nested_function",
+          "declarationLine": 72,
+          "beginLine": 90,
+          "exceptionLine": null,
+          "endLine": 127,
+          "level": 2,
+          "children": []
+        },
+        {
+          "type": "PROCEDURE",
+          "name": "nested_procedure",
+          "declarationLine": 162,
+          "beginLine": 182,
+          "exceptionLine": null,
+          "endLine": 249,
+          "level": 2,
+          "children": []
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "sourceFile": "extreme_comment_nesting.fcn",
+    "totalLines": 183,
+    "maxNestingDepth": 2
+  }
+}

@@ -71,13 +71,7 @@
 
 ## 4. 关键字匹配规则
 
-- CREATE OR REPLACE：`CREATE\s+OR\s+REPLACE\s+(FUNCTION|PROCEDURE)\s+(\w+)`
-- 内部函数/过程：`^\s*(FUNCTION|PROCEDURE)\s+(\w+)`
-- BEGIN：`^\s*BEGIN\s*$`
-- EXCEPTION：`^\s*EXCEPTION\s*$`
-- END：`^\s*END(\s+\w+)?\s*;\s*$`
-- 注释：`^\s*(--.*|\/\*.*\*\/)\s*$`
-- 空行：`^\s*$`
+按需处理
 
 ## 5. 输出结果
 

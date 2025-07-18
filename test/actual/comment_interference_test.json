@@ -1,0 +1,40 @@
+{
+  "nodes": [
+    {
+      "type": "PROCEDURE",
+      "name": "comment_test",
+      "declarationLine": 1,
+      "beginLine": 22,
+      "exceptionLine": null,
+      "endLine": 24,
+      "level": 1,
+      "children": [
+        {
+          "type": "FUNCTION",
+          "name": "commented_func",
+          "declarationLine": 6,
+          "beginLine": 7,
+          "exceptionLine": null,
+          "endLine": 9,
+          "level": 2,
+          "children": []
+        },
+        {
+          "type": "FUNCTION",
+          "name": "func_after_comment",
+          "declarationLine": 12,
+          "beginLine": 18,
+          "exceptionLine": null,
+          "endLine": 21,
+          "level": 2,
+          "children": []
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "sourceFile": "comment_interference_test.sql",
+    "totalLines": 17,
+    "maxNestingDepth": 2
+  }
+}

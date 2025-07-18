@@ -1,0 +1,121 @@
+{
+  "nodes": [
+    {
+      "type": "FUNCTION",
+      "name": "complex_multiline_func",
+      "declarationLine": 4,
+      "beginLine": 15,
+      "exceptionLine": null,
+      "endLine": 17,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "PROCEDURE",
+      "name": "MIXED_case_proc",
+      "declarationLine": 20,
+      "beginLine": 28,
+      "exceptionLine": null,
+      "endLine": 30,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "FUNCTION",
+      "name": "separated_name_func",
+      "declarationLine": 33,
+      "beginLine": 40,
+      "exceptionLine": null,
+      "endLine": 42,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "PROCEDURE",
+      "name": "main_complex_proc",
+      "declarationLine": 45,
+      "beginLine": 72,
+      "exceptionLine": null,
+      "endLine": 74,
+      "level": 1,
+      "children": [
+        {
+          "type": "FUNCTION",
+          "name": "nested_complex_func",
+          "declarationLine": 48,
+          "beginLine": 57,
+          "exceptionLine": null,
+          "endLine": 59,
+          "level": 2,
+          "children": []
+        },
+        {
+          "type": "PROCEDURE",
+          "name": "nested_complex_proc",
+          "declarationLine": 62,
+          "beginLine": 68,
+          "exceptionLine": null,
+          "endLine": 70,
+          "level": 2,
+          "children": []
+        }
+      ]
+    },
+    {
+      "type": "FUNCTION",
+      "name": "no_params_multiline",
+      "declarationLine": 77,
+      "beginLine": 81,
+      "exceptionLine": null,
+      "endLine": 83,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "FUNCTION",
+      "name": "single_param_multiline",
+      "declarationLine": 86,
+      "beginLine": 92,
+      "exceptionLine": null,
+      "endLine": 94,
+      "level": 1,
+      "children": []
+    },
+    {
+      "type": "PACKAGE_BODY",
+      "name": "test_pkg",
+      "declarationLine": 97,
+      "beginLine": null,
+      "exceptionLine": null,
+      "endLine": null,
+      "level": 1,
+      "children": [
+        {
+          "type": "FUNCTION",
+          "name": "pkg_multiline_func",
+          "declarationLine": 99,
+          "beginLine": 106,
+          "exceptionLine": null,
+          "endLine": 108,
+          "level": 2,
+          "children": []
+        },
+        {
+          "type": "PROCEDURE",
+          "name": "pkg_multiline_proc",
+          "declarationLine": 110,
+          "beginLine": 115,
+          "exceptionLine": null,
+          "endLine": 117,
+          "level": 2,
+          "children": []
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "sourceFile": "extreme_multiline_test.sql",
+    "totalLines": 96,
+    "maxNestingDepth": 2
+  }
+}

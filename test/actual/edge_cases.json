@@ -1,0 +1,71 @@
+{
+  "nodes": [
+    {
+      "type": "PROCEDURE",
+      "name": "edge_case_procedure",
+      "declarationLine": 2,
+      "beginLine": 46,
+      "exceptionLine": 65,
+      "endLine": 68,
+      "level": 1,
+      "children": [
+        {
+          "type": "PROCEDURE",
+          "name": "simple_end",
+          "declarationLine": 6,
+          "beginLine": 7,
+          "exceptionLine": null,
+          "endLine": 9,
+          "level": 2,
+          "children": []
+        },
+        {
+          "type": "FUNCTION",
+          "name": "func_with_named_end",
+          "declarationLine": 12,
+          "beginLine": 13,
+          "exceptionLine": null,
+          "endLine": 15,
+          "level": 2,
+          "children": []
+        },
+        {
+          "type": "PROCEDURE",
+          "name": "mixed_end",
+          "declarationLine": 18,
+          "beginLine": 28,
+          "exceptionLine": null,
+          "endLine": 35,
+          "level": 2,
+          "children": [
+            {
+              "type": "FUNCTION",
+              "name": "inner_func",
+              "declarationLine": 19,
+              "beginLine": 20,
+              "exceptionLine": null,
+              "endLine": 22,
+              "level": 3,
+              "children": []
+            },
+            {
+              "type": "PROCEDURE",
+              "name": "inner_proc",
+              "declarationLine": 24,
+              "beginLine": 25,
+              "exceptionLine": null,
+              "endLine": 27,
+              "level": 3,
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "sourceFile": "edge_cases.prc",
+    "totalLines": 45,
+    "maxNestingDepth": 3
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "nodes": [
+    {
+      "type": "PROCEDURE",
+      "name": "complex_proc",
+      "declarationLine": 1,
+      "beginLine": 16,
+      "exceptionLine": null,
+      "endLine": 18,
+      "level": 1,
+      "children": [
+        {
+          "type": "FUNCTION",
+          "name": "func1",
+          "declarationLine": 3,
+          "beginLine": 4,
+          "exceptionLine": null,
+          "endLine": 6,
+          "level": 2,
+          "children": []
+        },
+        {
+          "type": "FUNCTION",
+          "name": "func2",
+          "declarationLine": 8,
+          "beginLine": 13,
+          "exceptionLine": null,
+          "endLine": 15,
+          "level": 2,
+          "children": [
+            {
+              "type": "FUNCTION",
+              "name": "nested_func",
+              "declarationLine": 9,
+              "beginLine": 10,
+              "exceptionLine": null,
+              "endLine": 12,
+              "level": 3,
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "sourceFile": "complex_nested_functions.sql",
+    "totalLines": 17,
+    "maxNestingDepth": 3
+  }
+}
