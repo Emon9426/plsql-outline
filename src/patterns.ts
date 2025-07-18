@@ -62,9 +62,14 @@ export class KeywordPatterns {
     static readonly EXCEPTION_STATEMENT = /^\s*EXCEPTION\s*$/i;
 
     /**
-     * END 语句模式
+     * END 语句模式（函数/过程/包的结束，不包括控制结构）
      */
     static readonly END_STATEMENT = /^\s*END(\s+\w+)?\s*[;/]\s*$/i;
+
+    /**
+     * 控制结构的END语句模式
+     */
+    static readonly CONTROL_END_STATEMENT = /^\s*END\s+(IF|LOOP|CASE)\s*[;]?\s*$/i;
 
     /**
      * DECLARE 语句模式（匿名块开始）

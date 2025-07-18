@@ -488,9 +488,15 @@ export class PLSQLParser {
     }
 
     /**
-     * 检查是否为END语句
+     * 检查是否为END语句（函数/过程/包的结束，不包括控制结构）
      */
     private isEndStatement(line: string): boolean {
+        // 排除控制结构的END语句
+        if (/^\s*END\s+(IF|LOOP|CASE)\s*[;]?\s*$/i.test(line)) {
+            return false;
+        }
+        
+        // 匹配函数/过程/包的END语句
         return /^\s*END(\s+\w+)?\s*[;/]?\s*$/i.test(line);
     }
 
