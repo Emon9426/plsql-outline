@@ -8,10 +8,8 @@ import {
     TreeItemData 
 } from './types';
 import { IDataProvider } from './debug';
-import { ExpandDebugger } from './expandDebugger';
-
 /**
- * PL/SQL大纲树数据提供者
+ * PL/SQL大纲树数据提供者 - 内存优化版本
  */
 export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemData> {
     private _onDidChangeTreeData: vscode.EventEmitter<TreeItemData | undefined | null | void> = new vscode.EventEmitter<TreeItemData | undefined | null | void>();
@@ -21,9 +19,18 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     private showStructureBlocks: boolean = true;
     private defaultCollapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.Expanded;
     private forceExpandAll: boolean = false; // 新增：强制展开所有节点的标志
+    
+    // 内存优化相关
+    private treeItemCache: Map<string, vscode.TreeItem> = new Map();
+    private maxCacheSize: number = 500;
+    private lastRefreshTime: number = 0;
+    
+    // 输出通道用于调试信息
+    private outputChannel: vscode.OutputChannel;
 
     constructor() {
         this.loadConfiguration();
+        this.outputChannel = vscode.window.createOutputChannel('PL/SQL Outline');
     }
 
     /**
@@ -43,26 +50,91 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 刷新树视图
+     * 刷新树视图 - 内存优化版本
      */
     refresh(): void {
         this.loadConfiguration();
+        
+        // 清理缓存，避免内存泄漏
+        this.clearCache();
+        
+        this.lastRefreshTime = Date.now();
         this._onDidChangeTreeData.fire();
     }
 
     /**
-     * 获取树项
+     * 清理缓存
      */
-    getTreeItem(element: TreeItemData): vscode.TreeItem {
-        if (element.isStructureBlock) {
-            return this.createStructureBlockTreeItem(element);
-        } else {
-            return this.createNodeTreeItem(element);
-        }
+    private clearCache(): void {
+        this.treeItemCache.clear();
     }
 
     /**
-     * 获取子项
+     * 获取缓存的树项
+     */
+    private getCachedTreeItem(key: string): vscode.TreeItem | undefined {
+        return this.treeItemCache.get(key);
+    }
+
+    /**
+     * 设置缓存的树项
+     */
+    private setCachedTreeItem(key: string, item: vscode.TreeItem): void {
+        // 限制缓存大小
+        if (this.treeItemCache.size >= this.maxCacheSize) {
+            // 清理一半的缓存
+            const entries = Array.from(this.treeItemCache.entries());
+            this.treeItemCache.clear();
+            // 保留最近使用的一半
+            for (let i = Math.floor(entries.length / 2); i < entries.length; i++) {
+                this.treeItemCache.set(entries[i][0], entries[i][1]);
+            }
+        }
+        
+        this.treeItemCache.set(key, item);
+    }
+
+    /**
+     * 获取树项 - 内存优化版本
+     */
+    getTreeItem(element: TreeItemData): vscode.TreeItem {
+        // 生成缓存键
+        const cacheKey = this.generateCacheKey(element);
+        
+        // 尝试从缓存获取
+        const cached = this.getCachedTreeItem(cacheKey);
+        if (cached) {
+            return cached;
+        }
+        
+        // 创建新的树项
+        let treeItem: vscode.TreeItem;
+        if (element.isStructureBlock) {
+            treeItem = this.createStructureBlockTreeItem(element);
+        } else {
+            treeItem = this.createNodeTreeItem(element);
+        }
+        
+        // 缓存树项
+        this.setCachedTreeItem(cacheKey, treeItem);
+        
+        return treeItem;
+    }
+
+    /**
+     * 生成缓存键
+     */
+    private generateCacheKey(element: TreeItemData): string {
+        if (element.isStructureBlock && element.structureBlock) {
+            return `block_${element.structureBlock.type}_${element.structureBlock.line}_${element.structureBlock.parentNode.name}`;
+        } else if (element.node) {
+            return `node_${element.node.type}_${element.node.name}_${element.node.declarationLine}_${element.node.level}`;
+        }
+        return `unknown_${Date.now()}`;
+    }
+
+    /**
+     * 获取子项 - 内存优化版本
      */
     async getChildren(element?: TreeItemData): Promise<TreeItemData[]> {
         if (!this.dataProvider) {
@@ -71,6 +143,11 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
 
         try {
             const parseResult = await this.dataProvider.getParseResult();
+            
+            // 检查解析结果的有效性
+            if (!parseResult || !parseResult.nodes) {
+                return [];
+            }
             
             if (!element) {
                 // 根级别：返回所有顶层节点
@@ -89,46 +166,140 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 从节点创建树项数据
+     * 获取父项 - VS Code reveal方法需要此方法
+     */
+    async getParent(element: TreeItemData): Promise<TreeItemData | undefined> {
+        if (!this.dataProvider) {
+            return undefined;
+        }
+
+        try {
+            const parseResult = await this.dataProvider.getParseResult();
+            if (!parseResult || !parseResult.nodes) {
+                return undefined;
+            }
+
+            // 如果是结构块，返回其父节点
+            if (element.isStructureBlock && element.structureBlock) {
+                const parentNode = element.structureBlock.parentNode;
+                return {
+                    node: parentNode,
+                    isStructureBlock: false,
+                    label: this.getNodeLabel(parentNode),
+                    line: parentNode.declarationLine
+                };
+            }
+
+            // 如果是节点，查找其父节点
+            if (element.node) {
+                const parent = this.findParentNode(parseResult.nodes, element.node);
+                if (parent) {
+                    return {
+                        node: parent,
+                        isStructureBlock: false,
+                        label: this.getNodeLabel(parent),
+                        line: parent.declarationLine
+                    };
+                }
+            }
+
+            return undefined;
+
+        } catch (error) {
+            console.error('获取父项失败:', error);
+            return undefined;
+        }
+    }
+
+    /**
+     * 查找父节点
+     */
+    private findParentNode(nodes: ParseNode[], targetNode: ParseNode): ParseNode | undefined {
+        for (const node of nodes) {
+            // 检查是否是直接子节点
+            if (node.children.includes(targetNode)) {
+                return node;
+            }
+            
+            // 递归查找
+            const found = this.findParentNode(node.children, targetNode);
+            if (found) {
+                return found;
+            }
+        }
+        
+        return undefined;
+    }
+
+    /**
+     * 从节点创建树项数据 - 内存优化版本
      */
     private createTreeItemsFromNodes(nodes: ParseNode[]): TreeItemData[] {
-        const items: TreeItemData[] = [];
+        if (!nodes || nodes.length === 0) {
+            return [];
+        }
         
-        for (const node of nodes) {
-            items.push({
+        // 预分配数组大小
+        const items: TreeItemData[] = new Array(nodes.length);
+        
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
+            items[i] = {
                 node,
                 isStructureBlock: false,
                 label: this.getNodeLabel(node),
                 line: node.declarationLine
-            });
+            };
         }
         
         return items;
     }
 
     /**
-     * 创建子项（包括子节点和结构块）
+     * 创建子项（包括子节点和结构块）- 内存优化版本
      */
     private createChildItems(node: ParseNode): TreeItemData[] {
-        const items: TreeItemData[] = [];
+        const childrenCount = node.children ? node.children.length : 0;
+        const hasStructureBlocks = this.showStructureBlocks && this.shouldShowStructureBlocks(node);
+        const structureBlocksCount = hasStructureBlocks ? this.countStructureBlocks(node) : 0;
+        
+        // 预分配数组大小
+        const items: TreeItemData[] = new Array(childrenCount + structureBlocksCount);
+        let index = 0;
         
         // 添加子节点
-        for (const child of node.children) {
-            items.push({
-                node: child,
-                isStructureBlock: false,
-                label: this.getNodeLabel(child),
-                line: child.declarationLine
-            });
+        if (node.children) {
+            for (let i = 0; i < node.children.length; i++) {
+                const child = node.children[i];
+                items[index++] = {
+                    node: child,
+                    isStructureBlock: false,
+                    label: this.getNodeLabel(child),
+                    line: child.declarationLine
+                };
+            }
         }
         
         // 添加结构块（如果启用）
-        if (this.showStructureBlocks && this.shouldShowStructureBlocks(node)) {
+        if (hasStructureBlocks) {
             const structureBlocks = this.createStructureBlocks(node);
-            items.push(...structureBlocks);
+            for (let i = 0; i < structureBlocks.length; i++) {
+                items[index++] = structureBlocks[i];
+            }
         }
         
         return items;
+    }
+
+    /**
+     * 计算结构块数量
+     */
+    private countStructureBlocks(node: ParseNode): number {
+        let count = 0;
+        if (node.beginLine !== null && node.beginLine !== undefined) count++;
+        if (node.exceptionLine !== null && node.exceptionLine !== undefined) count++;
+        if (node.endLine !== null && node.endLine !== undefined) count++;
+        return count;
     }
 
     /**
@@ -289,6 +460,18 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
      */
     public setForceExpandAll(force: boolean): void {
         this.forceExpandAll = force;
+        this.outputChannel.appendLine(`设置强制展开标志: ${force}`);
+    }
+
+    /**
+     * 输出调试信息
+     */
+    private debugLog(message: string, data?: any): void {
+        const timestamp = new Date().toLocaleTimeString();
+        this.outputChannel.appendLine(`[${timestamp}] ${message}`);
+        if (data) {
+            this.outputChannel.appendLine(`数据: ${JSON.stringify(data, null, 2)}`);
+        }
     }
 
     /**
@@ -431,11 +614,11 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
 export class TreeViewManager {
     private treeView: vscode.TreeView<TreeItemData>;
     private provider: PLSQLOutlineProvider;
-    private debugger: ExpandDebugger;
+    private outputChannel: vscode.OutputChannel;
 
     constructor(context: vscode.ExtensionContext) {
         this.provider = new PLSQLOutlineProvider();
-        this.debugger = new ExpandDebugger();
+        this.outputChannel = vscode.window.createOutputChannel('PL/SQL Outline');
         
         this.treeView = vscode.window.createTreeView('plsqlOutline', {
             treeDataProvider: this.provider,
@@ -448,9 +631,7 @@ export class TreeViewManager {
         // 监听配置变化
         this.registerConfigurationListener(context);
 
-        // 初始化调试
-        this.debugger.clearLog();
-        this.debugger.log('TreeViewManager初始化完成');
+        this.outputChannel.appendLine('TreeViewManager初始化完成');
     }
 
     /**
@@ -552,22 +733,14 @@ export class TreeViewManager {
     }
 
     /**
-     * 展开所有节点
+     * 展开所有节点 - 简化版本
      */
     async expandAll(): Promise<void> {
-        this.debugger.debugExpandExecution('开始执行展开所有节点功能');
-        
-        // 生成完整的调试报告
-        await this.debugger.generateDebugReport();
-        
-        // 调试树视图状态
-        this.debugger.debugTreeViewState(this.treeView);
-        
-        // 调试数据提供者状态
-        await this.debugger.debugDataProviderState(this.provider);
+        this.outputChannel.appendLine('开始执行展开所有节点功能');
+        this.outputChannel.show(true); // 显示输出通道
         
         if (!this.provider.dataProvider) {
-            this.debugger.debugExpandExecution('没有数据提供者');
+            this.outputChannel.appendLine('错误: 没有数据提供者');
             vscode.window.showWarningMessage('没有可用的解析数据');
             return;
         }
@@ -575,58 +748,108 @@ export class TreeViewManager {
         try {
             const parseResult = await this.provider.dataProvider.getParseResult();
             if (!parseResult || !parseResult.nodes || parseResult.nodes.length === 0) {
-                this.debugger.debugExpandExecution('没有解析结果或节点');
+                this.outputChannel.appendLine('警告: 没有解析结果或节点');
                 vscode.window.showInformationMessage('没有可展开的节点');
                 return;
             }
 
-            this.debugger.debugExpandExecution(`找到 ${parseResult.nodes.length} 个根节点`, {
-                nodeCount: parseResult.nodes.length,
-                metadata: parseResult.metadata
-            });
+            this.outputChannel.appendLine(`找到 ${parseResult.nodes.length} 个根节点`);
             
-            // 使用新的标志方法
-            await this.expandAllWithFlag();
+            // 使用VS Code原生的展开API
+            await this.expandAllNodes();
+            
+            this.outputChannel.appendLine('展开所有节点完成');
+            vscode.window.showInformationMessage('所有节点已展开');
             
         } catch (error) {
-            this.debugger.debugExpandExecution('展开所有节点失败', error);
+            this.outputChannel.appendLine(`展开所有节点失败: ${error}`);
             vscode.window.showErrorMessage(`展开所有节点失败: ${error}`);
         }
     }
 
     /**
-     * 使用标志方法展开所有节点
+     * 使用强制展开标志和reveal API展开所有节点
      */
-    private async expandAllWithFlag(): Promise<void> {
-        this.debugger.debugExpandExecution('使用标志方法展开所有节点');
+    private async expandAllNodes(): Promise<void> {
+        this.outputChannel.appendLine('开始使用强制展开标志展开节点');
         
         try {
             // 设置强制展开标志
-            this.debugger.debugExpandExecution('设置强制展开标志为true');
             this.provider.setForceExpandAll(true);
+            this.outputChannel.appendLine('已设置强制展开标志为true');
             
-            // 调试设置后的状态
-            await this.debugger.debugDataProviderState(this.provider);
-            
-            // 刷新树视图
-            this.debugger.debugExpandExecution('刷新树视图');
+            // 刷新树视图，这会导致所有节点以展开状态重新渲染
             this.provider.refresh();
+            this.outputChannel.appendLine('已刷新树视图');
             
-            // 等待刷新完成
-            this.debugger.debugExpandExecution('等待刷新完成');
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // 等待一段时间让树视图完成渲染
+            await new Promise(resolve => setTimeout(resolve, 500));
             
-            this.debugger.debugExpandExecution('展开所有节点完成');
-            vscode.window.showInformationMessage('所有节点已展开');
+            // 获取根节点并展开
+            if (this.provider.dataProvider) {
+                const parseResult = await this.provider.dataProvider.getParseResult();
+                if (parseResult && parseResult.nodes && parseResult.nodes.length > 0) {
+                    this.outputChannel.appendLine('开始展开根节点');
+                    
+                    // 为每个根节点创建TreeItemData并展开
+                    for (const rootNode of parseResult.nodes) {
+                        try {
+                            const rootTreeItem: TreeItemData = {
+                                node: rootNode,
+                                isStructureBlock: false,
+                                label: this.getNodeTypeDisplayName(rootNode.type),
+                                line: rootNode.declarationLine
+                            };
+                            
+                            // 使用reveal API展开根节点
+                            await this.treeView.reveal(rootTreeItem, { 
+                                expand: true, 
+                                focus: false, 
+                                select: false 
+                            });
+                            
+                            this.outputChannel.appendLine(`已展开根节点: ${rootNode.name}`);
+                            
+                        } catch (revealError) {
+                            this.outputChannel.appendLine(`展开根节点 ${rootNode.name} 失败: ${revealError}`);
+                            // 继续处理其他节点
+                        }
+                    }
+                }
+            }
             
-            // 显示调试日志路径
-            const logPath = this.debugger.getLogPath();
-            this.debugger.debugExpandExecution('调试日志已保存', { logPath });
-            
-        } finally {
             // 重置强制展开标志
-            this.debugger.debugExpandExecution('重置强制展开标志为false');
             this.provider.setForceExpandAll(false);
+            this.outputChannel.appendLine('已重置强制展开标志为false');
+            
+            this.outputChannel.appendLine('所有节点展开完成');
+            
+        } catch (error) {
+            this.outputChannel.appendLine(`展开节点过程中出错: ${error}`);
+            // 确保重置标志
+            this.provider.setForceExpandAll(false);
+            throw error;
+        }
+    }
+
+    /**
+     * 收集所有树项
+     */
+    private collectAllTreeItems(nodes: ParseNode[], result: TreeItemData[]): void {
+        for (const node of nodes) {
+            const treeItem: TreeItemData = {
+                node,
+                isStructureBlock: false,
+                label: `${node.name} (${this.getNodeTypeDisplayName(node.type)})`,
+                line: node.declarationLine
+            };
+            
+            result.push(treeItem);
+            
+            // 递归收集子节点
+            if (node.children && node.children.length > 0) {
+                this.collectAllTreeItems(node.children, result);
+            }
         }
     }
 

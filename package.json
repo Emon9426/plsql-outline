@@ -2,7 +2,7 @@
   "name": "plsql-outline",
   "displayName": "PL/SQL Outline",
   "description": "PL/SQL代码结构解析器和大纲视图",
-  "version": "1.2.2",
+  "version": "1.2.5",
   "publisher": "plsql-outline",
   "icon": "res/Icon.png",
   "engines": {
@@ -204,24 +204,36 @@
         },
         "plsql-outline.parsing.maxLines": {
           "type": "number",
-          "default": 50000,
+          "default": 10000,
           "minimum": 1000,
-          "maximum": 200000,
-          "description": "最大解析行数限制"
+          "maximum": 50000,
+          "description": "最大解析行数限制（降低以减少内存占用）"
         },
         "plsql-outline.parsing.maxNestingDepth": {
           "type": "number",
-          "default": 20,
+          "default": 15,
           "minimum": 5,
-          "maximum": 50,
-          "description": "最大嵌套深度限制"
+          "maximum": 30,
+          "description": "最大嵌套深度限制（降低以减少内存占用）"
         },
         "plsql-outline.parsing.maxParseTime": {
           "type": "number",
-          "default": 30000,
+          "default": 15000,
           "minimum": 5000,
-          "maximum": 120000,
-          "description": "最大解析时间限制（毫秒）"
+          "maximum": 60000,
+          "description": "最大解析时间限制（毫秒，降低以避免长时间占用）"
+        },
+        "plsql-outline.parsing.enableMemoryOptimization": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用内存优化模式"
+        },
+        "plsql-outline.parsing.maxFileSize": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "最大文件大小限制（MB）"
         },
         "plsql-outline.view.showStructureBlocks": {
           "type": "boolean",

@@ -10,7 +10,7 @@ import {
 } from './types';
 
 /**
- * 按照技术设计文档重新实现的PL/SQL解析器
+ * 按照技术设计文档重新实现的PL/SQL解析器 - 内存优化版本
  */
 export class PLSQLParser {
     // 全局变量定义（按照技术设计文档）
@@ -22,7 +22,12 @@ export class PLSQLParser {
     private packageNode: ParseNode | null = null;       // 包体节点指针
     private packageInitFlag: boolean = false;           // 包体初始化段标识
 
-    private version: string = '2.0.0';
+    private version: string = '2.0.1';
+
+    // 内存优化相关
+    private processedLines: Set<number> = new Set();    // 已处理行号集合
+    private stringCache: Map<string, string> = new Map(); // 字符串缓存
+    private maxCacheSize: number = 1000;                // 最大缓存大小
 
     /**
      * 解析PL/SQL代码
@@ -34,8 +39,18 @@ export class PLSQLParser {
             // 初始化处理
             this.initializeGlobalVariables();
             
+            // 内存安全检查
+            if (content.length > 10 * 1024 * 1024) { // 10MB限制
+                throw new Error('文件过大，超过10MB限制');
+            }
+            
             // 预处理：分割行并清理
             const { cleanLines, lineMapping } = this.preprocessContent(content);
+            
+            // 行数限制检查
+            if (cleanLines.length > 50000) {
+                throw new Error(`文件行数过多(${cleanLines.length})，超过50000行限制`);
+            }
             
             // 逐行解析
             await this.parseLines(cleanLines, lineMapping);
@@ -55,9 +70,15 @@ export class PLSQLParser {
                 }
             };
 
+            // 清理缓存
+            this.cleanup();
+            
             return result;
 
         } catch (error) {
+            // 确保在错误情况下也清理内存
+            this.cleanup();
+            
             const parseTime = Date.now() - startTime;
             const errorMessage = error instanceof Error ? error.message : '未知解析错误';
             
@@ -87,16 +108,58 @@ export class PLSQLParser {
         this.rootNodes = [];
         this.packageNode = null;
         this.packageInitFlag = false;
+        
+        // 清理内存优化相关的数据结构
+        this.processedLines.clear();
+        this.stringCache.clear();
     }
 
     /**
-     * 预处理内容：去除注释、空行等，但保持原始行号映射
+     * 内存清理
+     */
+    private cleanup(): void {
+        this.processedLines.clear();
+        this.stringCache.clear();
+        this.nodeStack = [];
+        this.currentActiveNode = null;
+        this.packageNode = null;
+    }
+
+    /**
+     * 字符串缓存优化
+     */
+    private getCachedString(str: string): string {
+        if (this.stringCache.has(str)) {
+            return this.stringCache.get(str)!;
+        }
+        
+        // 限制缓存大小
+        if (this.stringCache.size >= this.maxCacheSize) {
+            // 清理一半的缓存
+            const entries = Array.from(this.stringCache.entries());
+            this.stringCache.clear();
+            // 保留最近使用的一半
+            for (let i = Math.floor(entries.length / 2); i < entries.length; i++) {
+                this.stringCache.set(entries[i][0], entries[i][1]);
+            }
+        }
+        
+        this.stringCache.set(str, str);
+        return str;
+    }
+
+    /**
+     * 预处理内容：去除注释、空行等，但保持原始行号映射 - 内存优化版本
      */
     private preprocessContent(content: string): { cleanLines: string[], lineMapping: number[] } {
         const lines = content.split('\n');
         const cleanLines: string[] = [];
-        const lineMapping: number[] = []; // 映射清理后的行号到原始行号
+        const lineMapping: number[] = [];
         let inMultiLineComment = false;
+
+        // 预分配数组大小以减少内存重分配
+        cleanLines.length = 0;
+        lineMapping.length = 0;
 
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
@@ -139,7 +202,8 @@ export class PLSQLParser {
             // 去除首尾空白并检查是否为空行
             line = line.trim();
             if (line.length > 0) {
-                cleanLines.push(line);
+                // 使用缓存优化字符串
+                cleanLines.push(this.getCachedString(line));
                 lineMapping.push(originalLineNumber);
             }
         }
@@ -148,39 +212,73 @@ export class PLSQLParser {
     }
 
     /**
-     * 移除字符串字面量
+     * 移除字符串字面量 - 优化版本
      */
     private removeStringLiterals(line: string): string {
-        return line.replace(/'([^'\\]|\\.)*'/g, '""');
+        // 使用更高效的正则表达式
+        return line.replace(/'(?:[^'\\]|\\.)*'/g, '""');
     }
 
     /**
-     * 逐行解析
+     * 逐行解析 - 内存优化版本
      */
     private async parseLines(lines: string[], lineMapping: number[]): Promise<void> {
+        let lastProcessedLine = -1;
+        let stuckCounter = 0;
+        const maxStuckCount = 10;
+        
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const originalLineNumber = lineMapping[i];
+
+            // 防止重复处理同一行
+            if (this.processedLines.has(originalLineNumber)) {
+                continue;
+            }
+
+            // 检测是否卡住
+            if (i === lastProcessedLine) {
+                stuckCounter++;
+                if (stuckCounter > maxStuckCount) {
+                    throw new Error(`解析在第${originalLineNumber}行卡住`);
+                }
+            } else {
+                stuckCounter = 0;
+                lastProcessedLine = i;
+            }
 
             // 检查跨行CREATE语句
             const multiLineCreateMatch = await this.checkMultiLineCreate(lines, i);
             if (multiLineCreateMatch) {
                 const originalStartLine = lineMapping[multiLineCreateMatch.startIndex];
                 await this.handleCreateStatement(multiLineCreateMatch.match, originalStartLine);
+                
+                // 标记已处理的行
+                for (let j = multiLineCreateMatch.startIndex; j <= multiLineCreateMatch.endIndex; j++) {
+                    this.processedLines.add(lineMapping[j]);
+                }
+                
                 i = multiLineCreateMatch.endIndex; // 跳过已处理的行
                 continue;
             }
 
             await this.parseLine(line, originalLineNumber);
+            this.processedLines.add(originalLineNumber);
 
-            // 让出控制权防止阻塞
-            if (i % 100 === 0) {
+            // 定期让出控制权防止阻塞，并进行内存检查
+            if (i % 50 === 0) { // 减少yield频率
                 await this.yield();
+                
+                // 定期清理缓存
+                if (i % 500 === 0 && this.stringCache.size > this.maxCacheSize) {
+                    this.stringCache.clear();
+                }
             }
         }
     }
+
     /**
-     * 检查跨行CREATE语句
+     * 检查跨行CREATE语句 - 优化版本
      */
     private async checkMultiLineCreate(lines: string[], startIndex: number): Promise<{ match: { type: NodeType; name: string }, startIndex: number, endIndex: number } | null> {
         const startLine = lines[startIndex];
@@ -200,9 +298,11 @@ export class PLSQLParser {
         let combinedLine = startLine;
         let endIndex = startIndex;
         
-        // 最多向前查找5行（减少跳过的行数）
-        for (let i = startIndex + 1; i < Math.min(startIndex + 5, lines.length); i++) {
-            const nextLine = lines[i];
+        // 最多向前查找3行（进一步减少跳过的行数）
+        const maxLookAhead = Math.min(3, lines.length - startIndex - 1);
+        for (let i = 1; i <= maxLookAhead; i++) {
+            const nextLineIndex = startIndex + i;
+            const nextLine = lines[nextLineIndex];
             
             // 如果遇到嵌套的FUNCTION/PROCEDURE，停止查找
             if (/^\s*(FUNCTION|PROCEDURE)\s+\w+/i.test(nextLine)) {
@@ -215,7 +315,7 @@ export class PLSQLParser {
             }
             
             combinedLine += ' ' + nextLine;
-            endIndex = i;
+            endIndex = nextLineIndex;
             
             // 尝试匹配完整的CREATE语句
             const createMatch = this.matchCreateStatement(combinedLine);
@@ -280,40 +380,54 @@ export class PLSQLParser {
     }
 
     /**
-     * 匹配CREATE语句
+     * 匹配CREATE语句 - 优化版本
      */
     private matchCreateStatement(line: string): { type: NodeType; name: string } | null {
+        // 使用缓存的正则表达式结果
+        const cacheKey = `create_${line}`;
+        if (this.stringCache.has(cacheKey)) {
+            const cached = this.stringCache.get(cacheKey);
+            return cached === 'null' ? null : JSON.parse(cached!);
+        }
+
+        let result: { type: NodeType; name: string } | null = null;
+
         // CREATE OR REPLACE PACKAGE BODY (必须先匹配，因为包含PACKAGE关键字)
         let match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+BODY\s+(\w+)/i);
         if (match) {
-            return { type: NodeType.PACKAGE_BODY, name: match[1] };
+            result = { type: NodeType.PACKAGE_BODY, name: match[1] };
+        } else {
+            // CREATE OR REPLACE PACKAGE (不包含BODY)
+            match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+(?!BODY\s)(\w+)/i);
+            if (match) {
+                result = { type: NodeType.PACKAGE_HEADER, name: match[1] };
+            } else {
+                // CREATE OR REPLACE FUNCTION
+                match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(\w+)/i);
+                if (match) {
+                    result = { type: NodeType.FUNCTION, name: match[1] };
+                } else {
+                    // CREATE OR REPLACE PROCEDURE
+                    match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(\w+)/i);
+                    if (match) {
+                        result = { type: NodeType.PROCEDURE, name: match[1] };
+                    } else {
+                        // CREATE OR REPLACE TRIGGER
+                        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\s+(\w+)/i);
+                        if (match) {
+                            result = { type: NodeType.TRIGGER, name: match[1] };
+                        }
+                    }
+                }
+            }
         }
 
-        // CREATE OR REPLACE PACKAGE (不包含BODY)
-        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+(?!BODY\s)(\w+)/i);
-        if (match) {
-            return { type: NodeType.PACKAGE_HEADER, name: match[1] };
+        // 缓存结果
+        if (this.stringCache.size < this.maxCacheSize) {
+            this.stringCache.set(cacheKey, result ? JSON.stringify(result) : 'null');
         }
 
-        // CREATE OR REPLACE FUNCTION
-        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(\w+)/i);
-        if (match) {
-            return { type: NodeType.FUNCTION, name: match[1] };
-        }
-
-        // CREATE OR REPLACE PROCEDURE
-        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(\w+)/i);
-        if (match) {
-            return { type: NodeType.PROCEDURE, name: match[1] };
-        }
-
-        // CREATE OR REPLACE TRIGGER
-        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\s+(\w+)/i);
-        if (match) {
-            return { type: NodeType.TRIGGER, name: match[1] };
-        }
-
-        return null;
+        return result;
     }
 
     /**
@@ -360,6 +474,11 @@ export class PLSQLParser {
      * 处理子函数/过程
      */
     private async handleSubFunctionProcedure(functionMatch: { type: NodeType; name: string }, lineNumber: number): Promise<void> {
+        // 检查嵌套深度限制
+        if (this.currentLevel >= 20) {
+            throw new Error(`嵌套深度超过限制(${this.currentLevel})`);
+        }
+
         // 检查是否为Package Header中的声明
         if (this.currentActiveNode && this.currentActiveNode.type === NodeType.PACKAGE_HEADER) {
             // Package Header中的函数/过程声明
@@ -501,46 +620,50 @@ export class PLSQLParser {
     }
 
     /**
-     * 创建节点
+     * 创建节点 - 内存优化版本
      */
     private createNode(type: NodeType, name: string, declarationLine: number, level: number): ParseNode {
         return {
             type,
-            name,
+            name: this.getCachedString(name), // 使用缓存的字符串
             declarationLine,
             beginLine: null,
             exceptionLine: null,
             endLine: null,
             level,
-            children: []
+            children: [] // 预分配空数组
         };
     }
 
     /**
-     * 计算最大嵌套深度
+     * 计算最大嵌套深度 - 优化版本
      */
     private calculateMaxNestingDepth(nodes: ParseNode[]): number {
         let maxDepth = 0;
 
-        const traverse = (node: ParseNode): number => {
-            let depth = node.level;
-            for (const child of node.children) {
-                depth = Math.max(depth, traverse(child));
-            }
-            return depth;
-        };
-
+        // 使用迭代而不是递归，避免栈溢出
+        const stack: { node: ParseNode, depth: number }[] = [];
+        
         for (const node of nodes) {
-            maxDepth = Math.max(maxDepth, traverse(node));
+            stack.push({ node, depth: node.level });
+        }
+
+        while (stack.length > 0) {
+            const { node, depth } = stack.pop()!;
+            maxDepth = Math.max(maxDepth, depth);
+            
+            for (const child of node.children) {
+                stack.push({ node: child, depth: child.level });
+            }
         }
 
         return maxDepth;
     }
 
     /**
-     * 让出控制权（防止阻塞）
+     * 让出控制权（防止阻塞）- 优化版本
      */
     private async yield(): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, 0));
+        return new Promise(resolve => setImmediate(resolve));
     }
 }

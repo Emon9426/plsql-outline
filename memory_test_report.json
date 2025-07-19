@@ -1,0 +1,158 @@
+{
+  "summary": {
+    "maxHeapUsed": 5,
+    "maxRSS": 50,
+    "avgHeapUsed": 5,
+    "totalMeasurements": 17,
+    "duration": 9
+  },
+  "measurements": [
+    {
+      "label": "测试开始",
+      "timestamp": 0,
+      "heapUsed": 4,
+      "heapTotal": 6,
+      "external": 1,
+      "rss": 44
+    },
+    {
+      "label": "生成 500 行测试数据",
+      "timestamp": 0,
+      "heapUsed": 4,
+      "heapTotal": 6,
+      "external": 1,
+      "rss": 44
+    },
+    {
+      "label": "开始解析 500 行",
+      "timestamp": 0,
+      "heapUsed": 4,
+      "heapTotal": 6,
+      "external": 1,
+      "rss": 44
+    },
+    {
+      "label": "解析完成，找到 10 个结果",
+      "timestamp": 1,
+      "heapUsed": 5,
+      "heapTotal": 6,
+      "external": 1,
+      "rss": 44
+    },
+    {
+      "label": "清理完成",
+      "timestamp": 1,
+      "heapUsed": 5,
+      "heapTotal": 6,
+      "external": 1,
+      "rss": 44
+    },
+    {
+      "label": "生成 1000 行测试数据",
+      "timestamp": 1,
+      "heapUsed": 5,
+      "heapTotal": 6,
+      "external": 1,
+      "rss": 44
+    },
+    {
+      "label": "开始解析 1000 行",
+      "timestamp": 1,
+      "heapUsed": 5,
+      "heapTotal": 6,
+      "external": 1,
+      "rss": 44
+    },
+    {
+      "label": "解析完成，找到 20 个结果",
+      "timestamp": 3,
+      "heapUsed": 5,
+      "heapTotal": 7,
+      "external": 1,
+      "rss": 45
+    },
+    {
+      "label": "清理完成",
+      "timestamp": 3,
+      "heapUsed": 5,
+      "heapTotal": 7,
+      "external": 1,
+      "rss": 45
+    },
+    {
+      "label": "生成 2000 行测试数据",
+      "timestamp": 3,
+      "heapUsed": 5,
+      "heapTotal": 7,
+      "external": 1,
+      "rss": 45
+    },
+    {
+      "label": "开始解析 2000 行",
+      "timestamp": 3,
+      "heapUsed": 5,
+      "heapTotal": 7,
+      "external": 1,
+      "rss": 46
+    },
+    {
+      "label": "解析完成，找到 40 个结果",
+      "timestamp": 5,
+      "heapUsed": 5,
+      "heapTotal": 7,
+      "external": 1,
+      "rss": 46
+    },
+    {
+      "label": "清理完成",
+      "timestamp": 5,
+      "heapUsed": 5,
+      "heapTotal": 7,
+      "external": 1,
+      "rss": 46
+    },
+    {
+      "label": "生成 5000 行测试数据",
+      "timestamp": 5,
+      "heapUsed": 5,
+      "heapTotal": 7,
+      "external": 1,
+      "rss": 47
+    },
+    {
+      "label": "开始解析 5000 行",
+      "timestamp": 6,
+      "heapUsed": 5,
+      "heapTotal": 9,
+      "external": 1,
+      "rss": 47
+    },
+    {
+      "label": "解析完成，找到 100 个结果",
+      "timestamp": 9,
+      "heapUsed": 5,
+      "heapTotal": 10,
+      "external": 1,
+      "rss": 50
+    },
+    {
+      "label": "清理完成",
+      "timestamp": 9,
+      "heapUsed": 5,
+      "heapTotal": 10,
+      "external": 1,
+      "rss": 50
+    }
+  ],
+  "testInfo": {
+    "testSizes": [
+      500,
+      1000,
+      2000,
+      5000
+    ],
+    "nodeVersion": "v22.15.0",
+    "platform": "win32",
+    "arch": "x64"
+  }
+}

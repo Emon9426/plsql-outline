@@ -6,7 +6,7 @@ import { ParseResult } from './types';
 import { SettingsPanel } from './settingsPanel';
 
 /**
- * PL/SQL大纲扩展主类
+ * PL/SQL大纲扩展主类 - 内存优化版本
  */
 export class PLSQLOutlineExtension {
     private parser: PLSQLParser;
@@ -14,6 +14,12 @@ export class PLSQLOutlineExtension {
     private dataBridge: DataBridge;
     private dataProviderFactory: DataProviderFactory;
     private currentParseResult: ParseResult | null = null;
+
+    // 内存监控相关
+    private memoryCheckInterval: NodeJS.Timeout | null = null;
+    private lastMemoryCheck: number = 0;
+    private parseCount: number = 0;
+    private maxParseCount: number = 100; // 最大解析次数，超过后强制清理
 
     constructor(context: vscode.ExtensionContext) {
         this.parser = new PLSQLParser();
@@ -26,6 +32,7 @@ export class PLSQLOutlineExtension {
 
         this.registerCommands(context);
         this.registerEventListeners(context);
+        this.startMemoryMonitoring();
     }
 
     /**
@@ -111,7 +118,7 @@ export class PLSQLOutlineExtension {
     }
 
     /**
-     * 解析当前文件
+     * 解析当前文件 - 内存优化版本
      */
     private async parseCurrentFile(): Promise<void> {
         const editor = vscode.window.activeTextEditor;
@@ -127,6 +134,18 @@ export class PLSQLOutlineExtension {
         }
 
         try {
+            // 内存检查
+            this.checkMemoryUsage();
+            
+            // 增加解析计数
+            this.parseCount++;
+            
+            // 定期清理内存
+            if (this.parseCount >= this.maxParseCount) {
+                await this.performMemoryCleanup();
+                this.parseCount = 0;
+            }
+
             // 显示进度
             await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
@@ -139,7 +158,18 @@ export class PLSQLOutlineExtension {
                 const content = document.getText();
                 const sourceFile = document.fileName;
                 
+                // 文件大小检查
+                if (content.length > 5 * 1024 * 1024) { // 5MB限制
+                    throw new Error('文件过大，建议分割后再解析');
+                }
+                
                 progress.report({ increment: 30, message: '解析中...' });
+                
+                // 清理之前的解析结果
+                if (this.currentParseResult) {
+                    this.currentParseResult = null;
+                }
+                
                 const parseResult = await this.parser.parse(content, sourceFile);
                 
                 progress.report({ increment: 60, message: '处理结果...' });
@@ -169,6 +199,9 @@ export class PLSQLOutlineExtension {
             
             // 记录错误
             await this.dataBridge.getLogger().error(`解析失败: ${errorMessage}`);
+            
+            // 错误时也要清理内存
+            await this.performMemoryCleanup();
         }
     }
 
@@ -352,10 +385,100 @@ export class PLSQLOutlineExtension {
     }
 
     /**
-     * 销毁资源
+     * 开始内存监控
+     */
+    private startMemoryMonitoring(): void {
+        // 每5分钟检查一次内存使用情况
+        this.memoryCheckInterval = setInterval(() => {
+            this.checkMemoryUsage();
+        }, 5 * 60 * 1000);
+    }
+
+    /**
+     * 检查内存使用情况
+     */
+    private checkMemoryUsage(): void {
+        const now = Date.now();
+        
+        // 避免频繁检查
+        if (now - this.lastMemoryCheck < 30000) { // 30秒内不重复检查
+            return;
+        }
+        
+        this.lastMemoryCheck = now;
+        
+        try {
+            if (process.memoryUsage) {
+                const memUsage = process.memoryUsage();
+                const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+                const heapTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+                
+                console.log(`内存使用情况: ${heapUsedMB}MB / ${heapTotalMB}MB`);
+                
+                // 如果堆内存使用超过200MB，触发清理
+                if (heapUsedMB > 200) {
+                    console.warn('内存使用过高，触发清理');
+                    this.performMemoryCleanup();
+                }
+            }
+        } catch (error) {
+            console.error('内存检查失败:', error);
+        }
+    }
+
+    /**
+     * 执行内存清理
+     */
+    private async performMemoryCleanup(): Promise<void> {
+        try {
+            console.log('开始内存清理...');
+            
+            // 清理解析结果
+            this.currentParseResult = null;
+            
+            // 清理树视图缓存
+            if (this.treeViewManager && this.treeViewManager.getProvider()) {
+                this.treeViewManager.getProvider().refresh();
+            }
+            
+            // 强制垃圾回收（如果可用）
+            if (global.gc) {
+                global.gc();
+                console.log('已执行垃圾回收');
+            }
+            
+            console.log('内存清理完成');
+            
+        } catch (error) {
+            console.error('内存清理失败:', error);
+        }
+    }
+
+    /**
+     * 停止内存监控
+     */
+    private stopMemoryMonitoring(): void {
+        if (this.memoryCheckInterval) {
+            clearInterval(this.memoryCheckInterval);
+            this.memoryCheckInterval = null;
+        }
+    }
+
+    /**
+     * 销毁资源 - 内存优化版本
      */
     dispose(): void {
+        // 停止内存监控
+        this.stopMemoryMonitoring();
+        
+        // 执行最终清理
+        this.performMemoryCleanup();
+        
+        // 销毁树视图
         this.treeViewManager.dispose();
+        
+        // 清理所有引用
+        this.currentParseResult = null;
     }
 }
 
