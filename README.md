@@ -31,15 +31,120 @@
 
 ## 📦 安装
 
-1. 打开 Visual Studio Code
-2. 按 `Ctrl+Shift+X` 打开扩展面板
-3. 搜索 "PL/SQL Outline"
-4. 点击安装
+### 方法一：从 VS Code 扩展市场安装（推荐）
 
-或者从 VSIX 文件安装：
+1. **打开 Visual Studio Code**
+2. **打开扩展面板**：
+   - 按 `Ctrl+Shift+X`（Windows/Linux）
+   - 或按 `Cmd+Shift+X`（macOS）
+   - 或点击左侧活动栏的扩展图标 🧩
+3. **搜索扩展**：在搜索框中输入 "PL/SQL Outline"
+4. **安装扩展**：找到 "PL/SQL Outline" 扩展，点击 "安装" 按钮
+5. **重新加载**：安装完成后，VS Code 会自动重新加载
+
+### 方法二：从 VSIX 文件安装
+
+如果您有本地的 VSIX 文件，可以通过以下方式安装：
+
+#### 使用命令行安装
 ```bash
-code --install-extension plsql-outline-1.1.0.vsix
+# 安装最新版本 v1.3.0
+code --install-extension plsql-outline-1.3.0.vsix
+
+# 如果 code 命令不可用，请先添加到 PATH 或使用完整路径
+"C:\Program Files\Microsoft VS Code\bin\code.cmd" --install-extension plsql-outline-1.3.0.vsix
 ```
+
+#### 使用 VS Code 界面安装
+1. **打开命令面板**：按 `Ctrl+Shift+P`（Windows/Linux）或 `Cmd+Shift+P`（macOS）
+2. **输入命令**：输入 "Extensions: Install from VSIX..."
+3. **选择文件**：浏览并选择 `plsql-outline-1.3.0.vsix` 文件
+4. **确认安装**：点击 "安装" 按钮
+5. **重新加载**：安装完成后重新加载 VS Code
+
+#### 通过扩展面板安装
+1. **打开扩展面板**：按 `Ctrl+Shift+X`
+2. **点击菜单**：点击扩展面板右上角的 "..." 菜单
+3. **选择选项**：选择 "从 VSIX 安装..."
+4. **选择文件**：浏览并选择 VSIX 文件
+5. **完成安装**：等待安装完成
+
+### 方法三：开发者安装
+
+如果您想从源代码安装或进行开发：
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/Emon9426/plsql-outline.git
+cd plsql-outline
+
+# 2. 安装依赖
+npm install
+
+# 3. 编译项目
+npm run compile
+
+# 4. 打包扩展
+npm run package
+
+# 5. 安装生成的 VSIX 文件
+code --install-extension plsql-outline-1.3.0.vsix
+```
+
+### 安装验证
+
+安装完成后，您可以通过以下方式验证扩展是否正确安装：
+
+1. **检查扩展列表**：
+   - 打开扩展面板 (`Ctrl+Shift+X`)
+   - 在已安装的扩展中查找 "PL/SQL Outline"
+   - 确认状态显示为 "已启用"
+
+2. **检查活动栏**：
+   - 在 VS Code 左侧活动栏中应该出现 PL/SQL 大纲图标 📋
+   - 点击图标应该显示 "PLSQL Outline" 面板
+
+3. **测试功能**：
+   - 打开任何 `.sql`、`.pks`、`.pkb` 等 PL/SQL 文件
+   - 扩展应该自动解析文件并在大纲面板中显示结构
+
+### 系统要求
+
+- **VS Code 版本**：1.74.0 或更高版本
+- **操作系统**：Windows、macOS、Linux
+- **Node.js**：仅开发时需要（用户安装不需要）
+
+### 支持的文件类型
+
+扩展默认支持以下文件扩展名：
+- `.sql` - SQL 脚本文件
+- `.fnc` - 函数文件  
+- `.fcn` - 函数文件（备用扩展名）
+- `.prc` - 过程文件
+- `.pks` - 包规范文件
+- `.pkb` - 包体文件
+- `.typ` - 类型定义文件
+
+### 安装故障排除
+
+**Q: 安装后没有看到扩展图标？**
+A: 
+1. 重新启动 VS Code
+2. 检查扩展是否已启用
+3. 确认 VS Code 版本符合要求
+
+**Q: VSIX 文件安装失败？**
+A:
+1. 确认文件完整性（文件大小应该约为 900KB）
+2. 检查 VS Code 版本兼容性
+3. 尝试使用管理员权限运行 VS Code
+
+**Q: 扩展安装后不工作？**
+A:
+1. 打开 PL/SQL 文件测试
+2. 检查文件扩展名是否支持
+3. 查看 VS Code 输出面板的错误信息
+4. 尝试重新安装扩展
 
 ## 🎯 使用指南
 
@@ -303,6 +408,13 @@ A:
 - **缓存管理**：扩展会自动管理缓存，无需手动干预
 
 ## 🔄 更新日志
+
+### v1.3.0 (2025-01-19)
+- 🔧 **重大修复**：设置页面保存功能完全修复
+- ⚙️ **配置优化**：所有配置现在保存到工作区级别，确保设置生效
+- 🔄 **状态同步**：保存后自动同步前端界面，配置立即生效
+- 🎯 **用户体验**：修复设置丢失问题，提供可靠的配置管理
+- 📋 **技术改进**：统一使用Workspace配置目标，支持项目特定设置
 
 ### v1.2.5 (2025-01-19)
 - 🚀 **重大性能优化**：内存占用降低90%以上

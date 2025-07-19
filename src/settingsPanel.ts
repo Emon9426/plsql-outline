@@ -144,32 +144,35 @@ export class SettingsPanel {
         try {
             // 更新解析设置
             if (newConfig.parsing) {
-                await config.update('parsing.autoParseOnSave', newConfig.parsing.autoParseOnSave, vscode.ConfigurationTarget.Global);
-                await config.update('parsing.autoParseOnSwitch', newConfig.parsing.autoParseOnSwitch, vscode.ConfigurationTarget.Global);
-                await config.update('parsing.maxLines', newConfig.parsing.maxLines, vscode.ConfigurationTarget.Global);
-                await config.update('parsing.maxNestingDepth', newConfig.parsing.maxNestingDepth, vscode.ConfigurationTarget.Global);
-                await config.update('parsing.maxParseTime', newConfig.parsing.maxParseTime, vscode.ConfigurationTarget.Global);
+                await config.update('parsing.autoParseOnSave', newConfig.parsing.autoParseOnSave, vscode.ConfigurationTarget.Workspace);
+                await config.update('parsing.autoParseOnSwitch', newConfig.parsing.autoParseOnSwitch, vscode.ConfigurationTarget.Workspace);
+                await config.update('parsing.maxLines', newConfig.parsing.maxLines, vscode.ConfigurationTarget.Workspace);
+                await config.update('parsing.maxNestingDepth', newConfig.parsing.maxNestingDepth, vscode.ConfigurationTarget.Workspace);
+                await config.update('parsing.maxParseTime', newConfig.parsing.maxParseTime, vscode.ConfigurationTarget.Workspace);
             }
 
             // 更新视图设置
             if (newConfig.view) {
-                await config.update('view.showStructureBlocks', newConfig.view.showStructureBlocks, vscode.ConfigurationTarget.Global);
-                await config.update('view.expandByDefault', newConfig.view.expandByDefault, vscode.ConfigurationTarget.Global);
+                await config.update('view.showStructureBlocks', newConfig.view.showStructureBlocks, vscode.ConfigurationTarget.Workspace);
+                await config.update('view.expandByDefault', newConfig.view.expandByDefault, vscode.ConfigurationTarget.Workspace);
             }
 
             // 更新调试设置
             if (newConfig.debug) {
-                await config.update('debug.enabled', newConfig.debug.enabled, vscode.ConfigurationTarget.Global);
-                await config.update('debug.outputPath', newConfig.debug.outputPath, vscode.ConfigurationTarget.Global);
-                await config.update('debug.logLevel', newConfig.debug.logLevel, vscode.ConfigurationTarget.Global);
-                await config.update('debug.keepFiles', newConfig.debug.keepFiles, vscode.ConfigurationTarget.Global);
-                await config.update('debug.maxFiles', newConfig.debug.maxFiles, vscode.ConfigurationTarget.Global);
+                await config.update('debug.enabled', newConfig.debug.enabled, vscode.ConfigurationTarget.Workspace);
+                await config.update('debug.outputPath', newConfig.debug.outputPath, vscode.ConfigurationTarget.Workspace);
+                await config.update('debug.logLevel', newConfig.debug.logLevel, vscode.ConfigurationTarget.Workspace);
+                await config.update('debug.keepFiles', newConfig.debug.keepFiles, vscode.ConfigurationTarget.Workspace);
+                await config.update('debug.maxFiles', newConfig.debug.maxFiles, vscode.ConfigurationTarget.Workspace);
             }
 
             // 更新文件扩展名
             if (newConfig.fileExtensions) {
-                await config.update('fileExtensions', newConfig.fileExtensions, vscode.ConfigurationTarget.Global);
+                await config.update('fileExtensions', newConfig.fileExtensions, vscode.ConfigurationTarget.Workspace);
             }
+
+            // 保存成功后重新发送配置数据，确保前端状态同步
+            await this._sendConfig();
 
             this._panel.webview.postMessage({
                 type: 'updateSuccess',
@@ -189,19 +192,19 @@ export class SettingsPanel {
         
         try {
             // 重置为默认值
-            await config.update('parsing.autoParseOnSave', undefined, vscode.ConfigurationTarget.Global);
-            await config.update('parsing.autoParseOnSwitch', undefined, vscode.ConfigurationTarget.Global);
-            await config.update('parsing.maxLines', undefined, vscode.ConfigurationTarget.Global);
-            await config.update('parsing.maxNestingDepth', undefined, vscode.ConfigurationTarget.Global);
-            await config.update('parsing.maxParseTime', undefined, vscode.ConfigurationTarget.Global);
-            await config.update('view.showStructureBlocks', undefined, vscode.ConfigurationTarget.Global);
-            await config.update('view.expandByDefault', undefined, vscode.ConfigurationTarget.Global);
-            await config.update('debug.enabled', undefined, vscode.ConfigurationTarget.Global);
-            await config.update('debug.outputPath', undefined, vscode.ConfigurationTarget.Global);
-            await config.update('debug.logLevel', undefined, vscode.ConfigurationTarget.Global);
-            await config.update('debug.keepFiles', undefined, vscode.ConfigurationTarget.Global);
-            await config.update('debug.maxFiles', undefined, vscode.ConfigurationTarget.Global);
-            await config.update('fileExtensions', undefined, vscode.ConfigurationTarget.Global);
+            await config.update('parsing.autoParseOnSave', undefined, vscode.ConfigurationTarget.Workspace);
+            await config.update('parsing.autoParseOnSwitch', undefined, vscode.ConfigurationTarget.Workspace);
+            await config.update('parsing.maxLines', undefined, vscode.ConfigurationTarget.Workspace);
+            await config.update('parsing.maxNestingDepth', undefined, vscode.ConfigurationTarget.Workspace);
+            await config.update('parsing.maxParseTime', undefined, vscode.ConfigurationTarget.Workspace);
+            await config.update('view.showStructureBlocks', undefined, vscode.ConfigurationTarget.Workspace);
+            await config.update('view.expandByDefault', undefined, vscode.ConfigurationTarget.Workspace);
+            await config.update('debug.enabled', undefined, vscode.ConfigurationTarget.Workspace);
+            await config.update('debug.outputPath', undefined, vscode.ConfigurationTarget.Workspace);
+            await config.update('debug.logLevel', undefined, vscode.ConfigurationTarget.Workspace);
+            await config.update('debug.keepFiles', undefined, vscode.ConfigurationTarget.Workspace);
+            await config.update('debug.maxFiles', undefined, vscode.ConfigurationTarget.Workspace);
+            await config.update('fileExtensions', undefined, vscode.ConfigurationTarget.Workspace);
 
             await this._sendConfig();
             
@@ -240,7 +243,7 @@ export class SettingsPanel {
 
         try {
             const updatedExtensions = [...currentExtensions, extension.toLowerCase()];
-            await config.update('fileExtensions', updatedExtensions, vscode.ConfigurationTarget.Global);
+            await config.update('fileExtensions', updatedExtensions, vscode.ConfigurationTarget.Workspace);
             
             await this._sendConfig();
             
@@ -263,7 +266,7 @@ export class SettingsPanel {
         
         try {
             const updatedExtensions = currentExtensions.filter(ext => ext !== extension);
-            await config.update('fileExtensions', updatedExtensions, vscode.ConfigurationTarget.Global);
+            await config.update('fileExtensions', updatedExtensions, vscode.ConfigurationTarget.Workspace);
             
             await this._sendConfig();
             
@@ -285,7 +288,7 @@ export class SettingsPanel {
         const currentValue = config.get('debug.enabled', false);
         
         try {
-            await config.update('debug.enabled', !currentValue, vscode.ConfigurationTarget.Global);
+            await config.update('debug.enabled', !currentValue, vscode.ConfigurationTarget.Workspace);
             await this._sendConfig();
             
             this._panel.webview.postMessage({
