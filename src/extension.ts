@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { PLSQLParser } from './parser';
 import { TreeViewManager } from './treeView';
 import { DataBridge, DataProviderFactory } from './debug';
-import { ParseResult } from './types';
+import { ParseResult, ParseNode } from './types';
 import { SettingsPanel } from './settingsPanel';
 
 /**
@@ -110,10 +110,16 @@ export class PLSQLOutlineExtension {
             (event) => this.onConfigurationChanged(event)
         );
 
+        // 监听光标位置变化
+        const cursorPositionListener = vscode.window.onDidChangeTextEditorSelection(
+            (event) => this.onCursorPositionChanged(event)
+        );
+
         context.subscriptions.push(
             activeEditorListener,
             documentSaveListener,
-            configurationListener
+            configurationListener,
+            cursorPositionListener
         );
     }
 
@@ -251,6 +257,101 @@ export class PLSQLOutlineExtension {
             // 刷新树视图
             this.treeViewManager.refresh();
         }
+    }
+
+    /**
+     * 光标位置变化处理
+     */
+    private async onCursorPositionChanged(event: vscode.TextEditorSelectionChangeEvent): Promise<void> {
+        const editor = event.textEditor;
+        
+        // 检查是否为PL/SQL文件
+        if (!this.isPLSQLFile(editor.document)) {
+            return;
+        }
+
+        // 检查是否有解析结果
+        if (!this.currentParseResult) {
+            return;
+        }
+
+        // 检查配置是否启用自动选中
+        const config = vscode.workspace.getConfiguration('plsql-outline');
+        const autoSelectOnCursor = config.get('view.autoSelectOnCursor', true);
+        
+        if (!autoSelectOnCursor) {
+            return;
+        }
+
+        // 获取当前光标位置（行号，从1开始）
+        const currentLine = event.selections[0].active.line + 1;
+        
+        // 查找对应的节点
+        const targetNode = this.findNodeByLine(this.currentParseResult.nodes, currentLine);
+        
+        if (targetNode) {
+            // 在大纲视图中选中对应的节点
+            await this.treeViewManager.selectAndRevealNode(targetNode);
+        }
+    }
+
+    /**
+     * 根据行号查找节点
+     */
+    private findNodeByLine(nodes: ParseNode[], line: number): ParseNode | null {
+        for (const node of nodes) {
+            // 检查当前节点的行号范围
+            if (this.isLineInNode(node, line)) {
+                // 先检查子节点，优先选择更具体的节点
+                const childNode = this.findNodeByLine(node.children, line);
+                if (childNode) {
+                    return childNode;
+                }
+                // 如果子节点中没有找到，返回当前节点
+                return node;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 检查行号是否在节点范围内
+     */
+    private isLineInNode(node: ParseNode, line: number): boolean {
+        // 节点的开始行是声明行
+        const startLine = node.declarationLine;
+        
+        // 节点的结束行是endLine，如果没有则使用声明行
+        let endLine = node.endLine || startLine;
+        
+        // 如果有子节点，结束行应该包含所有子节点
+        if (node.children.length > 0) {
+            const lastChild = this.getLastChildNode(node);
+            const lastChildEndLine = lastChild.endLine || lastChild.declarationLine;
+            endLine = Math.max(endLine, lastChildEndLine);
+        }
+        
+        return line >= startLine && line <= endLine;
+    }
+
+    /**
+     * 获取最后一个子节点（递归）
+     */
+    private getLastChildNode(node: ParseNode): ParseNode {
+        if (node.children.length === 0) {
+            return node;
+        }
+        
+        // 找到声明行最大的子节点
+        let lastChild = node.children[0];
+        for (const child of node.children) {
+            if (child.declarationLine > lastChild.declarationLine) {
+                lastChild = child;
+            }
+        }
+        
+        // 递归查找最后的子节点
+        return this.getLastChildNode(lastChild);
     }
 
     /**

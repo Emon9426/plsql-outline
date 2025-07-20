@@ -2,8 +2,8 @@
   "name": "plsql-outline",
   "displayName": "PL/SQL Outline",
   "description": "PL/SQL代码结构解析器和大纲视图",
-  "version": "1.3.0",
-  "publisher": "plsql-outline",
+  "version": "1.4.0",
+  "publisher": "EmonZhang3438",
   "icon": "res/Icon.png",
   "engines": {
     "vscode": "^1.74.0"
@@ -244,6 +244,11 @@
           "type": "boolean",
           "default": true,
           "description": "默认展开树节点"
+        },
+        "plsql-outline.view.autoSelectOnCursor": {
+          "type": "boolean",
+          "default": true,
+          "description": "当光标位置改变时自动选中对应的大纲节点"
         },
         "plsql-outline.debug.enabled": {
           "type": "boolean",

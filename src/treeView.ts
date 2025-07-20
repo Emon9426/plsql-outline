@@ -1050,6 +1050,34 @@ export class TreeViewManager {
     }
 
     /**
+     * 选中并展开到指定节点
+     */
+    async selectAndRevealNode(targetNode: ParseNode): Promise<void> {
+        try {
+            // 创建对应的TreeItemData
+            const treeItemData: TreeItemData = {
+                node: targetNode,
+                isStructureBlock: false,
+                label: `${targetNode.name} (${this.getNodeTypeDisplayName(targetNode.type)})`,
+                line: targetNode.declarationLine
+            };
+
+            // 使用reveal API选中并展开到节点
+            await this.treeView.reveal(treeItemData, {
+                select: true,
+                focus: false,
+                expand: true
+            });
+
+            this.outputChannel.appendLine(`已选中节点: ${targetNode.name} (第${targetNode.declarationLine}行)`);
+
+        } catch (error) {
+            this.outputChannel.appendLine(`选中节点失败: ${error}`);
+            // 不显示错误消息，避免干扰用户
+        }
+    }
+
+    /**
      * 销毁资源
      */
     dispose(): void {
