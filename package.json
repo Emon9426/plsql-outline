@@ -2,7 +2,7 @@
   "name": "plsql-outline",
   "displayName": "PL/SQL Outline",
   "description": "PL/SQL代码结构解析器和大纲视图",
-  "version": "1.4.0",
+  "version": "1.4.6",
   "publisher": "EmonZhang3438",
   "icon": "res/Icon.png",
   "engines": {

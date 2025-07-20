@@ -1,5 +1,7 @@
 # PL/SQL Outline
 
+**语言 / Language:** [中文](#plsql-outline) | [English](#plsql-outline-english)
+
 一个强大的 Visual Studio Code 扩展，为 PL/SQL 代码提供智能结构解析和大纲视图功能。
 
 ![PL/SQL Outline](res/Icon.png)
@@ -409,6 +411,22 @@ A:
 
 ## 🔄 更新日志
 
+### v1.4.6 (2025-01-20)
+- 🔧 **智能调试控制**：只有在启用调试模式时才输出调试信息
+- 🎯 **用户体验优化**：默认状态下控制台保持清洁，无调试输出
+- 📊 **统一日志格式**：所有调试输出使用 `[PL/SQL Outline Debug]` 前缀
+- ⚙️ **实时配置生效**：调试模式开关立即生效，无需重启扩展
+- 🚀 **性能提升**：减少不必要的字符串处理和控制台输出开销
+- 🛠️ **保留重要日志**：扩展激活、停用等关键信息始终输出
+
+### v1.4.5 (2025-01-20)
+- 🔧 **重大改进**：完全重新设计光标同步算法
+- ✅ **新增**：候选收集机制，确保找到最佳匹配
+- 📊 **新增**：优先级系统，精确匹配优先于范围匹配
+- 🎯 **修复**：严格按照实际行号进行匹配
+- 🚀 **优化**：单次遍历收集候选项，提高性能
+- 📝 **原则**：精确性、可预测性、性能优化
+
 ### v1.3.0 (2025-01-19)
 - 🔧 **重大修复**：设置页面保存功能完全修复
 - ⚙️ **配置优化**：所有配置现在保存到工作区级别，确保设置生效
@@ -479,3 +497,505 @@ A:
 ---
 
 **享受使用 PL/SQL Outline！** 🎉
+
+---
+
+# PL/SQL Outline (English)
+
+A powerful Visual Studio Code extension that provides intelligent structure parsing and outline view functionality for PL/SQL code.
+
+![PL/SQL Outline](res/Icon.png)
+
+## 🚀 Features
+
+### 📋 Code Structure Parsing
+- **Intelligent Parsing**: Automatically identifies packages, functions, procedures, triggers, and other structures in PL/SQL code
+- **Multi-level Nesting**: Supports parsing of complex nested structures
+- **Real-time Updates**: Automatically re-parses when files are saved or switched
+- **Error Handling**: Provides detailed parsing errors and warning information
+
+### 🌳 Outline View
+- **Hierarchical Structure**: Clearly displays the hierarchical relationships of code
+- **Quick Navigation**: Click nodes to jump directly to corresponding code lines
+- **Structure Block Display**: Optional display of BEGIN, EXCEPTION, END and other structure blocks
+- **Smart Sorting**: Displays information in order of level, child count, and line number
+
+### 🔧 Configurable File Support
+- **Custom Extensions**: Supports user-defined file extension lists
+- **Default Support**: `.sql`, `.fnc`, `.fcn`, `.prc`, `.pks`, `.pkb`, `.typ`
+- **Dynamic Management**: Add, remove, or reset file extensions at any time
+
+### 🎛️ Rich Operation Features
+- **One-click Expand/Collapse**: Quickly expand or collapse all nodes
+- **Refresh Function**: Manually refresh parsing results
+- **Statistics**: View detailed parsing statistics
+- **Result Export**: Export parsing results in JSON format
+
+## 📦 Installation
+
+### Method 1: Install from VS Code Extension Marketplace (Recommended)
+
+1. **Open Visual Studio Code**
+2. **Open Extensions Panel**:
+   - Press `Ctrl+Shift+X` (Windows/Linux)
+   - Or press `Cmd+Shift+X` (macOS)
+   - Or click the Extensions icon 🧩 in the left activity bar
+3. **Search Extension**: Type "PL/SQL Outline" in the search box
+4. **Install Extension**: Find "PL/SQL Outline" extension and click "Install" button
+5. **Reload**: VS Code will automatically reload after installation
+
+### Method 2: Install from VSIX File
+
+If you have a local VSIX file, you can install it as follows:
+
+#### Install via Command Line
+```bash
+# Install latest version v1.4.6
+code --install-extension plsql-outline-1.4.6.vsix
+
+# If code command is not available, add to PATH first or use full path
+"C:\Program Files\Microsoft VS Code\bin\code.cmd" --install-extension plsql-outline-1.4.6.vsix
+```
+
+#### Install via VS Code Interface
+1. **Open Command Palette**: Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS)
+2. **Enter Command**: Type "Extensions: Install from VSIX..."
+3. **Select File**: Browse and select `plsql-outline-1.4.6.vsix` file
+4. **Confirm Installation**: Click "Install" button
+5. **Reload**: Reload VS Code after installation
+
+#### Install via Extensions Panel
+1. **Open Extensions Panel**: Press `Ctrl+Shift+X`
+2. **Click Menu**: Click "..." menu in the top-right corner of extensions panel
+3. **Select Option**: Choose "Install from VSIX..."
+4. **Select File**: Browse and select VSIX file
+5. **Complete Installation**: Wait for installation to complete
+
+### Method 3: Developer Installation
+
+If you want to install from source code or for development:
+
+```bash
+# 1. Clone repository
+git clone https://github.com/Emon9426/plsql-outline.git
+cd plsql-outline
+
+# 2. Install dependencies
+npm install
+
+# 3. Compile project
+npm run compile
+
+# 4. Package extension
+npm run package
+
+# 5. Install generated VSIX file
+code --install-extension plsql-outline-1.4.6.vsix
+```
+
+### Installation Verification
+
+After installation, you can verify the extension is correctly installed:
+
+1. **Check Extension List**:
+   - Open Extensions panel (`Ctrl+Shift+X`)
+   - Look for "PL/SQL Outline" in installed extensions
+   - Confirm status shows "Enabled"
+
+2. **Check Activity Bar**:
+   - PL/SQL Outline icon 📋 should appear in VS Code left activity bar
+   - Clicking the icon should display "PLSQL Outline" panel
+
+3. **Test Functionality**:
+   - Open any `.sql`, `.pks`, `.pkb` PL/SQL file
+   - Extension should automatically parse the file and display structure in outline panel
+
+### System Requirements
+
+- **VS Code Version**: 1.74.0 or higher
+- **Operating System**: Windows, macOS, Linux
+- **Node.js**: Only required for development (not needed for user installation)
+
+### Supported File Types
+
+Extension supports the following file extensions by default:
+- `.sql` - SQL script files
+- `.fnc` - Function files  
+- `.fcn` - Function files (alternative extension)
+- `.prc` - Procedure files
+- `.pks` - Package specification files
+- `.pkb` - Package body files
+- `.typ` - Type definition files
+
+### Installation Troubleshooting
+
+**Q: Don't see extension icon after installation?**
+A: 
+1. Restart VS Code
+2. Check if extension is enabled
+3. Confirm VS Code version meets requirements
+
+**Q: VSIX file installation failed?**
+A:
+1. Confirm file integrity (file size should be about 900KB)
+2. Check VS Code version compatibility
+3. Try running VS Code with administrator privileges
+
+**Q: Extension doesn't work after installation?**
+A:
+1. Open PL/SQL file to test
+2. Check if file extension is supported
+3. View error information in VS Code output panel
+4. Try reinstalling the extension
+
+## 🎯 Usage Guide
+
+### Basic Usage
+
+1. **Open PL/SQL File**: Open any supported PL/SQL file
+2. **View Outline**: Click PL/SQL Outline icon in activity bar
+3. **Auto Parse**: Extension will automatically parse current file and display structure
+4. **Navigate Code**: Click any node in outline to jump to corresponding code
+
+### Toolbar Buttons
+
+The outline view provides the following buttons at the top:
+
+| Button | Function | Description |
+|--------|----------|-------------|
+| 🔄 | Refresh | Re-parse current file |
+| 📄 | Parse Current File | Manually trigger parsing |
+| ⬇️ | Expand All | Expand all nodes in outline |
+| ⬆️ | Collapse All | Collapse all nodes in outline |
+| ⚙️ | Manage File Extensions | Configure supported file types |
+
+### Context Menu
+
+Right-click on outline nodes to:
+- **Go to Line**: Quickly locate to code position
+
+### Command Palette
+
+Press `Ctrl+Shift+P` to open command palette, available commands:
+
+- `PL/SQL Outline: Parse Current File`
+- `PL/SQL Outline: Refresh`
+- `PL/SQL Outline: Expand All`
+- `PL/SQL Outline: Collapse All`
+- `PL/SQL Outline: Toggle Structure Blocks`
+- `PL/SQL Outline: Toggle Debug Mode`
+- `PL/SQL Outline: Show Parse Statistics`
+- `PL/SQL Outline: Export Parse Result`
+- `PL/SQL Outline: Manage File Extensions`
+
+## ⚙️ Configuration Options
+
+### Parsing Settings
+
+```json
+{
+  "plsql-outline.parsing.autoParseOnSave": true,
+  "plsql-outline.parsing.autoParseOnSwitch": true,
+  "plsql-outline.parsing.maxLines": 50000,
+  "plsql-outline.parsing.maxNestingDepth": 20,
+  "plsql-outline.parsing.maxParseTime": 30000
+}
+```
+
+- `autoParseOnSave`: Auto parse when saving files
+- `autoParseOnSwitch`: Auto parse when switching to PL/SQL files
+- `maxLines`: Maximum parsing line limit (1000-200000)
+- `maxNestingDepth`: Maximum nesting depth limit (5-50)
+- `maxParseTime`: Maximum parsing time limit in milliseconds (5000-120000)
+
+### View Settings
+
+```json
+{
+  "plsql-outline.view.showStructureBlocks": true,
+  "plsql-outline.view.expandByDefault": true,
+  "plsql-outline.view.autoSelectOnCursor": true
+}
+```
+
+- `showStructureBlocks`: Show structure blocks (BEGIN, EXCEPTION, END) in tree view
+- `expandByDefault`: Expand tree nodes by default
+- `autoSelectOnCursor`: Auto select corresponding outline node when cursor position changes
+
+### File Extension Settings
+
+```json
+{
+  "plsql-outline.fileExtensions": [
+    ".sql",
+    ".fnc", 
+    ".fcn",
+    ".prc",
+    ".pks",
+    ".pkb",
+    ".typ"
+  ]
+}
+```
+
+### Debug Settings
+
+```json
+{
+  "plsql-outline.debug.enabled": false,
+  "plsql-outline.debug.outputPath": "${workspaceFolder}/.plsql-debug",
+  "plsql-outline.debug.logLevel": "INFO",
+  "plsql-outline.debug.keepFiles": true,
+  "plsql-outline.debug.maxFiles": 50
+}
+```
+
+## 🔧 File Extension Management
+
+### Management Interface
+
+Click the ⚙️ button in toolbar to:
+
+1. **Add Extension**: Enter new file extension (e.g., `.tbl`)
+2. **Remove Extension**: Select extension to remove from list
+3. **Reset to Default**: Restore to default extension list
+4. **View Current List**: Display all currently configured extensions
+
+### Adding New Extensions
+
+1. Click "Add Extension"
+2. Enter extension (must start with `.`)
+3. Confirm addition
+
+### Removing Extensions
+
+1. Click "Remove Extension"
+2. Select extension to remove from dropdown
+3. Confirm removal
+
+### Reset to Default
+
+Click "Reset to Default" to restore these default extensions:
+- `.sql` - SQL script files
+- `.fnc` - Function files
+- `.fcn` - Function files (alternative extension)
+- `.prc` - Procedure files
+- `.pks` - Package specification files
+- `.pkb` - Package body files
+- `.typ` - Type definition files
+
+## 📊 Supported PL/SQL Structures
+
+### Package Structures
+- **Package Header** (`.pks`): Package specifications
+- **Package Body** (`.pkb`): Package bodies
+
+### Subprograms
+- **Function**: Function definitions
+- **Procedure**: Procedure definitions
+- **Function Declaration**: Function declarations
+- **Procedure Declaration**: Procedure declarations
+
+### Other Structures
+- **Trigger**: Triggers
+- **Anonymous Block**: Anonymous blocks
+
+### Structure Blocks
+- **BEGIN**: Execution section start
+- **EXCEPTION**: Exception handling section
+- **END**: Structure end
+
+## 🎨 Outline View Description
+
+### Node Information Display
+
+Each node displays the following information (in order):
+1. **Level**: `L2`, `L3`, etc. (only shown for level 2 and above)
+2. **Child Count**: `3 children` (only shown when there are children)
+3. **Line Number**: `Line 15`
+
+### Icon Description
+
+| Icon | Type | Description |
+|------|------|-------------|
+| 📦 | Package | Package (Header/Body) |
+| 🔧 | Function | Function |
+| ⚙️ | Procedure | Procedure |
+| ⚡ | Trigger | Trigger |
+| 📄 | Anonymous Block | Anonymous Block |
+| ▶️ | BEGIN | Execution section start |
+| ⚠️ | EXCEPTION | Exception handling section |
+| ⏹️ | END | Structure end |
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Q: Why isn't my file being parsed?**
+A: Please check:
+1. File extension is in supported list
+2. Auto parsing is enabled
+3. File content is valid PL/SQL code
+
+**Q: How to add new file type support?**
+A: Use file extension management feature:
+1. Click ⚙️ button in toolbar
+2. Select "Add Extension"
+3. Enter new extension (e.g., `.tbl`)
+
+**Q: Parsing is slow, what to do?**
+A: You can adjust these settings:
+- Reduce `maxLines` limit
+- Reduce `maxNestingDepth` limit
+- Increase `maxParseTime` limit
+
+**Q: How to view parsing errors?**
+A: 
+1. Enable debug mode
+2. Use "Show Parse Statistics" command
+3. Check error information in output panel
+
+### Debug Mode
+
+Enable debug mode for more detailed information:
+
+1. **Enable Debug**:
+   - Use command palette: `Ctrl+Shift+P` → `PL/SQL Outline: Toggle Debug Mode`
+   - Or in settings: Set `plsql-outline.debug.enabled` to `true`
+
+2. **View Debug Information**:
+   - Open output panel: `View` → `Output`
+   - Select `PL/SQL Outline Debug` channel
+   - View real-time parsing process and error information
+
+3. **Debug Information Includes**:
+   - Parsing progress and statistics
+   - Expand/collapse operation details
+   - Error and warning information
+   - Performance metrics
+
+**Note**: Since v1.2.5, file logging has been removed. All debug information now outputs directly to VS Code output channel, which is more efficient and doesn't consume disk space.
+
+## 📈 Performance Optimization
+
+### v1.2.5 Major Performance Improvements
+
+This version underwent comprehensive performance optimization, significantly improving extension response speed and memory efficiency:
+
+#### 🚀 Memory Optimization
+- **90%+ Memory Usage Reduction**: Removed file logging system, switched to VS Code output channel
+- **LRU Cache Mechanism**: Intelligent cache management with automatic cleanup of expired data
+- **Memory Monitoring**: Real-time memory usage monitoring with automatic cleanup triggers
+- **Zero File I/O**: Eliminated all disk write operations, avoiding I/O blocking
+
+#### ⚡ Response Speed Improvement
+- **Instant Expansion**: Expand all function changed from unresponsive to instant response
+- **Asynchronous Processing**: All operations use async mode, no main thread blocking
+- **Batch Operations**: Optimized tree view update strategy, reduced redundant rendering
+
+#### 🛠️ Technical Improvements
+- **getParent Method**: Support for VS Code native reveal API
+- **Dual Expansion Strategy**: Force expand flag + reveal API ensures complete expansion
+- **Error Tolerance**: Single node failure doesn't affect overall operation
+
+### Large File Handling
+
+For large PL/SQL files:
+- Adjust `maxLines` setting (default 50000 lines)
+- Consider splitting oversized files
+- Enable memory monitoring feature
+
+### Memory Usage Recommendations
+
+- **Recommended Settings**: Keep default configuration for optimal performance
+- **Debug Mode**: Only enable when needed, disable promptly after use
+- **Cache Management**: Extension automatically manages cache, no manual intervention needed
+
+## 🔄 Changelog
+
+### v1.4.6 (2025-01-20)
+- 🔧 **Smart Debug Control**: Debug information only outputs when debug mode is enabled
+- 🎯 **User Experience Optimization**: Console stays clean by default with no debug output
+- 📊 **Unified Log Format**: All debug output uses `[PL/SQL Outline Debug]` prefix
+- ⚙️ **Real-time Configuration**: Debug mode toggle takes effect immediately without extension restart
+- 🚀 **Performance Improvement**: Reduced unnecessary string processing and console output overhead
+- 🛠️ **Preserve Important Logs**: Extension activation, deactivation and other critical information always output
+
+### v1.4.5 (2025-01-20)
+- 🔧 **Major Improvement**: Completely redesigned cursor synchronization algorithm
+- ✅ **New**: Candidate collection mechanism ensures finding the best match
+- 📊 **New**: Priority system with exact matches prioritized over range matches
+- 🎯 **Fix**: Strictly match based on actual line numbers
+- 🚀 **Optimization**: Single traversal candidate collection improves performance
+- 📝 **Principles**: Precision, predictability, performance optimization
+
+### v1.3.0 (2025-01-19)
+- 🔧 **Major Fix**: Settings page save functionality completely fixed
+- ⚙️ **Configuration Optimization**: All configurations now save to workspace level, ensuring settings take effect
+- 🔄 **State Synchronization**: Auto sync frontend interface after saving, configurations take effect immediately
+- 🎯 **User Experience**: Fixed settings loss issue, providing reliable configuration management
+- 📋 **Technical Improvement**: Unified use of Workspace configuration target, supporting project-specific settings
+
+### v1.2.5 (2025-01-19)
+- 🚀 **Major Performance Optimization**: Memory usage reduced by 90%+
+- 🔧 **Fix**: Expand all functionality completely rewritten, now correctly expands root nodes and all child nodes
+- 🗑️ **Removal**: Deleted complex file logging system, switched to VS Code output channel
+- ⚡ **Performance**: Eliminated file I/O blocking, significantly improved response speed
+- 🛠️ **Technical Improvement**: Added getParent method supporting VS Code reveal API
+- 📊 **Debug Optimization**: Real-time debug information output to VS Code output panel
+- 🧹 **Memory Management**: Implemented LRU cache mechanism with automatic memory cleanup
+
+### v1.1.0 (2025-01-19)
+- ✨ New: Configurable file extension support
+- ✨ New: One-click expand/collapse functionality
+- ✨ New: File extension management interface
+- 🎨 Improvement: Outline view display order (level-children-line)
+- 🎨 Improvement: View title changed to "PLSQL Outline"
+- 🔧 Fix: Updated project icon to Icon.png
+
+### v1.0.2 (2025-01-19)
+- 🐛 Fix: END IF/LOOP/CASE parsing errors
+- 🔧 Improvement: Control structure recognition logic
+- ✅ Test: Added regression test coverage
+
+### v1.0.1
+- 🐛 Fix: Parser stability issues
+- 📝 Documentation: Updated usage instructions
+
+### v1.0.0
+- 🎉 Initial release
+- ✨ Basic parsing functionality
+- 🌳 Outline view
+- ⚙️ Configuration options
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the project
+2. Create feature branch: `git checkout -b feature/AmazingFeature`
+3. Commit changes: `git commit -m 'Add some AmazingFeature'`
+4. Push branch: `git push origin feature/AmazingFeature`
+5. Create Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details.
+
+## 🔗 Related Links
+
+- [GitHub Repository](https://github.com/Emon9426/plsql-outline)
+- [Issue Tracker](https://github.com/Emon9426/plsql-outline/issues)
+- [Changelog](https://github.com/Emon9426/plsql-outline/releases)
+
+## 💡 Technical Support
+
+If you encounter issues or have suggestions, please:
+
+1. Check the troubleshooting section in this documentation
+2. Create an Issue on GitHub
+3. Provide detailed error information and reproduction steps
+
+---
+
+**Enjoy using PL/SQL Outline!** 🎉

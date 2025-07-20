@@ -21,6 +21,42 @@ export class PLSQLOutlineExtension {
     private parseCount: number = 0;
     private maxParseCount: number = 100; // 最大解析次数，超过后强制清理
 
+    /**
+     * 调试日志输出 - 只有在启用调试模式时才输出
+     */
+    private debugLog(message: string, ...args: any[]): void {
+        const config = vscode.workspace.getConfiguration('plsql-outline');
+        const debugEnabled = config.get('debug.enabled', false);
+        
+        if (debugEnabled) {
+            console.log(`[PL/SQL Outline Debug] ${message}`, ...args);
+        }
+    }
+
+    /**
+     * 调试警告输出 - 只有在启用调试模式时才输出
+     */
+    private debugWarn(message: string, ...args: any[]): void {
+        const config = vscode.workspace.getConfiguration('plsql-outline');
+        const debugEnabled = config.get('debug.enabled', false);
+        
+        if (debugEnabled) {
+            console.warn(`[PL/SQL Outline Debug] ${message}`, ...args);
+        }
+    }
+
+    /**
+     * 调试错误输出 - 只有在启用调试模式时才输出
+     */
+    private debugError(message: string, ...args: any[]): void {
+        const config = vscode.workspace.getConfiguration('plsql-outline');
+        const debugEnabled = config.get('debug.enabled', false);
+        
+        if (debugEnabled) {
+            console.error(`[PL/SQL Outline Debug] ${message}`, ...args);
+        }
+    }
+
     constructor(context: vscode.ExtensionContext) {
         this.parser = new PLSQLParser();
         this.treeViewManager = new TreeViewManager(context);
@@ -67,7 +103,7 @@ export class PLSQLOutlineExtension {
         const testExpandAllCommand = vscode.commands.registerCommand(
             'plsqlOutline.testExpandAll',
             () => {
-                console.log('测试展开所有命令被调用');
+                this.debugLog('测试展开所有命令被调用');
                 vscode.window.showInformationMessage('展开所有命令测试成功！');
             }
         );
@@ -76,7 +112,7 @@ export class PLSQLOutlineExtension {
         const expandAllCommand = vscode.commands.registerCommand(
             'plsqlOutline.expandAll',
             () => {
-                console.log('展开所有命令被调用，委托给TreeViewManager');
+                this.debugLog('展开所有命令被调用，委托给TreeViewManager');
                 return this.treeViewManager.expandAll();
             }
         );
@@ -272,6 +308,7 @@ export class PLSQLOutlineExtension {
 
         // 检查是否有解析结果
         if (!this.currentParseResult) {
+            this.debugLog('光标同步: 没有解析结果');
             return;
         }
 
@@ -280,19 +317,173 @@ export class PLSQLOutlineExtension {
         const autoSelectOnCursor = config.get('view.autoSelectOnCursor', true);
         
         if (!autoSelectOnCursor) {
+            this.debugLog('光标同步: 功能已禁用');
             return;
         }
 
         // 获取当前光标位置（行号，从1开始）
         const currentLine = event.selections[0].active.line + 1;
+        this.debugLog(`光标同步: 当前行号 ${currentLine}`);
         
-        // 查找对应的节点
-        const targetNode = this.findNodeByLine(this.currentParseResult.nodes, currentLine);
+        // 查找对应的目标（节点或结构块）
+        const target = this.findTargetByLine(this.currentParseResult.nodes, currentLine);
         
-        if (targetNode) {
-            // 在大纲视图中选中对应的节点
-            await this.treeViewManager.selectAndRevealNode(targetNode);
+        if (target) {
+            this.debugLog(`光标同步: 找到目标 - 类型: ${target.type}, 节点: ${target.node.name}, 块类型: ${target.blockType || 'N/A'}`);
+            // 在大纲视图中选中对应的目标
+            await this.treeViewManager.selectAndRevealTarget(target);
+        } else {
+            this.debugLog(`光标同步: 第${currentLine}行没有找到匹配的目标`);
+            // 输出调试信息
+            this.debugNodeRanges(this.currentParseResult.nodes, currentLine);
         }
+    }
+
+    /**
+     * 根据行号查找目标（节点或结构块）- 严格按照实际行号匹配
+     */
+    private findTargetByLine(nodes: ParseNode[], line: number): { type: 'node' | 'structureBlock', node: ParseNode, blockType?: string } | null {
+        // 首先收集所有可能的匹配项
+        const candidates: Array<{ node: ParseNode, blockType?: string, priority: number }> = [];
+        
+        // 递归收集所有匹配的节点和结构块
+        this.collectCandidates(nodes, line, candidates);
+        
+        if (candidates.length === 0) {
+            return null;
+        }
+        
+        // 按优先级排序（优先级越高越优先）
+        candidates.sort((a, b) => b.priority - a.priority);
+        
+        const bestCandidate = candidates[0];
+        
+        if (bestCandidate.blockType) {
+            return {
+                type: 'structureBlock',
+                node: bestCandidate.node,
+                blockType: bestCandidate.blockType
+            };
+        } else {
+            return {
+                type: 'node',
+                node: bestCandidate.node
+            };
+        }
+    }
+    
+    /**
+     * 收集候选匹配项
+     */
+    private collectCandidates(nodes: ParseNode[], line: number, candidates: Array<{ node: ParseNode, blockType?: string, priority: number }>): void {
+        for (const node of nodes) {
+            // 检查节点的声明行
+            if (node.declarationLine === line) {
+                candidates.push({
+                    node: node,
+                    priority: 1000 + node.level // 声明行优先级最高
+                });
+            }
+            
+            // 检查结构块的精确匹配
+            if (node.beginLine === line) {
+                candidates.push({
+                    node: node,
+                    blockType: 'BEGIN',
+                    priority: 900 + node.level // BEGIN块优先级很高
+                });
+            }
+            
+            if (node.exceptionLine === line) {
+                candidates.push({
+                    node: node,
+                    blockType: 'EXCEPTION',
+                    priority: 900 + node.level // EXCEPTION块优先级很高
+                });
+            }
+            
+            if (node.endLine === line) {
+                candidates.push({
+                    node: node,
+                    blockType: 'END',
+                    priority: 900 + node.level // END块优先级很高
+                });
+            }
+            
+            // 检查是否在节点的范围内（但不是精确匹配）
+            if (this.isLineInNodeRange(node, line) && 
+                node.declarationLine !== line && 
+                node.beginLine !== line && 
+                node.exceptionLine !== line && 
+                node.endLine !== line) {
+                
+                // 检查是否在特定结构块的范围内
+                const blockType = this.getStructureBlockTypeForRange(node, line);
+                if (blockType) {
+                    candidates.push({
+                        node: node,
+                        blockType: blockType,
+                        priority: 100 + node.level // 范围匹配优先级较低
+                    });
+                } else {
+                    candidates.push({
+                        node: node,
+                        priority: 50 + node.level // 节点范围匹配优先级最低
+                    });
+                }
+            }
+            
+            // 递归检查子节点
+            this.collectCandidates(node.children, line, candidates);
+        }
+    }
+    
+    /**
+     * 检查行号是否在节点范围内
+     */
+    private isLineInNodeRange(node: ParseNode, line: number): boolean {
+        const startLine = node.declarationLine;
+        let endLine = node.endLine || startLine;
+        
+        // 如果有子节点，结束行应该包含所有子节点
+        if (node.children.length > 0) {
+            const lastChild = this.getLastChildNode(node);
+            const lastChildEndLine = lastChild.endLine || lastChild.declarationLine;
+            endLine = Math.max(endLine, lastChildEndLine);
+        }
+        
+        return line >= startLine && line <= endLine;
+    }
+    
+    /**
+     * 获取行号在节点中对应的结构块类型（范围匹配）
+     */
+    private getStructureBlockTypeForRange(node: ParseNode, line: number): string | null {
+        // 检查是否在BEGIN块范围内
+        if (node.beginLine !== null && node.beginLine !== undefined && line > node.beginLine) {
+            // 如果有EXCEPTION行，检查是否在BEGIN和EXCEPTION之间
+            if (node.exceptionLine !== null && node.exceptionLine !== undefined) {
+                if (line < node.exceptionLine) {
+                    return 'BEGIN';
+                }
+            } else if (node.endLine !== null && node.endLine !== undefined) {
+                // 没有EXCEPTION行但有END行，检查是否在BEGIN和END之间
+                if (line < node.endLine) {
+                    return 'BEGIN';
+                }
+            }
+        }
+        
+        // 检查是否在EXCEPTION块范围内
+        if (node.exceptionLine !== null && node.exceptionLine !== undefined && line > node.exceptionLine) {
+            if (node.endLine !== null && node.endLine !== undefined) {
+                if (line < node.endLine) {
+                    return 'EXCEPTION';
+                }
+            }
+        }
+        
+        return null;
     }
 
     /**
@@ -311,6 +502,53 @@ export class PLSQLOutlineExtension {
                 return node;
             }
         }
+        return null;
+    }
+
+    /**
+     * 获取结构块类型
+     */
+    private getStructureBlockType(node: ParseNode, line: number): string | null {
+        // 检查是否在END行
+        if (node.endLine !== null && node.endLine !== undefined && line === node.endLine) {
+            return 'END';
+        }
+        
+        // 检查是否在EXCEPTION块中
+        if (node.exceptionLine !== null && node.exceptionLine !== undefined) {
+            if (line >= node.exceptionLine) {
+                // 如果有END行，检查是否在EXCEPTION和END之间
+                if (node.endLine !== null && node.endLine !== undefined) {
+                    if (line < node.endLine) {
+                        return 'EXCEPTION';
+                    }
+                } else {
+                    // 没有END行，从EXCEPTION行开始都算EXCEPTION块
+                    return 'EXCEPTION';
+                }
+            }
+        }
+        
+        // 检查是否在BEGIN块中
+        if (node.beginLine !== null && node.beginLine !== undefined) {
+            if (line >= node.beginLine) {
+                // 如果有EXCEPTION行，检查是否在BEGIN和EXCEPTION之间
+                if (node.exceptionLine !== null && node.exceptionLine !== undefined) {
+                    if (line < node.exceptionLine) {
+                        return 'BEGIN';
+                    }
+                } else if (node.endLine !== null && node.endLine !== undefined) {
+                    // 没有EXCEPTION行但有END行，检查是否在BEGIN和END之间
+                    if (line < node.endLine) {
+                        return 'BEGIN';
+                    }
+                } else {
+                    // 没有EXCEPTION行也没有END行，从BEGIN行开始都算BEGIN块
+                    return 'BEGIN';
+                }
+            }
+        }
+        
         return null;
     }
 
@@ -352,6 +590,41 @@ export class PLSQLOutlineExtension {
         
         // 递归查找最后的子节点
         return this.getLastChildNode(lastChild);
+    }
+
+    /**
+     * 调试节点范围信息
+     */
+    private debugNodeRanges(nodes: ParseNode[], targetLine: number, level: number = 0): void {
+        const indent = '  '.repeat(level);
+        for (const node of nodes) {
+            const startLine = node.declarationLine;
+            let endLine = node.endLine || startLine;
+            
+            // 如果有子节点，结束行应该包含所有子节点
+            if (node.children.length > 0) {
+                const lastChild = this.getLastChildNode(node);
+                const lastChildEndLine = lastChild.endLine || lastChild.declarationLine;
+                endLine = Math.max(endLine, lastChildEndLine);
+            }
+            
+            const inRange = targetLine >= startLine && targetLine <= endLine;
+            this.debugLog(`${indent}节点: ${node.name} (${node.type}) - 行范围: ${startLine}-${endLine} - 包含第${targetLine}行: ${inRange}`);
+            
+            if (node.beginLine) {
+                this.debugLog(`${indent}  BEGIN: ${node.beginLine}`);
+            }
+            if (node.exceptionLine) {
+                this.debugLog(`${indent}  EXCEPTION: ${node.exceptionLine}`);
+            }
+            if (node.endLine) {
+                this.debugLog(`${indent}  END: ${node.endLine}`);
+            }
+            
+            if (node.children.length > 0) {
+                this.debugNodeRanges(node.children, targetLine, level + 1);
+            }
+        }
     }
 
     /**
@@ -514,16 +787,16 @@ export class PLSQLOutlineExtension {
                 const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
                 const heapTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
                 
-                console.log(`内存使用情况: ${heapUsedMB}MB / ${heapTotalMB}MB`);
+                this.debugLog(`内存使用情况: ${heapUsedMB}MB / ${heapTotalMB}MB`);
                 
                 // 如果堆内存使用超过200MB，触发清理
                 if (heapUsedMB > 200) {
-                    console.warn('内存使用过高，触发清理');
+                    this.debugWarn('内存使用过高，触发清理');
                     this.performMemoryCleanup();
                 }
             }
         } catch (error) {
-            console.error('内存检查失败:', error);
+            this.debugError('内存检查失败:', error);
         }
     }
 
@@ -532,7 +805,7 @@ export class PLSQLOutlineExtension {
      */
     private async performMemoryCleanup(): Promise<void> {
         try {
-            console.log('开始内存清理...');
+            this.debugLog('开始内存清理...');
             
             // 清理解析结果
             this.currentParseResult = null;
@@ -545,13 +818,13 @@ export class PLSQLOutlineExtension {
             // 强制垃圾回收（如果可用）
             if (global.gc) {
                 global.gc();
-                console.log('已执行垃圾回收');
+                this.debugLog('已执行垃圾回收');
             }
             
-            console.log('内存清理完成');
+            this.debugLog('内存清理完成');
             
         } catch (error) {
-            console.error('内存清理失败:', error);
+            this.debugError('内存清理失败:', error);
         }
     }
 
@@ -590,6 +863,7 @@ let extensionInstance: PLSQLOutlineExtension | undefined;
  * 扩展激活函数
  */
 export function activate(context: vscode.ExtensionContext): void {
+    // 扩展激活日志始终输出，不受调试模式控制
     console.log('PL/SQL Outline 扩展正在激活...');
 
     try {
@@ -615,6 +889,7 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         );
 
+        // 扩展激活成功日志始终输出
         console.log('PL/SQL Outline 扩展激活成功');
 
         // 如果当前有活动的PL/SQL文件，自动解析
@@ -636,6 +911,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : '未知错误';
+        // 错误日志始终输出
         console.error('PL/SQL Outline 扩展激活失败:', errorMessage);
         vscode.window.showErrorMessage(`PL/SQL Outline 扩展激活失败: ${errorMessage}`);
     }
@@ -645,6 +921,7 @@ export function activate(context: vscode.ExtensionContext): void {
  * 扩展停用函数
  */
 export function deactivate(): void {
+    // 扩展停用日志始终输出，不受调试模式控制
     console.log('PL/SQL Outline 扩展正在停用...');
     
     if (extensionInstance) {

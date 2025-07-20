@@ -1050,6 +1050,55 @@ export class TreeViewManager {
     }
 
     /**
+     * 选中并展开到指定目标（节点或结构块）
+     */
+    async selectAndRevealTarget(target: { type: 'node' | 'structureBlock', node: ParseNode, blockType?: string }): Promise<void> {
+        try {
+            let treeItemData: TreeItemData;
+
+            if (target.type === 'structureBlock' && target.blockType) {
+                // 创建结构块的TreeItemData
+                const structureBlockType = this.getStructureBlockTypeEnum(target.blockType);
+                const blockLine = this.getStructureBlockLine(target.node, target.blockType);
+                
+                treeItemData = {
+                    structureBlock: {
+                        type: structureBlockType,
+                        line: blockLine,
+                        parentNode: target.node
+                    },
+                    isStructureBlock: true,
+                    label: target.blockType,
+                    line: blockLine
+                };
+
+                this.outputChannel.appendLine(`已选中结构块: ${target.blockType} (第${blockLine}行)`);
+            } else {
+                // 创建节点的TreeItemData
+                treeItemData = {
+                    node: target.node,
+                    isStructureBlock: false,
+                    label: `${target.node.name} (${this.getNodeTypeDisplayName(target.node.type)})`,
+                    line: target.node.declarationLine
+                };
+
+                this.outputChannel.appendLine(`已选中节点: ${target.node.name} (第${target.node.declarationLine}行)`);
+            }
+
+            // 使用reveal API选中并展开到目标
+            await this.treeView.reveal(treeItemData, {
+                select: true,
+                focus: false,
+                expand: true
+            });
+
+        } catch (error) {
+            this.outputChannel.appendLine(`选中目标失败: ${error}`);
+            // 不显示错误消息，避免干扰用户
+        }
+    }
+
+    /**
      * 选中并展开到指定节点
      */
     async selectAndRevealNode(targetNode: ParseNode): Promise<void> {
@@ -1074,6 +1123,38 @@ export class TreeViewManager {
         } catch (error) {
             this.outputChannel.appendLine(`选中节点失败: ${error}`);
             // 不显示错误消息，避免干扰用户
+        }
+    }
+
+    /**
+     * 获取结构块类型枚举
+     */
+    private getStructureBlockTypeEnum(blockType: string): StructureBlockType {
+        switch (blockType) {
+            case 'BEGIN':
+                return StructureBlockType.BEGIN;
+            case 'EXCEPTION':
+                return StructureBlockType.EXCEPTION;
+            case 'END':
+                return StructureBlockType.END;
+            default:
+                return StructureBlockType.BEGIN;
+        }
+    }
+
+    /**
+     * 获取结构块对应的行号
+     */
+    private getStructureBlockLine(node: ParseNode, blockType: string): number {
+        switch (blockType) {
+            case 'BEGIN':
+                return node.beginLine || node.declarationLine;
+            case 'EXCEPTION':
+                return node.exceptionLine || node.declarationLine;
+            case 'END':
+                return node.endLine || node.declarationLine;
+            default:
+                return node.declarationLine;
         }
     }
 
