@@ -9,7 +9,42 @@ export enum NodeType {
     FUNCTION_DECLARATION = 'FUNCTION_DECLARATION',
     PROCEDURE_DECLARATION = 'PROCEDURE_DECLARATION',
     TRIGGER = 'TRIGGER',
-    ANONYMOUS_BLOCK = 'ANONYMOUS_BLOCK'
+    ANONYMOUS_BLOCK = 'ANONYMOUS_BLOCK',
+    // 控制结构类型
+    IF_STATEMENT = 'IF_STATEMENT',
+    ELSIF_BRANCH = 'ELSIF_BRANCH',
+    ELSE_BRANCH = 'ELSE_BRANCH',
+    LOOP_STATEMENT = 'LOOP_STATEMENT',
+    WHILE_LOOP = 'WHILE_LOOP',
+    FOR_LOOP = 'FOR_LOOP',
+    CASE_STATEMENT = 'CASE_STATEMENT',
+    WHEN_BRANCH = 'WHEN_BRANCH'
+}
+
+/**
+ * 声明项类别（用于大纲视图按类别分组展示）
+ */
+export enum DeclarationCategory {
+    VARIABLE = 'variable',
+    CURSOR = 'cursor',
+    CONSTANT = 'constant',
+    TYPE = 'type',
+    EXCEPTION = 'exception'
+}
+
+/**
+ * 变量信息接口
+ * - type: 原始类型字符串（如 NUMBER、CURSOR、EXCEPTION、IS RECORD(...)）
+ * - category: 规范化类别，供大纲分组使用
+ */
+export interface VariableInfo {
+    name: string;
+    line: number;
+    type: string;
+    scope: string;
+    category: DeclarationCategory;
+    /** 可选：常量/带初值变量的初值文本，如 '0'、'''N''' */
+    initialValue?: string;
 }
 
 /**
@@ -20,6 +55,16 @@ export enum StructureBlockType {
     EXCEPTION = 'EXCEPTION',
     END = 'END',
     PACKAGE_INITIALIZATION = 'Package Initialization'
+}
+
+/**
+ * 分区类型（用于树视图分组）
+ */
+export enum SectionType {
+    DECLARE = 'DECLARE',
+    BODY = 'BODY',
+    EXCEPTION = 'EXCEPTION',
+    END = 'END'
 }
 
 /**
@@ -34,6 +79,8 @@ export interface ParseNode {
     endLine?: number | null;
     level: number;
     children: ParseNode[];
+    variableTable?: Map<string, VariableInfo>;
+    conditionText?: string;  // 控制结构的条件文本
 }
 
 /**
@@ -165,4 +212,16 @@ export interface TreeItemData {
     isStructureBlock: boolean;
     label: string;
     line?: number;
+    // 分区分组
+    isSection?: boolean;
+    sectionType?: SectionType;
+    sectionChildren?: ParseNode[];
+    mergedChildren?: ParseNode[];  // IF合并后的子节点
+    parentNode?: ParseNode;        // 分区节点的父引用
+    // 声明项分组（DECLARE 区域内按类别分组：Variables/Cursors/Constants/Types/Exceptions）
+    isDeclarationGroup?: boolean;
+    declarationCategory?: DeclarationCategory;
+    declarationEntries?: VariableInfo[];  // 该分组下的声明项
+    isDeclarationEntry?: boolean;
+    declarationEntry?: VariableInfo;       // 单个声明项（叶节点）
 }

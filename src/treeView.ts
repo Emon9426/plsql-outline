@@ -1,11 +1,14 @@
 import * as vscode from 'vscode';
-import { 
-    ParseResult, 
-    ParseNode, 
-    NodeType, 
-    StructureBlock, 
-    StructureBlockType, 
-    TreeItemData 
+import {
+    ParseResult,
+    ParseNode,
+    NodeType,
+    StructureBlock,
+    StructureBlockType,
+    TreeItemData,
+    SectionType,
+    VariableInfo,
+    DeclarationCategory
 } from './types';
 import { IDataProvider } from './debug';
 /**
@@ -19,6 +22,9 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     private showStructureBlocks: boolean = true;
     private defaultCollapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.Expanded;
     private forceExpandAll: boolean = false; // 新增：强制展开所有节点的标志
+    // 声明项展示配置
+    private showDeclarations: boolean = true;
+    private groupDeclarations: boolean = true;
     
     // 内存优化相关
     private treeItemCache: Map<string, vscode.TreeItem> = new Map();
@@ -39,6 +45,8 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     private loadConfiguration(): void {
         const config = vscode.workspace.getConfiguration('plsql-outline');
         this.showStructureBlocks = config.get('view.showStructureBlocks', true);
+        this.showDeclarations = config.get('view.showDeclarations', true);
+        this.groupDeclarations = config.get('view.groupDeclarations', true);
     }
 
     /**
@@ -109,8 +117,14 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         
         // 创建新的树项
         let treeItem: vscode.TreeItem;
-        if (element.isStructureBlock) {
+        if (element.isSection) {
+            treeItem = this.createSectionTreeItem(element);
+        } else if (element.isStructureBlock) {
             treeItem = this.createStructureBlockTreeItem(element);
+        } else if (element.isDeclarationGroup) {
+            treeItem = this.createDeclarationGroupTreeItem(element);
+        } else if (element.isDeclarationEntry && element.declarationEntry) {
+            treeItem = this.createDeclarationEntryTreeItem(element);
         } else {
             treeItem = this.createNodeTreeItem(element);
         }
@@ -125,8 +139,14 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
      * 生成缓存键
      */
     private generateCacheKey(element: TreeItemData): string {
-        if (element.isStructureBlock && element.structureBlock) {
+        if (element.isSection && element.sectionType) {
+            return `section_${element.sectionType}_${element.parentNode?.name}_${element.parentNode?.declarationLine}`;
+        } else if (element.isStructureBlock && element.structureBlock) {
             return `block_${element.structureBlock.type}_${element.structureBlock.line}_${element.structureBlock.parentNode.name}`;
+        } else if (element.isDeclarationGroup && element.declarationCategory) {
+            return `declgroup_${element.declarationCategory}_${element.parentNode?.name}_${element.parentNode?.declarationLine}`;
+        } else if (element.isDeclarationEntry && element.declarationEntry) {
+            return `declentry_${element.declarationEntry.name}_${element.declarationEntry.line}_${element.declarationEntry.scope}`;
         } else if (element.node) {
             return `node_${element.node.type}_${element.node.name}_${element.node.declarationLine}_${element.node.level}`;
         }
@@ -152,6 +172,28 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             if (!element) {
                 // 根级别：返回所有顶层节点
                 return this.createTreeItemsFromNodes(parseResult.nodes);
+            } else if (element.isSection) {
+                // 分区级别：返回分区内的子项
+                return this.createSectionChildItems(element);
+            } else if (element.isDeclarationGroup && element.declarationEntries) {
+                // 声明类别分组：展开其下的声明项
+                return element.declarationEntries.map(e => ({
+                    isStructureBlock: false,
+                    label: this.getDeclarationEntryLabel(e),
+                    line: e.line,
+                    isDeclarationEntry: true,
+                    declarationEntry: e
+                }));
+            } else if (element.mergedChildren && element.mergedChildren.length > 0) {
+                // 合并IF节点：渲染合并后的子控制结构
+                const merged = this.mergeIfGroups(element.mergedChildren);
+                return merged.map(item => ({
+                    node: item.node,
+                    isStructureBlock: false,
+                    mergedChildren: item.mergedChildren,
+                    label: this.getSimplifiedControlLabel(item.node!.type),
+                    line: item.node!.declarationLine
+                } as TreeItemData));
             } else if (!element.isStructureBlock && element.node) {
                 // 节点级别：返回子节点和结构块
                 return this.createChildItems(element.node);
@@ -256,39 +298,504 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 创建子项（包括子节点和结构块）- 内存优化版本
+     * 创建子项 - 分区组织版本
      */
     private createChildItems(node: ParseNode): TreeItemData[] {
-        const childrenCount = node.children ? node.children.length : 0;
-        const hasStructureBlocks = this.showStructureBlocks && this.shouldShowStructureBlocks(node);
-        const structureBlocksCount = hasStructureBlocks ? this.countStructureBlocks(node) : 0;
-        
-        // 预分配数组大小
-        const items: TreeItemData[] = new Array(childrenCount + structureBlocksCount);
-        let index = 0;
-        
-        // 添加子节点
+        // 控制结构节点: 直接渲染子节点（简化标签，无分区）
+        if (this.isControlStructureType(node.type)) {
+            return this.createControlStructureChildren(node);
+        }
+
+        // Package Header: 直接渲染声明
+        if (node.type === NodeType.PACKAGE_HEADER) {
+            return this.createFlatChildren(node);
+        }
+
+        // 有代码体的节点(Function/Procedure/Trigger/Anonymous Block): 分区组织
+        if (this.shouldUseSectionGrouping(node)) {
+            return this.createSectionedChildren(node);
+        }
+
+        // Package Body: 默认平铺子程序；但若包体本身有声明项（包级游标/变量等），
+        // 则改用分区分组，使声明项能展示在 DECLARE 区域。
+        if (node.type === NodeType.PACKAGE_BODY &&
+            this.showDeclarations && node.variableTable && node.variableTable.size > 0) {
+            return this.createSectionedChildren(node);
+        }
+
+        // 其他情况: 平坦渲染
+        return this.createFlatChildren(node);
+    }
+
+    /**
+     * 判断是否使用分区分组
+     * 对单个 Function/Procedure/Trigger/Anonymous Block 使用分区，
+     * 以展示 DECLARE(含声明项)/BODY/EXCEPTION/END 层次。
+     * Package Body 仅在有包级声明时使用分区（见 createChildItems）。
+     */
+    private shouldUseSectionGrouping(node: ParseNode): boolean {
+        const hasBody = node.beginLine !== null && node.beginLine !== undefined;
+        const isCodeUnit = node.type === NodeType.FUNCTION ||
+            node.type === NodeType.PROCEDURE ||
+            node.type === NodeType.TRIGGER ||
+            node.type === NodeType.ANONYMOUS_BLOCK;
+        return hasBody && isCodeUnit;
+    }
+
+    /**
+     * 创建分区组织的子项
+     */
+    private createSectionedChildren(node: ParseNode): TreeItemData[] {
+        const items: TreeItemData[] = [];
+
+        // 分类子节点
+        const declareChildren: ParseNode[] = [];
+        const bodyChildren: ParseNode[] = [];
+
         if (node.children) {
-            for (let i = 0; i < node.children.length; i++) {
-                const child = node.children[i];
-                items[index++] = {
-                    node: child,
-                    isStructureBlock: false,
-                    label: this.getNodeLabel(child),
-                    line: child.declarationLine
-                };
+            for (const child of node.children) {
+                if (child.type === NodeType.FUNCTION || child.type === NodeType.PROCEDURE) {
+                    declareChildren.push(child);
+                } else if (this.isControlStructureType(child.type) &&
+                    child.type !== NodeType.ELSIF_BRANCH && child.type !== NodeType.ELSE_BRANCH) {
+                    bodyChildren.push(child);
+                } else if (child.type === NodeType.ELSIF_BRANCH || child.type === NodeType.ELSE_BRANCH) {
+                    // 吸收到前一个IF中，此处跳过
+                } else {
+                    // 其他类型（如 FUNCTION_DECLARATION）放到声明区
+                    declareChildren.push(child);
+                }
             }
         }
-        
-        // 添加结构块（如果启用）
-        if (hasStructureBlocks) {
-            const structureBlocks = this.createStructureBlocks(node);
-            for (let i = 0; i < structureBlocks.length; i++) {
-                items[index++] = structureBlocks[i];
-            }
+
+        // DECLARE 分区：当存在子程序声明，或当前节点有变量/游标/常量/类型/异常声明时显示
+        const hasDeclarations = this.showDeclarations && !!node.variableTable && node.variableTable.size > 0;
+        if (declareChildren.length > 0 || hasDeclarations) {
+            items.push({
+                isStructureBlock: false,
+                isSection: true,
+                sectionType: SectionType.DECLARE,
+                sectionChildren: declareChildren,
+                parentNode: node,
+                label: 'DECLARE',
+                line: node.declarationLine
+            });
         }
-        
+
+        // BODY 分区
+        if (bodyChildren.length > 0 || (node.beginLine !== null && node.beginLine !== undefined)) {
+            items.push({
+                isStructureBlock: false,
+                isSection: true,
+                sectionType: SectionType.BODY,
+                sectionChildren: bodyChildren,
+                parentNode: node,
+                label: 'BODY',
+                line: node.beginLine || undefined
+            });
+        }
+
+        // EXCEPTION 分区
+        if (node.exceptionLine !== null && node.exceptionLine !== undefined) {
+            items.push({
+                isStructureBlock: false,
+                isSection: true,
+                sectionType: SectionType.EXCEPTION,
+                parentNode: node,
+                label: 'EXCEPTION',
+                line: node.exceptionLine
+            });
+        }
+
+        // END 分区
+        if (node.endLine !== null && node.endLine !== undefined) {
+            items.push({
+                isStructureBlock: false,
+                isSection: true,
+                sectionType: SectionType.END,
+                parentNode: node,
+                label: 'END',
+                line: node.endLine
+            });
+        }
+
         return items;
+    }
+
+    /**
+     * 创建分区内的子项
+     */
+    private createSectionChildItems(section: TreeItemData): TreeItemData[] {
+        if (section.sectionType === SectionType.DECLARE) {
+            // DECLARE区域: 先渲染子函数/过程，再渲染声明项分组（变量/游标/常量/类型/异常）
+            const items: TreeItemData[] = [];
+            if (section.sectionChildren && section.sectionChildren.length > 0) {
+                for (const child of section.sectionChildren) {
+                    items.push({
+                        node: child,
+                        isStructureBlock: false,
+                        label: this.getDeclareNodeLabel(child),
+                        line: child.declarationLine
+                    });
+                }
+            }
+            // 追加声明项
+            if (this.showDeclarations && section.parentNode) {
+                items.push(...this.createDeclarationGroupItems(section.parentNode));
+            }
+            return items;
+        }
+
+        if (!section.sectionChildren || section.sectionChildren.length === 0) {
+            return [];
+        }
+
+        if (section.sectionType === SectionType.BODY) {
+            // BODY区域: 合并IF组，简化标签
+            const merged = this.mergeIfGroups(section.sectionChildren);
+            return merged.map(item => {
+                if (item.mergedChildren) {
+                    // 合并后的IF节点
+                    return {
+                        node: item.node,
+                        isStructureBlock: false,
+                        mergedChildren: item.mergedChildren,
+                        label: this.getSimplifiedControlLabel(item.node!.type),
+                        line: item.node!.declarationLine
+                    } as TreeItemData;
+                }
+                return {
+                    node: item.node,
+                    isStructureBlock: false,
+                    label: this.getSimplifiedControlLabel(item.node!.type),
+                    line: item.node!.declarationLine
+                } as TreeItemData;
+            });
+        }
+
+        // EXCEPTION/END: 叶节点
+        return [];
+    }
+
+    /**
+     * 控制结构节点的子项渲染
+     */
+    private createControlStructureChildren(node: ParseNode): TreeItemData[] {
+        if (!node.children || node.children.length === 0) {
+            // 如果有mergedChildren (合并的IF)，从父TreeItemData获取
+            return [];
+        }
+
+        // 合并IF组，简化标签
+        const merged = this.mergeIfGroups(node.children);
+        return merged.map(item => {
+            if (item.mergedChildren) {
+                return {
+                    node: item.node,
+                    isStructureBlock: false,
+                    mergedChildren: item.mergedChildren,
+                    label: this.getSimplifiedControlLabel(item.node!.type),
+                    line: item.node!.declarationLine
+                } as TreeItemData;
+            }
+            return {
+                node: item.node,
+                isStructureBlock: false,
+                label: this.getSimplifiedControlLabel(item.node!.type),
+                line: item.node!.declarationLine
+            } as TreeItemData;
+        });
+    }
+
+    /**
+     * 平坦渲染子项（无分区）
+     */
+    private createFlatChildren(node: ParseNode): TreeItemData[] {
+        if (!node.children) return [];
+        return node.children.map(child => ({
+            node: child,
+            isStructureBlock: false,
+            label: this.getNodeLabel(child),
+            line: child.declarationLine
+        }));
+    }
+
+    /**
+     * 合并 IF/ELSIF/ELSE 组
+     * IF + 后续的 ELSIF/ELSE 合并为单个 IF，children 合并
+     */
+    private mergeIfGroups(children: ParseNode[]): { node: ParseNode; mergedChildren?: ParseNode[] }[] {
+        const result: { node: ParseNode; mergedChildren?: ParseNode[] }[] = [];
+
+        for (let i = 0; i < children.length; i++) {
+            const child = children[i];
+
+            if (child.type === NodeType.IF_STATEMENT) {
+                // 收集IF自身的控制结构子节点
+                const allChildren: ParseNode[] = [];
+                if (child.children) {
+                    for (const c of child.children) {
+                        if (this.isControlStructureType(c.type) &&
+                            c.type !== NodeType.ELSIF_BRANCH && c.type !== NodeType.ELSE_BRANCH) {
+                            allChildren.push(c);
+                        }
+                    }
+                }
+
+                // 向后查找 ELSIF/ELSE 并吸收其子节点
+                while (i + 1 < children.length &&
+                    (children[i + 1].type === NodeType.ELSIF_BRANCH ||
+                        children[i + 1].type === NodeType.ELSE_BRANCH)) {
+                    i++;
+                    const sibling = children[i];
+                    if (sibling.children) {
+                        for (const c of sibling.children) {
+                            if (this.isControlStructureType(c.type) &&
+                                c.type !== NodeType.ELSIF_BRANCH && c.type !== NodeType.ELSE_BRANCH) {
+                                allChildren.push(c);
+                            }
+                        }
+                    }
+                }
+
+                result.push({
+                    node: child,
+                    mergedChildren: allChildren.length > 0 ? allChildren : undefined
+                });
+            } else if (child.type === NodeType.ELSIF_BRANCH || child.type === NodeType.ELSE_BRANCH) {
+                // 孤立的ELSIF/ELSE（无前置IF），跳过
+                continue;
+            } else {
+                result.push({ node: child });
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * 判断是否为控制结构类型
+     */
+    private isControlStructureType(type: NodeType): boolean {
+        return type === NodeType.IF_STATEMENT ||
+            type === NodeType.ELSIF_BRANCH ||
+            type === NodeType.ELSE_BRANCH ||
+            type === NodeType.LOOP_STATEMENT ||
+            type === NodeType.WHILE_LOOP ||
+            type === NodeType.FOR_LOOP ||
+            type === NodeType.CASE_STATEMENT ||
+            type === NodeType.WHEN_BRANCH;
+    }
+
+    /**
+     * 获取简化的控制结构标签（仅关键字）
+     */
+    private getSimplifiedControlLabel(type: NodeType): string {
+        switch (type) {
+            case NodeType.IF_STATEMENT: return 'IF';
+            case NodeType.ELSIF_BRANCH: return 'ELSIF';
+            case NodeType.ELSE_BRANCH: return 'ELSE';
+            case NodeType.LOOP_STATEMENT: return 'LOOP';
+            case NodeType.WHILE_LOOP: return 'WHILE';
+            case NodeType.FOR_LOOP: return 'FOR';
+            case NodeType.CASE_STATEMENT: return 'CASE';
+            case NodeType.WHEN_BRANCH: return 'WHEN';
+            default: return type;
+        }
+    }
+
+    /**
+     * DECLARE区域的节点标签
+     */
+    private getDeclareNodeLabel(node: ParseNode): string {
+        if (node.type === NodeType.FUNCTION || node.type === NodeType.FUNCTION_DECLARATION) {
+            return `Function: ${node.name}`;
+        } else if (node.type === NodeType.PROCEDURE || node.type === NodeType.PROCEDURE_DECLARATION) {
+            return `Procedure: ${node.name}`;
+        }
+        return this.getNodeLabel(node);
+    }
+
+    // ====== 声明项（变量/游标/常量/类型/异常）分组展示 ======
+
+    /**
+     * 声明类别 → (标签, 图标, 排序权重)
+     * 顺序：Variables → Constants → Cursors → Types → Exceptions
+     */
+    private static readonly DECL_CATEGORY_META: {
+        key: DeclarationCategory;
+        label: string;
+        icon: string;
+        order: number;
+    }[] = [
+        { key: DeclarationCategory.VARIABLE, label: 'Variables', icon: 'symbol-variable', order: 1 },
+        { key: DeclarationCategory.CONSTANT, label: 'Constants', icon: 'symbol-constant', order: 2 },
+        { key: DeclarationCategory.CURSOR, label: 'Cursors', icon: 'database', order: 3 },
+        { key: DeclarationCategory.TYPE, label: 'Types', icon: 'symbol-class', order: 4 },
+        { key: DeclarationCategory.EXCEPTION, label: 'Exceptions', icon: 'warning', order: 5 }
+    ];
+
+    /**
+     * 为一个节点创建其声明项的分组项（或扁平项）。
+     * - groupDeclarations=true：按类别生成可折叠分组节点
+     * - groupDeclarations=false：所有声明项扁平展开
+     */
+    private createDeclarationGroupItems(node: ParseNode): TreeItemData[] {
+        if (!node.variableTable || node.variableTable.size === 0) {
+            return [];
+        }
+        const entries = Array.from(node.variableTable.values());
+
+        if (!this.groupDeclarations) {
+            // 扁平模式：直接逐项展示，按声明行排序
+            return entries
+                .slice()
+                .sort((a, b) => a.line - b.line)
+                .map(e => ({
+                    isStructureBlock: false,
+                    label: this.getDeclarationEntryLabel(e),
+                    line: e.line,
+                    isDeclarationEntry: true,
+                    declarationEntry: e
+                }));
+        }
+
+        // 分组模式：按类别聚合，空类别不展示
+        const items: TreeItemData[] = [];
+        for (const meta of PLSQLOutlineProvider.DECL_CATEGORY_META) {
+            const groupEntries = entries
+                .filter(e => e.category === meta.key)
+                .sort((a, b) => a.line - b.line);
+            if (groupEntries.length === 0) { continue; }
+            items.push({
+                isStructureBlock: false,
+                label: `${meta.label} (${groupEntries.length})`,
+                isDeclarationGroup: true,
+                declarationCategory: meta.key,
+                declarationEntries: groupEntries,
+                parentNode: node,
+                line: groupEntries[0].line
+            });
+        }
+        return items;
+    }
+
+    /**
+     * 单个声明项的展示标签
+     */
+    private getDeclarationEntryLabel(entry: VariableInfo): string {
+        switch (entry.category) {
+            case DeclarationCategory.CURSOR:
+                return `${entry.name}`;
+            case DeclarationCategory.EXCEPTION:
+                return `${entry.name}`;
+            case DeclarationCategory.TYPE:
+                return `${entry.name} ${entry.type}`;
+            case DeclarationCategory.CONSTANT:
+                return entry.initialValue !== undefined
+                    ? `${entry.name} : ${entry.type} = ${entry.initialValue}`
+                    : `${entry.name} : ${entry.type}`;
+            case DeclarationCategory.VARIABLE:
+            default:
+                return entry.initialValue !== undefined
+                    ? `${entry.name} : ${entry.type} = ${entry.initialValue}`
+                    : `${entry.name} : ${entry.type}`;
+        }
+    }
+
+    /**
+     * 单个声明项的图标
+     */
+    private getDeclarationEntryIcon(entry: VariableInfo): vscode.ThemeIcon {
+        switch (entry.category) {
+            case DeclarationCategory.CURSOR: return new vscode.ThemeIcon('database');
+            case DeclarationCategory.CONSTANT: return new vscode.ThemeIcon('symbol-constant');
+            case DeclarationCategory.TYPE: return new vscode.ThemeIcon('symbol-class');
+            case DeclarationCategory.EXCEPTION: return new vscode.ThemeIcon('warning');
+            case DeclarationCategory.VARIABLE:
+            default: return new vscode.ThemeIcon('symbol-variable');
+        }
+    }
+
+    /**
+     * 创建分区树项
+     */
+    private createSectionTreeItem(element: TreeItemData): vscode.TreeItem {
+        const hasChildren = (element.sectionType === SectionType.DECLARE || element.sectionType === SectionType.BODY) &&
+            element.sectionChildren && element.sectionChildren.length > 0;
+
+        const collapsibleState = hasChildren
+            ? vscode.TreeItemCollapsibleState.Expanded
+            : vscode.TreeItemCollapsibleState.None;
+
+        const treeItem = new vscode.TreeItem(element.label, collapsibleState);
+        treeItem.iconPath = this.getSectionIcon(element.sectionType!);
+        treeItem.contextValue = 'section';
+
+        if (element.line !== undefined) {
+            treeItem.description = `Line ${element.line}`;
+            treeItem.command = {
+                command: 'plsqlOutline.goToLine',
+                title: '跳转到行',
+                arguments: [element.line]
+            };
+        }
+
+        return treeItem;
+    }
+
+    /**
+     * 获取分区图标
+     */
+    private getSectionIcon(type: SectionType): vscode.ThemeIcon {
+        switch (type) {
+            case SectionType.DECLARE: return new vscode.ThemeIcon('symbol-variable');
+            case SectionType.BODY: return new vscode.ThemeIcon('play');
+            case SectionType.EXCEPTION: return new vscode.ThemeIcon('warning');
+            case SectionType.END: return new vscode.ThemeIcon('debug-stop');
+        }
+    }
+
+    /**
+     * 创建声明类别分组树项（Variables/Cursors/Constants/Types/Exceptions）
+     */
+    private createDeclarationGroupTreeItem(element: TreeItemData): vscode.TreeItem {
+        const treeItem = new vscode.TreeItem(
+            element.label,
+            vscode.TreeItemCollapsibleState.Collapsed
+        );
+        const meta = PLSQLOutlineProvider.DECL_CATEGORY_META.find(
+            m => m.key === element.declarationCategory
+        );
+        treeItem.iconPath = new vscode.ThemeIcon(meta ? meta.icon : 'symbol-folder');
+        const count = element.declarationEntries ? element.declarationEntries.length : 0;
+        treeItem.description = `${count} 项`;
+        treeItem.tooltip = `${element.label} — 共 ${count} 个声明项`;
+        treeItem.contextValue = 'declarationGroup';
+        return treeItem;
+    }
+
+    /**
+     * 创建单个声明项树项（叶节点，点击跳转到声明行）
+     */
+    private createDeclarationEntryTreeItem(element: TreeItemData): vscode.TreeItem {
+        const entry = element.declarationEntry!;
+        const treeItem = new vscode.TreeItem(
+            element.label,
+            vscode.TreeItemCollapsibleState.None
+        );
+        treeItem.iconPath = this.getDeclarationEntryIcon(entry);
+        treeItem.description = `L${entry.line}`;
+        treeItem.tooltip = `${entry.name}（${entry.scope} 内声明，第 ${entry.line} 行）`;
+        treeItem.contextValue = 'declarationEntry';
+        if (element.line !== undefined) {
+            treeItem.command = {
+                command: 'plsqlOutline.goToLine',
+                title: '跳转到行',
+                arguments: [element.line]
+            };
+        }
+        return treeItem;
     }
 
     /**
@@ -358,10 +865,19 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
      */
     private createNodeTreeItem(element: TreeItemData): vscode.TreeItem {
         const node = element.node!;
-        const treeItem = new vscode.TreeItem(
-            element.label,
-            this.getCollapsibleState(node)
-        );
+        
+        // 确定折叠状态：考虑mergedChildren和分区模式
+        let collapsibleState: vscode.TreeItemCollapsibleState;
+        if (element.mergedChildren && element.mergedChildren.length > 0) {
+            collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+        } else if (this.shouldUseSectionGrouping(node)) {
+            // 使用分区模式的节点总是可展开的
+            collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+        } else {
+            collapsibleState = this.getCollapsibleState(node);
+        }
+
+        const treeItem = new vscode.TreeItem(element.label, collapsibleState);
         
         treeItem.iconPath = this.getNodeIcon(node.type);
         treeItem.tooltip = this.getNodeTooltip(node);
@@ -429,6 +945,14 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             case NodeType.PROCEDURE_DECLARATION: return 'Procedure Declaration';
             case NodeType.TRIGGER: return 'Trigger';
             case NodeType.ANONYMOUS_BLOCK: return 'Anonymous Block';
+            case NodeType.IF_STATEMENT: return 'IF';
+            case NodeType.ELSIF_BRANCH: return 'ELSIF';
+            case NodeType.ELSE_BRANCH: return 'ELSE';
+            case NodeType.LOOP_STATEMENT: return 'LOOP';
+            case NodeType.WHILE_LOOP: return 'WHILE';
+            case NodeType.FOR_LOOP: return 'FOR';
+            case NodeType.CASE_STATEMENT: return 'CASE';
+            case NodeType.WHEN_BRANCH: return 'WHEN';
             default: return type;
         }
     }
@@ -890,6 +1414,14 @@ export class TreeViewManager {
             case NodeType.PROCEDURE_DECLARATION: return 'Procedure Declaration';
             case NodeType.TRIGGER: return 'Trigger';
             case NodeType.ANONYMOUS_BLOCK: return 'Anonymous Block';
+            case NodeType.IF_STATEMENT: return 'IF';
+            case NodeType.ELSIF_BRANCH: return 'ELSIF';
+            case NodeType.ELSE_BRANCH: return 'ELSE';
+            case NodeType.LOOP_STATEMENT: return 'LOOP';
+            case NodeType.WHILE_LOOP: return 'WHILE';
+            case NodeType.FOR_LOOP: return 'FOR';
+            case NodeType.CASE_STATEMENT: return 'CASE';
+            case NodeType.WHEN_BRANCH: return 'WHEN';
             default: return type;
         }
     }
@@ -1085,12 +1617,14 @@ export class TreeViewManager {
                 this.outputChannel.appendLine(`已选中节点: ${target.node.name} (第${target.node.declarationLine}行)`);
             }
 
-            // 使用reveal API选中并展开到目标
-            await this.treeView.reveal(treeItemData, {
-                select: true,
-                focus: false,
-                expand: true
-            });
+            // 使用reveal API选中并展开到目标（仅在面板可见时）
+            if (this.treeView.visible) {
+                await this.treeView.reveal(treeItemData, {
+                    select: true,
+                    focus: false,
+                    expand: true
+                });
+            }
 
         } catch (error) {
             this.outputChannel.appendLine(`选中目标失败: ${error}`);
@@ -1111,12 +1645,14 @@ export class TreeViewManager {
                 line: targetNode.declarationLine
             };
 
-            // 使用reveal API选中并展开到节点
-            await this.treeView.reveal(treeItemData, {
-                select: true,
-                focus: false,
-                expand: true
-            });
+            // 使用reveal API选中并展开到节点（仅在面板可见时）
+            if (this.treeView.visible) {
+                await this.treeView.reveal(treeItemData, {
+                    select: true,
+                    focus: false,
+                    expand: true
+                });
+            }
 
             this.outputChannel.appendLine(`已选中节点: ${targetNode.name} (第${targetNode.declarationLine}行)`);
 

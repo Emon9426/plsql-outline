@@ -9,16 +9,26 @@
 ## 🚀 功能特性
 
 ### 📋 代码结构解析
-- **智能解析**：自动识别 PL/SQL 代码中的包、函数、过程、触发器等结构
-- **多层嵌套**：支持复杂的嵌套结构解析
+- **智能解析**：自动识别 PL/SQL 代码中的包、包体、存储过程、函数、触发器、匿名块等结构
+- **多层嵌套**：支持子函数/子过程 3+ 级嵌套解析
+- **控制结构**：识别 IF/ELSIF/ELSE、LOOP/WHILE/FOR、CASE/WHEN，并按代码层级缩进展示（循环内的 IF 相对循环缩进）
+- **声明项解析**：识别变量、游标、常量、自定义类型（RECORD/TABLE OF 等）、命名异常
 - **实时更新**：文件保存或切换时自动重新解析
 - **错误处理**：提供详细的解析错误和警告信息
+- **万行级性能**：13,000+ 行复杂多层嵌套代码在 ~60ms 内解析完成
 
 ### 🌳 大纲视图
-- **层次结构**：清晰展示代码的层次关系
+- **结构化分区**：程序名 → DECLARE(声明) → Subprogram(子程序) → BEGIN → EXCEPTION → END
+- **声明项分组**：DECLARE 区域下按类别分组显示 Variables / Cursors / Constants / Types / Exceptions（参照 PLSQL Developer）
+- **层次结构**：清晰展示代码的层次关系与控制结构嵌套缩进
 - **快速导航**：点击节点直接跳转到对应代码行
 - **结构块显示**：可选显示 BEGIN、EXCEPTION、END 等结构块
 - **智能排序**：按层级、子项数量、行号的顺序显示信息
+
+### 🔗 代码导航（Ctrl+Click 跳转）
+- **同文件跳转**：Ctrl+点击子程序名 → 跳转到子程序；Ctrl+点击游标/变量名 → 跳转到其声明位置
+- **跨文件跳转**：当前文件不存在时，搜索配置的代码仓库路径，打开目标文件并跳转到声明位置
+- **智能解析**：自动识别 `pkg.proc` 形式，匹配包内子程序；多结果时弹出 QuickPick
 
 ### 🔧 可配置的文件支持
 - **自定义扩展名**：支持用户自定义文件扩展名列表
@@ -213,12 +223,18 @@ A:
 ```json
 {
   "plsql-outline.view.showStructureBlocks": true,
-  "plsql-outline.view.expandByDefault": true
+  "plsql-outline.view.expandByDefault": true,
+  "plsql-outline.view.showDeclarations": true,
+  "plsql-outline.view.groupDeclarations": true,
+  "plsql-outline.view.showControlStructures": true
 }
 ```
 
 - `showStructureBlocks`：在树视图中显示结构块（BEGIN、EXCEPTION、END）
 - `expandByDefault`：默认展开树节点
+- `showDeclarations`：在 DECLARE 区域显示声明项（变量/游标/常量/类型/异常），点击可跳转到声明行
+- `groupDeclarations`：声明项按类别分组（Variables/Cursors/Constants/Types/Exceptions）；关闭则扁平展开
+- `showControlStructures`：在大纲中显示控制结构（IF/LOOP/CASE）
 
 ### 文件扩展名设置
 
@@ -410,6 +426,22 @@ A:
 - **缓存管理**：扩展会自动管理缓存，无需手动干预
 
 ## 🔄 更新日志
+
+### v1.5.2 (2026-08-08)
+- 📋 **声明项大纲展示**：在 DECLARE 区域按类别分组显示变量/游标/常量/类型/异常（参照 PLSQL Developer），每个声明项可点击跳转到声明行
+- 🏷️ **新增声明识别**：支持 `CONSTANT`（常量）、`TYPE ... IS RECORD/TABLE OF/VARRAY/REF CURSOR`（自定义类型）
+- 🐛 **修复变量未记录**：修正既有缺陷——变量声明此前因正则/分号处理不一致而从未被记录
+- 🐛 **修复游标识别**：支持 `CURSOR name(params) IS` 后接换行 SELECT 的多行形式
+- 🐛 **修复误判**：过滤 `PRAGMA EXCEPTION_INIT(...)`、`END IF;` 等被宽松变量正则误捕获的语句
+- ⚙️ **新增配置**：`view.showDeclarations`、`view.groupDeclarations`
+- ⚙️ **对齐限制**：`controlStructureMaxDepth` 默认值改为 10（上限 20）；文件大小上限统一为 10MB
+- 🧪 **测试增强**：新增 13,259 行万级复杂多层嵌套测试用例 + 声明项渲染测试，全套 1206 项断言通过
+
+### v1.5.0 ~ v1.5.1
+- 🌳 **IF/LOOP/CASE 控制结构识别**：在方法体内识别 IF/ELSIF/ELSE、LOOP/WHILE/FOR、CASE/WHEN 并分层展示，支持多级嵌套与 IF 分支合并
+- 🧩 **大纲分区**：程序名 → DECLARE → Subprogram → BEGIN → EXCEPTION → END 结构化分区
+- 🔗 **跨文件 Ctrl+Click 导航**：点击子程序/游标/变量名跳转声明；同文件内未找到时搜索配置的代码仓库路径（支持优先级、QuickPick）
+- 🐛 **Parser 修复**：schema 前缀、多行 CREATE、字符串字面量内注释、`IS NULL` 控制结构（BUG-A）、无初始化块包闭合（BUG-B）
 
 ### v1.4.6 (2025-01-20)
 - 🔧 **智能调试控制**：只有在启用调试模式时才输出调试信息

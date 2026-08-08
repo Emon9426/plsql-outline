@@ -2,7 +2,7 @@
   "name": "plsql-outline",
   "displayName": "PL/SQL Outline",
   "description": "PL/SQL代码结构解析器和大纲视图",
-  "version": "1.4.8",
+  "version": "1.5.2",
   "publisher": "EmonZhang3438",
   "icon": "res/Icon.png",
   "engines": {
@@ -110,6 +110,12 @@
         "title": "测试展开所有",
         "category": "PL/SQL Outline",
         "icon": "$(test-view-icon)"
+      },
+      {
+        "command": "plsqlOutline.rebuildIndex",
+        "title": "重建符号索引",
+        "category": "PL/SQL Outline",
+        "icon": "$(database)"
       }
     ],
     "menus": {
@@ -186,6 +192,9 @@
         {
           "command": "plsqlOutline.exportResult",
           "when": "resourceExtname =~ /\\.(sql|pks|pkb|prc|fnc|trg)$/i"
+        },
+        {
+          "command": "plsqlOutline.rebuildIndex"
         }
       ]
     },
@@ -230,7 +239,7 @@
         },
         "plsql-outline.parsing.maxFileSize": {
           "type": "number",
-          "default": 5,
+          "default": 10,
           "minimum": 1,
           "maximum": 20,
           "description": "最大文件大小限制（MB）"
@@ -249,6 +258,16 @@
           "type": "boolean",
           "default": true,
           "description": "当光标位置改变时自动选中对应的大纲节点"
+        },
+        "plsql-outline.view.showDeclarations": {
+          "type": "boolean",
+          "default": true,
+          "description": "在大纲 DECLARE 区域显示声明项（变量/游标/常量/类型/异常）"
+        },
+        "plsql-outline.view.groupDeclarations": {
+          "type": "boolean",
+          "default": true,
+          "description": "声明项按类别分组（Variables/Cursors/Constants/Types/Exceptions）；关闭则扁平展开"
         },
         "plsql-outline.debug.enabled": {
           "type": "boolean",
@@ -290,6 +309,59 @@
           },
           "default": [".sql", ".fnc", ".fcn", ".prc", ".pks", ".pkb", ".typ"],
           "description": "支持解析的文件扩展名列表"
+        },
+        "plsql-outline.view.showControlStructures": {
+          "type": "boolean",
+          "default": true,
+          "description": "在大纲中显示控制结构（IF/LOOP/CASE）"
+        },
+        "plsql-outline.parsing.controlStructureMaxDepth": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "控制结构最大显示嵌套深度"
+        },
+        "plsql-outline.codeRepository.paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "代码仓库路径"
+              },
+              "priority": {
+                "type": "number",
+                "description": "优先级（数字越小优先级越高）",
+                "default": 1
+              }
+            },
+            "required": ["path"]
+          },
+          "default": [],
+          "maxItems": 2,
+          "description": "代码仓库路径配置（最多2个，优先级高的路径找到定义后不再搜索低优先级路径）"
+        },
+        "plsql-outline.codeRepository.fileExtensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [".sql", ".fnc", ".fcn", ".prc", ".pks", ".pkb", ".typ"],
+          "description": "符号索引扫描的文件扩展名"
+        },
+        "plsql-outline.codeRepository.autoIndex": {
+          "type": "boolean",
+          "default": true,
+          "description": "扩展启动时自动构建符号索引"
+        },
+        "plsql-outline.codeRepository.maxFiles": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 100,
+          "maximum": 20000,
+          "description": "符号索引最大扫描文件数"
         }
       }
     },

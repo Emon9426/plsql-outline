@@ -15,3 +15,7 @@ out/
 # Environment files
 .env
 .env.local
+
+# ZCode session artifacts
+.zcode/
+

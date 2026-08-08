@@ -14,7 +14,9 @@ node_modules/**
 *.vsix
 .git/**
 .github/**
+.zcode/**
 Design/**
+DEV_REQUIREMENTS_*.md
 update_*.js
 generate_*.js
 debug_*.js

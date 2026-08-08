@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { PLSQLParser } from './parser';
 import { TreeViewManager } from './treeView';
 import { DataBridge, DataProviderFactory } from './debug';
-import { ParseResult, ParseNode } from './types';
+import { ParseResult, ParseNode, VariableInfo, NodeType } from './types';
 import { SettingsPanel } from './settingsPanel';
+import { SymbolIndex, SymbolEntry, PathConfig } from './symbolIndex';
 
 /**
  * PL/SQL大纲扩展主类 - 内存优化版本
@@ -14,6 +16,13 @@ export class PLSQLOutlineExtension {
     private dataBridge: DataBridge;
     private dataProviderFactory: DataProviderFactory;
     private currentParseResult: ParseResult | null = null;
+
+    // 跨文件符号索引
+    private symbolIndex: SymbolIndex;
+    private outputChannel: vscode.OutputChannel;
+
+    // Definition 防重复调用
+    private lastDefCall: { key: string; time: number } | null = null;
 
     // 内存监控相关
     private memoryCheckInterval: NodeJS.Timeout | null = null;
@@ -66,9 +75,15 @@ export class PLSQLOutlineExtension {
             this.dataBridge.getLogger()
         );
 
+        // 初始化符号索引
+        this.outputChannel = vscode.window.createOutputChannel('PL/SQL Outline');
+        this.symbolIndex = new SymbolIndex(this.outputChannel);
+
         this.registerCommands(context);
         this.registerEventListeners(context);
+        this.registerProviders(context);
         this.startMemoryMonitoring();
+        this.initializeSymbolIndex(context);
     }
 
     /**
@@ -117,13 +132,20 @@ export class PLSQLOutlineExtension {
             }
         );
 
+        // 重建索引命令
+        const rebuildIndexCommand = vscode.commands.registerCommand(
+            'plsqlOutline.rebuildIndex',
+            () => this.rebuildSymbolIndex()
+        );
+
         context.subscriptions.push(
             parseCurrentFileCommand,
             toggleDebugModeCommand,
             showStatsCommand,
             exportResultCommand,
             testExpandAllCommand,
-            expandAllCommand
+            expandAllCommand,
+            rebuildIndexCommand
         );
     }
 
@@ -157,6 +179,29 @@ export class PLSQLOutlineExtension {
             configurationListener,
             cursorPositionListener
         );
+    }
+
+    /**
+     * 注册悬停和定义提供者
+     */
+    private registerProviders(context: vscode.ExtensionContext): void {
+        // 注册悬停提供者
+        const hoverProvider = vscode.languages.registerHoverProvider(
+            [{ language: 'sql' }, { language: 'plsql' }],
+            {
+                provideHover: (document, position, token) => this.provideHover(document, position, token)
+            }
+        );
+
+        // 注册定义提供者 - 使用文件模式避免双语言匹配导致重复调用
+        const definitionProvider = vscode.languages.registerDefinitionProvider(
+            { pattern: '**/*.{sql,pks,pkb,prc,fnc,fcn,trg,typ}' },
+            {
+                provideDefinition: (document, position, token) => this.provideDefinition(document, position, token)
+            }
+        );
+
+        context.subscriptions.push(hoverProvider, definitionProvider);
     }
 
     /**
@@ -200,8 +245,8 @@ export class PLSQLOutlineExtension {
                 const content = document.getText();
                 const sourceFile = document.fileName;
                 
-                // 文件大小检查
-                if (content.length > 5 * 1024 * 1024) { // 5MB限制
+                // 文件大小检查（与 parser 内部 10MB 上限对齐）
+                if (content.length > 10 * 1024 * 1024) { // 10MB限制
                     throw new Error('文件过大，建议分割后再解析');
                 }
                 
@@ -245,6 +290,383 @@ export class PLSQLOutlineExtension {
             // 错误时也要清理内存
             await this.performMemoryCleanup();
         }
+    }
+
+    /**
+     * 提供悬停信息
+     */
+    private provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover> {
+        // 获取当前单词
+        const wordRange = document.getWordRangeAtPosition(position);
+        if (!wordRange) {
+            return null;
+        }
+
+        const hoveredWord = document.getText(wordRange);
+        
+        // 检查是否有解析结果
+        if (!this.currentParseResult) {
+            return null;
+        }
+
+        // 查找变量定义
+        const variableInfo = this.findVariableInParseResult(this.currentParseResult.nodes, hoveredWord, position.line + 1);
+        
+        if (variableInfo) {
+            const contents = new vscode.MarkdownString(`**${variableInfo.name}** \`${variableInfo.type}\`\n\n*Defined in ${variableInfo.scope}*`);
+            contents.isTrusted = true;
+            contents.supportHtml = true;
+            return new vscode.Hover(contents, wordRange);
+        }
+
+        return null;
+    }
+
+    /**
+     * 提供定义位置 - 支持跨文件导航
+     */
+    private provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Definition | vscode.LocationLink[]> {
+        // ===== 诊断日志 =====
+        const diagId = Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+        const wordRange = document.getWordRangeAtPosition(position);
+        const word = wordRange ? document.getText(wordRange) : '(none)';
+        console.log(`[PLSQL-DEF] CALL #${diagId} pos=${position.line}:${position.character} word="${word}"`);
+        // ===== 诊断日志结束 =====
+
+        // 防重复调用：相同位置在 100ms 内的第二次调用返回 null
+        const callKey = `${document.uri.toString()}:${position.line}:${position.character}`;
+        const now = Date.now();
+        if (this.lastDefCall && this.lastDefCall.key === callKey && now - this.lastDefCall.time < 100) {
+            console.log(`[PLSQL-DEF] RETURN #${diagId} result=null (dedup)`);
+            return null;
+        }
+        this.lastDefCall = { key: callKey, time: now };
+
+        // 解析光标处的调用格式 (支持 pkg.proc_name 或 proc_name)
+        const callInfo = this.parseCallAtPosition(document, position);
+        if (!callInfo) {
+            console.log(`[PLSQL-DEF] RETURN #${diagId} result=null (no callInfo)`);
+            return null;
+        }
+
+        // 1. 在当前文件查找变量/游标定义
+        if (this.currentParseResult) {
+            const variableInfo = this.findVariableInParseResult(
+                this.currentParseResult.nodes, callInfo.name, position.line + 1
+            );
+            if (variableInfo) {
+                const definitionPosition = new vscode.Position(variableInfo.line - 1, 0);
+                console.log(`[PLSQL-DEF] RETURN #${diagId} result=Location(variable, line ${variableInfo.line})`);
+                return new vscode.Location(document.uri, definitionPosition);
+            }
+
+            // 2. 在当前文件的解析节点中查找函数/过程
+            const localNode = this.findNodeInCurrentFile(
+                this.currentParseResult.nodes, callInfo.name, callInfo.packageName
+            );
+            if (localNode) {
+                const definitionPosition = new vscode.Position(localNode.declarationLine - 1, 0);
+                console.log(`[PLSQL-DEF] RETURN #${diagId} result=Location(localNode "${localNode.name}", line ${localNode.declarationLine})`);
+                return new vscode.Location(document.uri, definitionPosition);
+            }
+        }
+
+        // 3. 跨文件查找 - 使用符号索引
+        const config = vscode.workspace.getConfiguration('plsql-outline');
+        const pathConfigs = config.get<PathConfig[]>('codeRepository.paths', []);
+
+        if (pathConfigs.length === 0) {
+            console.log(`[PLSQL-DEF] RETURN #${diagId} result=null (no paths configured)`);
+            return null;
+        }
+
+        const entries = this.symbolIndex.lookupWithPriority(
+            callInfo.name, callInfo.packageName, pathConfigs
+        );
+
+        if (entries.length === 0) {
+            console.log(`[PLSQL-DEF] RETURN #${diagId} result=null (no index entries)`);
+            return null;
+        }
+
+        // 过滤掉当前文件中的条目（跨文件跳转不需要）
+        const currentFilePath = document.uri.fsPath;
+        const crossFileEntries = entries.filter(e =>
+            path.normalize(e.filePath).toLowerCase() !== path.normalize(currentFilePath).toLowerCase()
+        );
+
+        if (crossFileEntries.length === 0) {
+            console.log(`[PLSQL-DEF] RETURN #${diagId} result=null (all entries in current file)`);
+            return null;
+        }
+
+        if (crossFileEntries.length === 1) {
+            const entry = crossFileEntries[0];
+            const uri = vscode.Uri.file(entry.filePath);
+            const pos = new vscode.Position(entry.line - 1, 0);
+            console.log(`[PLSQL-DEF] RETURN #${diagId} result=Location(crossFile "${entry.name}", line ${entry.line}, file ${entry.filePath})`);
+            return new vscode.Location(uri, pos);
+        }
+
+        // 多个跨文件匹配 - 仅 Package 名称显示选择列表
+        const isPackageItself = crossFileEntries.some(e =>
+            e.type === NodeType.PACKAGE_BODY || e.type === NodeType.PACKAGE_HEADER
+        );
+        if (isPackageItself) {
+            this.showSymbolQuickPick(crossFileEntries);
+            console.log(`[PLSQL-DEF] RETURN #${diagId} result=null (showQuickPick for package)`);
+            return null;
+        }
+
+        // Function/Procedure - 优先跳转到 body 定义
+        const bodyEntry = crossFileEntries.find(e =>
+            e.type === NodeType.FUNCTION || e.type === NodeType.PROCEDURE || e.type === NodeType.TRIGGER
+        ) || crossFileEntries[0];
+        const uri = vscode.Uri.file(bodyEntry.filePath);
+        const pos = new vscode.Position(bodyEntry.line - 1, 0);
+        console.log(`[PLSQL-DEF] RETURN #${diagId} result=Location(crossFile body "${bodyEntry.name}", line ${bodyEntry.line})`);
+        return new vscode.Location(uri, pos);
+    }
+
+    /**
+     * 解析光标处的调用格式
+     * 支持: pkg_name.proc_name 或 proc_name
+     */
+    private parseCallAtPosition(document: vscode.TextDocument, position: vscode.Position): { name: string; packageName?: string } | null {
+        const line = document.lineAt(position.line).text;
+        
+        // 扩展单词范围来检测 pkg.proc 模式
+        const wordRange = document.getWordRangeAtPosition(position, /\w+(?:\.\w+)?/);
+        if (!wordRange) {
+            return null;
+        }
+
+        const text = document.getText(wordRange);
+        const dotIndex = text.indexOf('.');
+
+        if (dotIndex > 0) {
+            // pkg.proc 格式
+            const packageName = text.substring(0, dotIndex);
+            const name = text.substring(dotIndex + 1);
+            if (name) {
+                return { name, packageName };
+            }
+        }
+
+        // 普通标识符
+        const simpleRange = document.getWordRangeAtPosition(position);
+        if (!simpleRange) {
+            return null;
+        }
+        const word = document.getText(simpleRange);
+        return word ? { name: word } : null;
+    }
+
+    /**
+     * 在当前文件的解析节点中查找函数/过程
+     */
+    private findNodeInCurrentFile(nodes: ParseNode[], name: string, packageName?: string): ParseNode | null {
+        const upperName = name.toUpperCase();
+
+        for (const node of nodes) {
+            // 如果指定了包名，先匹配包
+            if (packageName && (node.type === NodeType.PACKAGE_BODY || node.type === NodeType.PACKAGE_HEADER)) {
+                if (node.name.toUpperCase() === packageName.toUpperCase()) {
+                    const found = this.findProcFuncInChildren(node.children, upperName);
+                    if (found) return found;
+                }
+            } else if (!packageName) {
+                // 检查当前节点
+                if (this.isCallableNode(node) && node.name.toUpperCase() === upperName) {
+                    return node;
+                }
+                // 搜索 Package Body/Header 内的子方法（同包内不带前缀调用）
+                if (node.type === NodeType.PACKAGE_BODY || node.type === NodeType.PACKAGE_HEADER) {
+                    const found = this.findProcFuncInChildren(node.children, upperName);
+                    if (found) return found;
+                }
+                // 递归子节点
+                const found = this.findNodeInCurrentFile(node.children, name);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 在子节点中查找过程/函数
+     */
+    private findProcFuncInChildren(children: ParseNode[], upperName: string): ParseNode | null {
+        for (const child of children) {
+            if (this.isCallableNode(child) && child.name.toUpperCase() === upperName) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 判断节点是否为可调用类型
+     */
+    private isCallableNode(node: ParseNode): boolean {
+        return node.type === NodeType.FUNCTION ||
+            node.type === NodeType.PROCEDURE ||
+            node.type === NodeType.FUNCTION_DECLARATION ||
+            node.type === NodeType.PROCEDURE_DECLARATION;
+    }
+
+    /**
+     * 显示符号选择列表
+     */
+    private async showSymbolQuickPick(entries: SymbolEntry[]): Promise<void> {
+        // Body 优先排在前面
+        const sorted = [...entries].sort((a, b) => {
+            const aIsBody = a.type === NodeType.PACKAGE_BODY || a.type === NodeType.FUNCTION || a.type === NodeType.PROCEDURE;
+            const bIsBody = b.type === NodeType.PACKAGE_BODY || b.type === NodeType.FUNCTION || b.type === NodeType.PROCEDURE;
+            if (aIsBody && !bIsBody) return -1;
+            if (!aIsBody && bIsBody) return 1;
+            return 0;
+        });
+
+        const items = sorted.map(entry => {
+            const fileName = path.basename(entry.filePath);
+            const typeLabel = entry.type === NodeType.FUNCTION || entry.type === NodeType.FUNCTION_DECLARATION
+                ? 'Function' : 'Procedure';
+            const pkgInfo = entry.packageName ? `${entry.packageName}.` : '';
+            return {
+                label: `$(symbol-method) ${pkgInfo}${entry.name}`,
+                description: `${typeLabel} - Line ${entry.line}`,
+                detail: entry.filePath,
+                entry
+            };
+        });
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: '选择要跳转的定义',
+            matchOnDescription: true,
+            matchOnDetail: true
+        });
+
+        if (selected) {
+            const uri = vscode.Uri.file(selected.entry.filePath);
+            const pos = new vscode.Position(selected.entry.line - 1, 0);
+            const doc = await vscode.workspace.openTextDocument(uri);
+            const editor = await vscode.window.showTextDocument(doc);
+            editor.selection = new vscode.Selection(pos, pos);
+            editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+        }
+    }
+
+    /**
+     * 初始化符号索引
+     */
+    private async initializeSymbolIndex(context: vscode.ExtensionContext): Promise<void> {
+        const config = vscode.workspace.getConfiguration('plsql-outline');
+        const autoIndex = config.get<boolean>('codeRepository.autoIndex', true);
+        const pathConfigs = config.get<PathConfig[]>('codeRepository.paths', []);
+
+        if (!autoIndex || pathConfigs.length === 0) {
+            return;
+        }
+
+        // 尝试加载缓存的索引
+        const storagePath = context.globalStorageUri
+            ? path.join(context.globalStorageUri.fsPath, 'symbol-index.json')
+            : '';
+
+        if (storagePath) {
+            const loaded = await this.symbolIndex.load(storagePath);
+            if (loaded) {
+                this.outputChannel.appendLine('已从缓存加载符号索引');
+            }
+        }
+
+        // 后台构建/刷新索引
+        const fileExtensions = config.get<string[]>('codeRepository.fileExtensions',
+            ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.typ']);
+        const maxFiles = config.get<number>('codeRepository.maxFiles', 5000);
+
+        setTimeout(async () => {
+            await this.symbolIndex.buildIndex(pathConfigs, fileExtensions, maxFiles);
+            this.symbolIndex.setupWatchers(pathConfigs, fileExtensions);
+
+            // 保存索引到缓存
+            if (storagePath) {
+                await this.symbolIndex.save(storagePath);
+            }
+        }, 3000); // 延迟3秒，避免影响启动速度
+    }
+
+    /**
+     * 重建符号索引
+     */
+    private async rebuildSymbolIndex(): Promise<void> {
+        const config = vscode.workspace.getConfiguration('plsql-outline');
+        const pathConfigs = config.get<PathConfig[]>('codeRepository.paths', []);
+
+        if (pathConfigs.length === 0) {
+            vscode.window.showWarningMessage(
+                '未配置代码仓库路径。请在设置中配置 plsql-outline.codeRepository.paths'
+            );
+            return;
+        }
+
+        const fileExtensions = config.get<string[]>('codeRepository.fileExtensions',
+            ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.typ']);
+        const maxFiles = config.get<number>('codeRepository.maxFiles', 5000);
+
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: '正在重建PL/SQL符号索引...',
+            cancellable: false
+        }, async (progress) => {
+            progress.report({ increment: 0, message: '扫描文件...' });
+            await this.symbolIndex.buildIndex(pathConfigs, fileExtensions, maxFiles);
+            progress.report({ increment: 100, message: '完成' });
+
+            const status = this.symbolIndex.getStatus();
+            vscode.window.showInformationMessage(
+                `索引重建完成: ${status.fileCount} 文件, ${status.symbolCount} 符号`
+            );
+        });
+    }
+
+    /**
+     * 在解析结果中查找变量（大小写不敏感）
+     */
+    private findVariableInParseResult(nodes: ParseNode[], variableName: string, currentLine: number): VariableInfo | null {
+        const upperName = variableName.toUpperCase();
+        // 遍历所有节点查找变量
+        for (const node of nodes) {
+            // 首先检查当前节点的作用域是否包含当前行
+            if (this.isNodeScopeContainsLine(node, currentLine)) {
+                // 在当前节点的变量表中查找（大小写不敏感）
+                if (node.variableTable) {
+                    for (const [key, info] of node.variableTable) {
+                        if (key.toUpperCase() === upperName) {
+                            return info;
+                        }
+                    }
+                }
+            }
+            
+            // 递归检查子节点
+            const foundInChild = this.findVariableInParseResult(node.children, variableName, currentLine);
+            if (foundInChild) {
+                return foundInChild;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * 检查节点作用域是否包含指定行
+     */
+    private isNodeScopeContainsLine(node: ParseNode, line: number): boolean {
+        const startLine = node.declarationLine;
+        const endLine = node.endLine || Number.MAX_SAFE_INTEGER;
+        return line >= startLine && line <= endLine;
     }
 
     /**
@@ -292,6 +714,11 @@ export class PLSQLOutlineExtension {
             
             // 刷新树视图
             this.treeViewManager.refresh();
+
+            // 如果代码仓库配置变化，重建索引
+            if (event.affectsConfiguration('plsql-outline.codeRepository')) {
+                this.rebuildSymbolIndex();
+            }
         }
     }
 
@@ -847,6 +1274,10 @@ export class PLSQLOutlineExtension {
         
         // 执行最终清理
         this.performMemoryCleanup();
+        
+        // 销毁符号索引
+        this.symbolIndex.dispose();
+        this.outputChannel.dispose();
         
         // 销毁树视图
         this.treeViewManager.dispose();

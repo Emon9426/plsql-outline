@@ -46,7 +46,7 @@ CREATE OR REPLACE PROCEDURE main_comma_proc IS
     END;
     
 BEGIN
-    NULL;
+    SELECT nested_comma_func FROM DUAL;
 END;
 
 -- 测试4: 包中的逗号开头格式
