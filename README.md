@@ -225,8 +225,7 @@ A:
   "plsql-outline.view.showStructureBlocks": true,
   "plsql-outline.view.expandByDefault": true,
   "plsql-outline.view.showDeclarations": true,
-  "plsql-outline.view.groupDeclarations": true,
-  "plsql-outline.view.showControlStructures": true
+  "plsql-outline.view.groupDeclarations": true
 }
 ```
 
@@ -234,7 +233,6 @@ A:
 - `expandByDefault`：默认展开树节点
 - `showDeclarations`：在 DECLARE 区域显示声明项（变量/游标/常量/类型/异常），点击可跳转到声明行
 - `groupDeclarations`：声明项按类别分组（Variables/Cursors/Constants/Types/Exceptions）；关闭则扁平展开
-- `showControlStructures`：在大纲中显示控制结构（IF/LOOP/CASE）
 
 ### 文件扩展名设置
 
@@ -426,6 +424,12 @@ A:
 - **缓存管理**：扩展会自动管理缓存，无需手动干预
 
 ## 🔄 更新日志
+
+### v1.5.9 (2026-08-08)
+- 🖱️ **修复光标在过程体内不跟随**：光标停在 BEGIN 与 EXCEPTION 之间的代码行（如过程体内任意语句）时，大纲现选中所属 Procedure/Function 节点（原 BEGIN 在新扁平结构无对应树节点导致 reveal 静默失败）
+- 🗑️ **删除无效配置**：移除 `view.showControlStructures` 与 `parsing.controlStructureMaxDepth`（两项均未与代码接通，开关无效果）
+- 🧹 **清理死代码**：移除遗留的旧 isSection 渲染链（buildSectionItem/countStructureBlocks/createStructureBlocks）、selectAndRevealNode、getAllTreeItems/collectAllTreeItems、findNodeByLine/getStructureBlockType/isLineInNode 等
+- 🔧 **修复 expandAll 根节点标签不一致** + **findNodeInCurrentFile 递归传递 packageName**（代码 Review 项 3、4）
 
 ### v1.5.8 (2026-08-08)
 - 🖱️ **修复光标同步**：selectAndRevealTarget 对节点目标构造的标签现与 getChildren 产出一致（子程序用纯名称、控制结构用简化标签），reveal 不再因标签不匹配而静默失败

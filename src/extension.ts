@@ -468,8 +468,8 @@ export class PLSQLOutlineExtension {
                     const found = this.findProcFuncInChildren(node.children, upperName);
                     if (found) return found;
                 }
-                // 递归子节点
-                const found = this.findNodeInCurrentFile(node.children, name);
+                // 递归子节点（保留 packageName 以支持 pkg.proc 跨嵌套查找）
+                const found = this.findNodeInCurrentFile(node.children, name, packageName);
                 if (found) return found;
             }
         }
@@ -913,92 +913,6 @@ export class PLSQLOutlineExtension {
         }
         
         return null;
-    }
-
-    /**
-     * 根据行号查找节点
-     */
-    private findNodeByLine(nodes: ParseNode[], line: number): ParseNode | null {
-        for (const node of nodes) {
-            // 检查当前节点的行号范围
-            if (this.isLineInNode(node, line)) {
-                // 先检查子节点，优先选择更具体的节点
-                const childNode = this.findNodeByLine(node.children, line);
-                if (childNode) {
-                    return childNode;
-                }
-                // 如果子节点中没有找到，返回当前节点
-                return node;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * 获取结构块类型
-     */
-    private getStructureBlockType(node: ParseNode, line: number): string | null {
-        // 检查是否在END行
-        if (node.endLine !== null && node.endLine !== undefined && line === node.endLine) {
-            return 'END';
-        }
-        
-        // 检查是否在EXCEPTION块中
-        if (node.exceptionLine !== null && node.exceptionLine !== undefined) {
-            if (line >= node.exceptionLine) {
-                // 如果有END行，检查是否在EXCEPTION和END之间
-                if (node.endLine !== null && node.endLine !== undefined) {
-                    if (line < node.endLine) {
-                        return 'EXCEPTION';
-                    }
-                } else {
-                    // 没有END行，从EXCEPTION行开始都算EXCEPTION块
-                    return 'EXCEPTION';
-                }
-            }
-        }
-        
-        // 检查是否在BEGIN块中
-        if (node.beginLine !== null && node.beginLine !== undefined) {
-            if (line >= node.beginLine) {
-                // 如果有EXCEPTION行，检查是否在BEGIN和EXCEPTION之间
-                if (node.exceptionLine !== null && node.exceptionLine !== undefined) {
-                    if (line < node.exceptionLine) {
-                        return 'BEGIN';
-                    }
-                } else if (node.endLine !== null && node.endLine !== undefined) {
-                    // 没有EXCEPTION行但有END行，检查是否在BEGIN和END之间
-                    if (line < node.endLine) {
-                        return 'BEGIN';
-                    }
-                } else {
-                    // 没有EXCEPTION行也没有END行，从BEGIN行开始都算BEGIN块
-                    return 'BEGIN';
-                }
-            }
-        }
-        
-        return null;
-    }
-
-    /**
-     * 检查行号是否在节点范围内
-     */
-    private isLineInNode(node: ParseNode, line: number): boolean {
-        // 节点的开始行是声明行
-        const startLine = node.declarationLine;
-        
-        // 节点的结束行是endLine，如果没有则使用声明行
-        let endLine = node.endLine || startLine;
-        
-        // 如果有子节点，结束行应该包含所有子节点
-        if (node.children.length > 0) {
-            const lastChild = this.getLastChildNode(node);
-            const lastChildEndLine = lastChild.endLine || lastChild.declarationLine;
-            endLine = Math.max(endLine, lastChildEndLine);
-        }
-        
-        return line >= startLine && line <= endLine;
     }
 
     /**

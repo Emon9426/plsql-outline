@@ -2,7 +2,7 @@
   "name": "plsql-outline",
   "displayName": "PL/SQL Outline",
   "description": "PL/SQL代码结构解析器和大纲视图",
-  "version": "1.5.8",
+  "version": "1.5.9",
   "publisher": "EmonZhang3438",
   "icon": "res/Icon.png",
   "engines": {
@@ -309,18 +309,6 @@
           },
           "default": [".sql", ".fnc", ".fcn", ".prc", ".pks", ".pkb", ".typ"],
           "description": "支持解析的文件扩展名列表"
-        },
-        "plsql-outline.view.showControlStructures": {
-          "type": "boolean",
-          "default": true,
-          "description": "在大纲中显示控制结构（IF/LOOP/CASE）"
-        },
-        "plsql-outline.parsing.controlStructureMaxDepth": {
-          "type": "number",
-          "default": 10,
-          "minimum": 1,
-          "maximum": 20,
-          "description": "控制结构最大显示嵌套深度"
         },
         "plsql-outline.codeRepository.paths": {
           "type": "array",

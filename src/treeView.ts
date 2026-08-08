@@ -404,46 +404,6 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 构造一个分区 TreeItemData（旧版兼容，字段与 createSectionChildItems 一致）
-     */
-    private buildSectionItem(owner: ParseNode, sectionType: SectionType): TreeItemData {
-        let label: string = sectionType;
-        let line: number | undefined = owner.declarationLine;
-        let sectionChildren: ParseNode[] | undefined;
-
-        if (sectionType === SectionType.SUBPROGRAM) {
-            const subs = (owner.children || []).filter(c =>
-                c.type === NodeType.FUNCTION || c.type === NodeType.PROCEDURE ||
-                c.type === NodeType.FUNCTION_DECLARATION || c.type === NodeType.PROCEDURE_DECLARATION);
-            label = `Sub Program (${subs.length})`;
-            sectionChildren = subs;
-            line = subs.length > 0 ? subs[0].declarationLine : owner.declarationLine;
-        } else if (sectionType === SectionType.BODY) {
-            label = 'BODY';
-            line = owner.beginLine || owner.declarationLine;
-        } else if (sectionType === SectionType.EXCEPTION) {
-            label = 'EXCEPTION';
-            line = owner.exceptionLine || owner.declarationLine;
-        } else if (sectionType === SectionType.END) {
-            label = 'END';
-            line = owner.endLine || owner.declarationLine;
-        } else {
-            label = 'DECLARE';
-            sectionChildren = [];
-        }
-
-        return {
-            isStructureBlock: false,
-            isSection: true,
-            sectionType,
-            sectionChildren,
-            parentNode: owner,
-            label,
-            line
-        };
-    }
-
-    /**
      * 构造一个声明分组 TreeItemData（字段与 createDeclarationGroupItems 产出一致）
      */
     private buildDeclarationGroupItem(owner: ParseNode, category: DeclarationCategory): TreeItemData {
@@ -1094,68 +1054,6 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 计算结构块数量
-     */
-    private countStructureBlocks(node: ParseNode): number {
-        let count = 0;
-        if (node.beginLine !== null && node.beginLine !== undefined) count++;
-        if (node.exceptionLine !== null && node.exceptionLine !== undefined) count++;
-        if (node.endLine !== null && node.endLine !== undefined) count++;
-        return count;
-    }
-
-    /**
-     * 创建结构块
-     */
-    private createStructureBlocks(node: ParseNode): TreeItemData[] {
-        const blocks: TreeItemData[] = [];
-        
-        // BEGIN块
-        if (node.beginLine !== null && node.beginLine !== undefined) {
-            blocks.push({
-                structureBlock: {
-                    type: StructureBlockType.BEGIN,
-                    line: node.beginLine,
-                    parentNode: node
-                },
-                isStructureBlock: true,
-                label: 'BEGIN',
-                line: node.beginLine
-            });
-        }
-        
-        // EXCEPTION块
-        if (node.exceptionLine !== null && node.exceptionLine !== undefined) {
-            blocks.push({
-                structureBlock: {
-                    type: StructureBlockType.EXCEPTION,
-                    line: node.exceptionLine,
-                    parentNode: node
-                },
-                isStructureBlock: true,
-                label: 'EXCEPTION',
-                line: node.exceptionLine
-            });
-        }
-        
-        // END块
-        if (node.endLine !== null && node.endLine !== undefined) {
-            blocks.push({
-                structureBlock: {
-                    type: StructureBlockType.END,
-                    line: node.endLine,
-                    parentNode: node
-                },
-                isStructureBlock: true,
-                label: 'END',
-                line: node.endLine
-            });
-        }
-        
-        return blocks;
-    }
-
-    /**
      * 创建节点树项
      * 行为：点击节点本身 → 跳转到该节点首行（command）；展开/折叠 → 仅通过左侧箭头
      * （VS Code 中设置 command 的节点，点击标签只触发命令，不展开；箭头负责展开）
@@ -1626,13 +1524,13 @@ export class TreeViewManager {
                 if (parseResult && parseResult.nodes && parseResult.nodes.length > 0) {
                     this.outputChannel.appendLine('开始展开根节点');
                     
-                    // 为每个根节点创建TreeItemData并展开
+                    // 为每个根节点创建TreeItemData并展开（label 需与 createTreeItemsFromNodes 产出一致）
                     for (const rootNode of parseResult.nodes) {
                         try {
                             const rootTreeItem: TreeItemData = {
                                 node: rootNode,
                                 isStructureBlock: false,
-                                label: this.getNodeTypeDisplayName(rootNode.type),
+                                label: this.provider.getNodeLabel(rootNode),
                                 line: rootNode.declarationLine
                             };
                             
@@ -1665,51 +1563,6 @@ export class TreeViewManager {
             this.provider.setForceExpandAll(false);
             throw error;
         }
-    }
-
-    /**
-     * 收集所有树项
-     */
-    private collectAllTreeItems(nodes: ParseNode[], result: TreeItemData[]): void {
-        for (const node of nodes) {
-            const treeItem: TreeItemData = {
-                node,
-                isStructureBlock: false,
-                label: `${node.name} (${this.getNodeTypeDisplayName(node.type)})`,
-                line: node.declarationLine
-            };
-            
-            result.push(treeItem);
-            
-            // 递归收集子节点
-            if (node.children && node.children.length > 0) {
-                this.collectAllTreeItems(node.children, result);
-            }
-        }
-    }
-
-
-    /**
-     * 获取所有树项
-     */
-    private getAllTreeItems(nodes: ParseNode[]): TreeItemData[] {
-        const items: TreeItemData[] = [];
-        
-        const traverse = (currentNodes: ParseNode[]): void => {
-            for (const node of currentNodes) {
-                items.push({
-                    node,
-                    isStructureBlock: false,
-                    label: `${node.name} (${this.getNodeTypeDisplayName(node.type)})`,
-                    line: node.declarationLine
-                });
-                
-                traverse(node.children);
-            }
-        };
-        
-        traverse(nodes);
-        return items;
     }
 
     /**
@@ -1917,7 +1770,24 @@ export class TreeViewManager {
             }
 
             if (target.type === 'structureBlock' && target.node && target.blockType) {
-                // 创建结构块的TreeItemData
+                // BEGIN 在新扁平化结构中没有对应树节点（BEGIN 由 Body 文件夹代表，非叶子）。
+                // 按用户决策 A：光标在过程体内（BEGIN 区域）→ 选中所属 Procedure/Function 节点。
+                // EXCEPTION/END 是真实叶子节点，正常 reveal。
+                if (target.blockType === 'BEGIN') {
+                    const owner = target.node;
+                    const ownerLabel = this.provider.getDeclareNodeLabel(owner);
+                    const ownerItem: TreeItemData = {
+                        node: owner,
+                        isStructureBlock: false,
+                        label: ownerLabel,
+                        line: owner.declarationLine
+                    };
+                    await this.revealItem(ownerItem);
+                    this.outputChannel.appendLine(`已选中节点(BEGIN区): ${owner.name} (第${owner.declarationLine}行)`);
+                    return;
+                }
+
+                // EXCEPTION/END 叶子
                 const structureBlockType = this.getStructureBlockTypeEnum(target.blockType);
                 const blockLine = this.getStructureBlockLine(target.node, target.blockType);
 
@@ -1983,36 +1853,6 @@ export class TreeViewManager {
         } catch (e) {
             // reveal 失败（如父链无法定位）时静默处理
             this.outputChannel.appendLine(`reveal 失败: ${e}`);
-        }
-    }
-
-    /**
-     * 选中并展开到指定节点
-     */
-    async selectAndRevealNode(targetNode: ParseNode): Promise<void> {
-        try {
-            // 创建对应的TreeItemData
-            const treeItemData: TreeItemData = {
-                node: targetNode,
-                isStructureBlock: false,
-                label: `${targetNode.name} (${this.getNodeTypeDisplayName(targetNode.type)})`,
-                line: targetNode.declarationLine
-            };
-
-            // 使用reveal API选中并展开到节点（仅在面板可见时）
-            if (this.treeView.visible) {
-                await this.treeView.reveal(treeItemData, {
-                    select: true,
-                    focus: false,
-                    expand: true
-                });
-            }
-
-            this.outputChannel.appendLine(`已选中节点: ${targetNode.name} (第${targetNode.declarationLine}行)`);
-
-        } catch (error) {
-            this.outputChannel.appendLine(`选中节点失败: ${error}`);
-            // 不显示错误消息，避免干扰用户
         }
     }
 

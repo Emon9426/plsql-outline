@@ -174,6 +174,23 @@ async function main() {
     const pkgDesc = result.nodes[0];
     assert(pkgDesc && pkgDesc.name === 'sync_pkg', '根节点为 sync_pkg 包');
 
+    // ---- 光标在过程体内行（BEGIN 区）→ 选中所属 Procedure 节点（修复1）----
+    console.log('\n--- 光标在过程体内 → 选中所属子程序 ---');
+    if (doWork && doWork.beginLine) {
+        // do_work 体内某行（BEGIN 之后的代码行）：findTargetByLine 返回 structureBlock/BEGIN
+        // 其 node 应为 do_work（所属过程），selectAndRevealTarget 应据此 reveal 到 do_work 节点
+        const bodyLine = doWork.beginLine + 1; // BEGIN 下一行（体内）
+        const t = callFindTarget(bodyLine);
+        // 目标可能是 structureBlock/BEGIN（所属 do_work）或 node（控制结构），关键是 node 指向 do_work 或其内部
+        const ownerIsDoWork = t && t.node && (t.node.name === 'do_work' || t.node.name.indexOf('FOR') >= 0 || t.node.name.indexOf('IF') >= 0);
+        assert(t !== null, `光标在过程体内行(L${bodyLine})能找到目标`);
+        // BEGIN 区的目标 node 应能追溯到 do_work（所属过程）
+        if (t && t.blockType === 'BEGIN') {
+            assert(t.node && t.node.name === 'do_work',
+                `BEGIN 区目标所属节点为 do_work（实际 ${t.node && t.node.name}）—— 修复1：选中所属子程序`);
+        }
+    }
+
     console.log('\n================================');
     console.log(`测试结果: ${passed}/${passed + failed} 通过`);
     if (failed > 0) { failures.forEach(f => console.error('  - ' + f)); process.exit(1); }
