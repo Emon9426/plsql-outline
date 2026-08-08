@@ -188,12 +188,18 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
                 // 程序文件夹（Sub Program / Body）：渲染其 ParseNode 子项
                 if (element.programGroupKind === 'subprogram') {
                     // 子程序：图标按 type 区分（Procedure/Function），标签用 getDeclareNodeLabel
-                    return element.programGroupChildren.map(child => ({
-                        node: child,
-                        isStructureBlock: false,
-                        label: this.getDeclareNodeLabel(child),
-                        line: child.declarationLine
-                    }));
+                    // 兜底过滤：确保匿名块（内联 DECLARE...BEGIN...END）不会出现在 Sub Program 文件夹
+                    return element.programGroupChildren
+                        .filter(child => child.type === NodeType.FUNCTION ||
+                            child.type === NodeType.PROCEDURE ||
+                            child.type === NodeType.FUNCTION_DECLARATION ||
+                            child.type === NodeType.PROCEDURE_DECLARATION)
+                        .map(child => ({
+                            node: child,
+                            isStructureBlock: false,
+                            label: this.getDeclareNodeLabel(child),
+                            line: child.declarationLine
+                        }));
                 }
                 // body：控制结构，合并 IF 组，简化标签
                 const merged = this.mergeIfGroups(element.programGroupChildren);
@@ -504,6 +510,8 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
 
     /**
      * 判断是否使用分组组织（保留以兼容旧调用）
+     * 顶层匿名块（作为独立程序）仍视为可见代码单元；过程体内的内联匿名块
+     * 由 createGroupedChildren 的分类逻辑跳过（不进入 Sub Program 文件夹）。
      */
     private shouldUseSectionGrouping(node: ParseNode): boolean {
         const hasBody = node.beginLine !== null && node.beginLine !== undefined;
@@ -537,8 +545,22 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
                     bodyChildren.push(child);
                 } else if (child.type === NodeType.ELSIF_BRANCH || child.type === NodeType.ELSE_BRANCH) {
                     // 吸收到前一个IF中，此处跳过
+                } else if (child.type === NodeType.ANONYMOUS_BLOCK) {
+                    // 内联匿名块（DECLARE...BEGIN...END;）的处理：
+                    // - 若它是父节点的唯一子节点（如触发器主体被解析为单一匿名块），
+                    //   则把其子节点提升到当前层级（保留可见的声明/控制结构）。
+                    // - 否则（过程体内有多个子项）跳过，不进入 Sub Program 文件夹。
+                    if (node.children.length === 1) {
+                        for (const grandChild of child.children) {
+                            if (this.isControlStructureType(grandChild.type) &&
+                                grandChild.type !== NodeType.ELSIF_BRANCH && grandChild.type !== NodeType.ELSE_BRANCH) {
+                                bodyChildren.push(grandChild);
+                            }
+                        }
+                    }
+                    // 解析层仍保留匿名块节点（承担 BEGIN/END 配对），仅展示层跳过/提升。
                 } else {
-                    // 其他类型归入子程序区
+                    // 其他类型归入子程序区（排除匿名块，避免误入 Sub Program 文件夹）
                     subprogramChildren.push(child);
                 }
             }

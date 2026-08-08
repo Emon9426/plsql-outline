@@ -1,6 +1,6 @@
 # PL/SQL Outline V1.5 测试结果文档
 
-> 版本：1.6.1
+> 版本：1.6.2
 > 测试日期：2026-08-08
 > 测试环境：Node.js v22.x，Windows，TypeScript 编译后运行
 
@@ -24,8 +24,9 @@
 | **GMLTest/large_package_render_test.js** | **23** | ✅ 全部通过 | 万行级 Package 渲染（13,258 行，性能+扁平化样式） |
 | **GMLTest/nested_definition_test.js** | **11** | ✅ 全部通过 | 嵌套子程序 Ctrl+Click 跳转（2/3 级嵌套，Bug A/C 回归） |
 | **GMLTest/qquote_create_test.js** | **17** | ✅ 全部通过 | Q-quote 字符串 + CREATE TYPE/VIEW + 多行长签名 + 带标签 END + MEMBER FUNCTION |
-| **GMLTest/qquote_edge_test.js** | **30** | ✅ **新增·全部通过** | **Q-quote 边界场景：5种定界符+任意定界、危险内容、跨行Q-quote、真实动态SQL、性能** |
-| **合计** | **1403** | **✅ 100% 通过** | |
+| **GMLTest/qquote_edge_test.js** | **30** | ✅ 全部通过 | Q-quote 边界场景：5种定界符+任意定界、危险内容、跨行Q-quote、真实动态SQL、性能 |
+| **GMLTest/anonymous_block_render_test.js** | **8** | ✅ **新增·全部通过** | **内联匿名块不再误入 Sub Program（代码审查根因回归）** |
+| **合计** | **1411** | **✅ 100% 通过** | |
 
 所有测试脚本位于 `test/` 与 `GMLTest/` 目录，运行方式：
 ```bash

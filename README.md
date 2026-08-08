@@ -425,6 +425,14 @@ A:
 
 ## 🔄 更新日志
 
+### v1.6.2 (2026-08-08)
+- 🐛 **修复内联匿名块误入 Sub Program 文件夹**（代码审查根因）：过程体内的 `DECLARE...BEGIN...END;` 块不再被当作 Sub Program 的可见子项渲染。三处展示路径修复：
+  1. `createGroupedChildren` 分类逻辑：ANONYMOUS_BLOCK 不再走 else 分支进入 subprogramChildren
+  2. `getChildren` subprogram 渲染分支：增加类型过滤兜底（仅 FUNCTION/PROCEDURE/DECLARATION）
+  3. 触发器主体（单一匿名块子项）的控制结构子项提升到父级，避免空触发器
+  - 解析层 `handleDeclareStatement` 保留建模（维持 BEGIN/END 配对），仅展示层调整
+- 🧪 新增 GMLTest/anonymous_block_render_test（8 项）
+
 ### v1.6.1 (2026-08-08)
 - 🔴 **支持跨行 Q-quote 字符串**：Q-quote 跨多行时不再破坏解析（跨行状态机追踪未闭合的 Q-quote/标准字符串，内容整体丢弃，内部 `--`/`/*` 不外泄）
 - 🆕 **TYPE BODY 成员方法识别**：`MEMBER FUNCTION` / `STATIC FUNCTION` / `MEMBER PROCEDURE` / `CONSTRUCTOR` 等对象类型方法前缀被识别为子节点
