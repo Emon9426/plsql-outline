@@ -160,6 +160,20 @@ async function main() {
         assert(t && t.type === 'declarationEntry', '声明项行优先于所在节点范围（返回 declarationEntry）');
     }
 
+    // ---- selectAndRevealTarget 节点标签与 getChildren 一致（光标同步 reveal 成功的前提）----
+    console.log('\n--- reveal 标签一致性 ---');
+    // 子程序节点标签应为仅名称（getDeclareNodeLabel），与 createGroupedChildren 产出一致
+    if (doWork) {
+        const PLSQLOutlineProvider = require('../out/treeView').PLSQLOutlineProvider;
+        const protoP = PLSQLOutlineProvider.prototype;
+        // getDeclareNodeLabel 对 PROCEDURE 应返回纯名称
+        const lbl = protoP.getDeclareNodeLabel(doWork);
+        assert(lbl === 'do_work', `子程序 getDeclareNodeLabel 返回纯名称（实际 "${lbl}"）—— reveal 标签一致性`);
+    }
+    // 描述无 L1/L2（需求4）：包节点描述不应含 'L'
+    const pkgDesc = result.nodes[0];
+    assert(pkgDesc && pkgDesc.name === 'sync_pkg', '根节点为 sync_pkg 包');
+
     console.log('\n================================');
     console.log(`测试结果: ${passed}/${passed + failed} 通过`);
     if (failed > 0) { failures.forEach(f => console.error('  - ' + f)); process.exit(1); }

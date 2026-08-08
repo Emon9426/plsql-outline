@@ -427,6 +427,11 @@ A:
 
 ## 🔄 更新日志
 
+### v1.5.8 (2026-08-08)
+- 🖱️ **修复光标同步**：selectAndRevealTarget 对节点目标构造的标签现与 getChildren 产出一致（子程序用纯名称、控制结构用简化标签），reveal 不再因标签不匹配而静默失败
+- 🏷️ **移除 L1/L2/L3/L4 层级显示**：所有节点描述不再显示层级标识（需求4），声明项描述统一为"第N行"
+- 🧪 cursor_sync_test 新增 reveal 标签一致性断言
+
 ### v1.5.7 (2026-08-08)
 - 🔗 **修复嵌套子程序 Ctrl+Click 跳转**：findProcFuncInChildren 改为递归，任意深度嵌套子程序（如 calculate_total → compute_line_total → apply_rounding）的 Ctrl+Click 现在能跳转到声明行（原 Bug A：仅查直接子节点，嵌套 ≥2 级时静默返回 null，只显示 Hover 不跳转）
 - 🔗 **修复跨文件跳转回退**：符号索引中存在当前文件定义时不再误返 null（Bug C 兜底）

@@ -824,7 +824,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     /**
      * 判断是否为控制结构类型
      */
-    private isControlStructureType(type: NodeType): boolean {
+    isControlStructureType(type: NodeType): boolean {
         return type === NodeType.IF_STATEMENT ||
             type === NodeType.ELSIF_BRANCH ||
             type === NodeType.ELSE_BRANCH ||
@@ -838,7 +838,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     /**
      * 获取简化的控制结构标签（仅关键字）
      */
-    private getSimplifiedControlLabel(type: NodeType): string {
+    getSimplifiedControlLabel(type: NodeType): string {
         switch (type) {
             case NodeType.IF_STATEMENT: return 'IF';
             case NodeType.ELSIF_BRANCH: return 'ELSIF';
@@ -855,7 +855,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     /**
      * 子程序节点标签（仅显示名称，类型由图标区分）
      */
-    private getDeclareNodeLabel(node: ParseNode): string {
+    getDeclareNodeLabel(node: ParseNode): string {
         if (node.type === NodeType.FUNCTION || node.type === NodeType.FUNCTION_DECLARATION ||
             node.type === NodeType.PROCEDURE || node.type === NodeType.PROCEDURE_DECLARATION) {
             return node.name;
@@ -981,7 +981,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         treeItem.contextValue = 'section';
 
         if (element.line !== undefined) {
-            treeItem.description = `Line ${element.line}`;
+            treeItem.description = `第${element.line}行`;
             treeItem.command = {
                 command: 'plsqlOutline.goToLine',
                 title: '跳转到行',
@@ -1034,7 +1034,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             vscode.TreeItemCollapsibleState.None
         );
         treeItem.iconPath = this.getDeclarationEntryIcon(entry);
-        treeItem.description = `L${entry.line}`;
+        treeItem.description = `第${entry.line}行`;
         treeItem.tooltip = `${entry.name}（${entry.scope} 内声明，第 ${entry.line} 行）`;
         treeItem.contextValue = 'declarationEntry';
         if (element.line !== undefined) {
@@ -1232,7 +1232,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     /**
      * 获取节点标签
      */
-    private getNodeLabel(node: ParseNode): string {
+    getNodeLabel(node: ParseNode): string {
         return `${node.name} (${this.getNodeTypeDisplayName(node.type)})`;
     }
 
@@ -1416,25 +1416,10 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 获取节点描述
+     * 获取节点描述（仅行号；按需求4 不再显示 L1/L2 层级与子项数量）
      */
     private getNodeDescription(node: ParseNode): string {
-        const parts: string[] = [];
-        
-        // 层级
-        if (node.level > 1) {
-            parts.push(`L${node.level}`);
-        }
-        
-        // 子项数量
-        if (node.children.length > 0) {
-            parts.push(`${node.children.length}个子项`);
-        }
-        
-        // 行号
-        parts.push(`第${node.declarationLine}行`);
-        
-        return parts.join(' • ');
+        return `第${node.declarationLine}行`;
     }
 
     /**
@@ -1951,16 +1936,28 @@ export class TreeViewManager {
                 return;
             }
 
-            // 普通节点
+            // 普通节点：构造的 TreeItemData 字段必须与 getChildren 的产出逐字段一致，
+            // 否则 reveal 的元素相等性比较会失败（包下子程序用 getDeclareNodeLabel=仅名称，
+            // 控制结构等用 getSimplifiedControlLabel）。这里按节点类型选用正确的标签。
             if (target.node) {
+                const n = target.node;
+                let label: string;
+                if (n.type === NodeType.FUNCTION || n.type === NodeType.PROCEDURE ||
+                    n.type === NodeType.FUNCTION_DECLARATION || n.type === NodeType.PROCEDURE_DECLARATION) {
+                    label = this.provider.getDeclareNodeLabel(n);
+                } else if (this.provider.isControlStructureType(n.type)) {
+                    label = this.provider.getSimplifiedControlLabel(n.type);
+                } else {
+                    label = this.provider.getNodeLabel(n);
+                }
                 const treeItemData: TreeItemData = {
-                    node: target.node,
+                    node: n,
                     isStructureBlock: false,
-                    label: `${target.node.name} (${this.getNodeTypeDisplayName(target.node.type)})`,
-                    line: target.node.declarationLine
+                    label,
+                    line: n.declarationLine
                 };
                 await this.revealItem(treeItemData);
-                this.outputChannel.appendLine(`已选中节点: ${target.node.name} (第${target.node.declarationLine}行)`);
+                this.outputChannel.appendLine(`已选中节点: ${n.name} (第${n.declarationLine}行)`);
             }
 
         } catch (error) {
