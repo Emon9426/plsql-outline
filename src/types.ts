@@ -213,16 +213,22 @@ export interface TreeItemData {
     isStructureBlock: boolean;
     label: string;
     line?: number;
-    // 分区分组
+    // 分区分组（旧：DECLARE/SUBPROGRAM/BODY/EXCEPTION/END，保留以兼容）
     isSection?: boolean;
     sectionType?: SectionType;
     sectionChildren?: ParseNode[];
     mergedChildren?: ParseNode[];  // IF合并后的子节点
-    parentNode?: ParseNode;        // 分区节点的父引用
-    // 声明项分组（DECLARE 区域内按类别分组：Variables/Cursors/Constants/Types/Exceptions）
+    parentNode?: ParseNode;        // 分区/分组节点的父引用
+    // 声明项分组（Declaration 区域内按类别分组：Variables/Cursors/Constants/Types/Exceptions）
     isDeclarationGroup?: boolean;
     declarationCategory?: DeclarationCategory;
     declarationEntries?: VariableInfo[];  // 该分组下的声明项
     isDeclarationEntry?: boolean;
     declarationEntry?: VariableInfo;       // 单个声明项（叶节点）
+    // 新扁平化结构：Declaration 包裹文件夹
+    isDeclarationSection?: boolean;        // "Declaration" 包裹文件夹
+    // 新扁平化结构：程序文件夹（Sub Program / Body）
+    isProgramGroup?: boolean;
+    programGroupKind?: 'subprogram' | 'body';
+    programGroupChildren?: ParseNode[];    // 该文件夹下的 ParseNode 子项（子程序或控制结构）
 }

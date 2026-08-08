@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>GMLTest 测试报告 — PL/SQL Outline</title>
+<style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; margin: 0; padding: 24px; background: #f6f8fa; color: #24292e; }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    .meta { color: #586069; font-size: 13px; margin-bottom: 20px; }
+    .summary { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    .card { background: #fff; border: 1px solid #e1e4e8; border-radius: 6px; padding: 16px 20px; min-width: 140px; }
+    .card .num { font-size: 28px; font-weight: 600; line-height: 1.2; }
+    .card .lbl { font-size: 12px; color: #586069; margin-top: 4px; }
+    .card.total .num { color: #0366d6; }
+    .card.pass .num { color: #28a745; }
+    .card.fail .num { color: #586069; }
+    .card.time .num { color: #6f42c1; font-size: 22px; }
+    .banner { padding: 10px 16px; border-radius: 6px; margin-bottom: 20px; font-weight: 600; }
+    .banner.ok { background: #dcffe4; color: #165c26; border: 1px solid #28a745; }
+    .banner.bad { background: #ffebe9; color: #86181d; border: 1px solid #d73a49; }
+    h2 { font-size: 18px; margin: 28px 0 12px; border-bottom: 1px solid #e1e4e8; padding-bottom: 6px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e1e4e8; border-radius: 6px; overflow: hidden; font-size: 13px; }
+    th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #eaecef; vertical-align: top; }
+    th { background: #f1f5f9; font-weight: 600; color: #24292e; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f6f8fa; }
+    .pass { color: #28a745; font-weight: 600; }
+    .fail { color: #d73a49; font-weight: 600; }
+    .status-pass { color: #28a745; }
+    .status-fail { color: #d73a49; }
+    .actual { color: #d73a49; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
+    code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 12px; color: #0366d6; }
+    .toc { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+    <h1>PL/SQL Outline — GMLTest 测试报告</h1>
+    <div class="meta">生成时间：2026/8/8 12:52:03 ｜ 版本：v1.5.4 ｜ 测试框架：Node.js + 自研断言</div>
+
+    <div class="banner ok">
+        ✓ 全部测试通过
+    </div>
+
+    <div class="summary">
+        <div class="card total"><div class="num">30</div><div class="lbl">用例总数</div></div>
+        <div class="card pass"><div class="num">30</div><div class="lbl">通过</div></div>
+        <div class="card fail"><div class="num">0</div><div class="lbl">失败</div></div>
+        <div class="card time"><div class="num">13 ms</div><div class="lbl">解析总耗时</div></div>
+    </div>
+
+    <h2>测试套件汇总</h2>
+    <table>
+        <thead>
+            <tr><th>测试套件</th><th>用例数</th><th>通过</th><th>失败</th><th>解析耗时</th><th>状态</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+            <td>nested_subprograms_test</td>
+            <td>30</td>
+            <td class="pass">30</td>
+            <td class="">0</td>
+            <td>13 ms</td>
+            <td class="status-pass">通过</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <h2>详细用例</h2>
+    <table>
+        <thead>
+            <tr><th>套件</th><th>用例</th><th>描述</th><th>结果</th><th>实际值（失败时）</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>nested_subprograms_test</td>
+                <td><code>parse_clean</code></td>
+                <td>源码解析零错误</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>parse_perf</code></td>
+                <td>解析性能 &lt; 200ms</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>root_exists</code></td>
+                <td>根节点存在且为包体</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>root_name</code></td>
+                <td>包名正确 gml_test_pkg</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>top_declaration</code></td>
+                <td>顶层有 Declaration 包裹文件夹</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>top_subprogram</code></td>
+                <td>顶层有 Sub Program 文件夹</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>top_no_section_layer</code></td>
+                <td>无 DECLARE/SUBPROGRAM 旧分区层（isSection）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>decl_5_categories</code></td>
+                <td>Declaration 下含 Variables/Constants/Cursors/Types/Exceptions 五类</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>decl_has_cursors</code></td>
+                <td>Declaration 含 Cursors（c_pkg_orders）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>decl_has_types</code></td>
+                <td>Declaration 含 Types（t_order_rec/t_id_tab）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>decl_has_constants</code></td>
+                <td>Declaration 含 Constants（c_max_retry）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l1_outer_in_subprogram</code></td>
+                <td>outer_proc 在顶层 Sub Program 下</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l1_outer_procedure_icon</code></td>
+                <td>outer_proc 为 Procedure 图标 (symbol-method)</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l1_topfunc_function_icon</code></td>
+                <td>top_func 为 Function 图标 (symbol-function)</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l2_outer_has_declaration</code></td>
+                <td>outer_proc 展开后有 Declaration</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l2_outer_has_subprogram</code></td>
+                <td>outer_proc 展开后有 Sub Program（嵌套！）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l2_inner_in_outer_subprogram</code></td>
+                <td>inner_func 在 outer_proc 的 Sub Program 下（L2 嵌套）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l2_sibling_in_outer_subprogram</code></td>
+                <td>sibling_proc 也在 outer_proc 的 Sub Program 下</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l2_inner_function_icon</code></td>
+                <td>inner_func 为 Function 图标</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l3_inner_has_subprogram</code></td>
+                <td>inner_func 展开后有 Sub Program（L3 嵌套）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l3_deepest_in_inner_subprogram</code></td>
+                <td>deepest_proc 在 inner_func 的 Sub Program 下（L3 嵌套）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l3_deepest_procedure_icon</code></td>
+                <td>deepest_proc 为 Procedure 图标</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l4_deepest_has_subprogram</code></td>
+                <td>deepest_proc 展开后有 Sub Program（L4 嵌套）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l4_leaf_in_deepest_subprogram</code></td>
+                <td>leaf_func 在 deepest_proc 的 Sub Program 下（最深 L4 嵌套）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>body_outer_exists</code></td>
+                <td>outer_proc 有 Body 文件夹</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>body_outer_has_control</code></td>
+                <td>outer_proc Body 含控制结构（IF/FOR）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>body_deepest_exists</code></td>
+                <td>deepest_proc 有 Body 文件夹</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>parent_l4_to_l3group</code></td>
+                <td>leaf_func 父为 deepest_proc 的 Sub Program group</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>parent_chain_to_root</code></td>
+                <td>leaf_func 父链可逐级回溯到包根节点（reveal 不会断链）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>icon_distinction</code></td>
+                <td>Procedure(symbol-method) 与 Function(symbol-function) 图标不同</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>

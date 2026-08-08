@@ -10,6 +10,7 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 test/**
+GMLTest/**
 node_modules/**
 *.vsix
 .git/**

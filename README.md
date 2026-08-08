@@ -427,6 +427,13 @@ A:
 
 ## 🔄 更新日志
 
+### v1.5.4 (2026-08-08)
+- 📐 **扁平化分组样式（参照 PLSQL Developer）**：去掉 DECLARE/SUBPROGRAM/BODY 分区层，改为对象名下直接挂 Declaration / Sub Program / Body / Exception / End 文件夹
+- 📁 **Declaration 包裹文件夹**：变量/游标/常量/类型/异常统一收纳在 Declaration 文件夹下，按类别子分组
+- 🔄 **Sub Program 任意深度嵌套**：Sub Program 中的 Procedure/Function 可完整展开（含自身的 Declaration/Sub Program/Body），支持 Sub Program 内的 Sub Program 递归嵌套
+- 🎨 **Procedure/Function 图标区分**：Procedure 用 symbol-method，Function 用 symbol-function
+- 🧪 **GMLTest 测试套件**：新增独立 GMLTest 文件夹，含 4 级 Sub Program 嵌套用例，HTML 格式测试报告
+
 ### v1.5.3 (2026-08-08)
 - 🗂️ **Sub Program 分组**：所有子程序（函数/过程）统一归入 "Sub Program (N)" 分组，不再平铺在 DECLARE 中
 - 📐 **分区顺序优化**：对象名 → Declare(声明项) → Sub Program(子程序) → Body → Exception → End，更接近 PLSQL Developer

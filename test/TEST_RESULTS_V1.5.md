@@ -1,6 +1,6 @@
 # PL/SQL Outline V1.5 测试结果文档
 
-> 版本：1.5.3
+> 版本：1.5.4
 > 测试日期：2026-08-08
 > 测试环境：Node.js v22.x，Windows，TypeScript 编译后运行
 
@@ -15,12 +15,13 @@
 | ui_structure_test.js | 44 | ✅ 全部通过 | TreeView 分区（DECLARE/BODY/EXCEPTION/END）、IF 组合并、标签简化 |
 | symbolIndex_test.js | 35 | ✅ 全部通过 | 跨文件符号索引（构建、查找、优先级、增量、持久化、大小写） |
 | huge_package_test.js | 25 | ✅ 全部通过 | 13,259 行万级代码性能与正确性 |
-| declaration_render_test.js | 26 | ✅ 全部通过 | Sub Program 分组 + 分区顺序 + 声明项分组 + getParent 父链 |
-| **cursor_sync_test.js** | **13** | ✅ **新增·全部通过** | **光标同步：声明项/子程序/控制结构行定位（Bug A 修复）** |
-| **definition_test.js** | **7** | ✅ **新增·全部通过** | **Ctrl+Click 跳转：去重守卫移除后两次调用都返回 Location** |
-| **合计** | **1225** | **✅ 100% 通过** | |
+| declaration_render_test.js | 27 | ✅ 全部通过 | Declaration 包裹层 + 扁平化分组 + Sub Program 嵌套 + getParent 父链 |
+| cursor_sync_test.js | 13 | ✅ 全部通过 | 光标同步：声明项/子程序/控制结构行定位（Bug A 修复） |
+| definition_test.js | 7 | ✅ 全部通过 | Ctrl+Click 跳转：去重守卫移除后两次调用都返回 Location |
+| **GMLTest/nested_subprograms_test.js** | **30** | ✅ **新增·全部通过** | **4 级 Sub Program 嵌套（HTML 报告 test_report.html）** |
+| **合计** | **1256** | **✅ 100% 通过** | |
 
-所有测试脚本位于 `test/` 目录，运行方式：
+所有测试脚本位于 `test/` 与 `GMLTest/` 目录，运行方式：
 ```bash
 npm run compile          # 先编译 TypeScript
 node test/<测试文件>.js   # 直接运行（使用自研断言框架）
@@ -206,3 +207,33 @@ END LOOP;
 - **修复**：移除去重守卫 + 对齐 DefinitionProvider 选择器为 `[{language:'sql'},{language:'plsql'}]`（与 HoverProvider 一致）
 - **验证**：同一位置连续两次 provideDefinition 调用都返回 Location（不再第二次为 null）
 - 变量跳转：点击 g_count 使用处 → 跳转到声明行
+
+---
+
+## 七、v1.5.4 扁平化分组样式（Declaration 包裹 + 递归 Sub Program）
+
+### 7.1 GMLTest 嵌套测试（GMLTest/nested_subprograms_test.js，30 项，HTML 报告）
+独立 GMLTest 文件夹，专门验证 Sub Program 任意深度嵌套。运行 `node GMLTest/run_all.js` 生成 `GMLTest/test_report.html`（浏览器可打开）。
+
+测试对象 `GMLTest/nested_subprograms.pkb` 嵌套链（4 级 Sub Program）：
+```
+gml_test_pkg
+└─ outer_proc (Procedure)
+   └─ inner_func (Function)
+      └─ deepest_proc (Procedure)
+         └─ leaf_func (Function)
+```
+
+验证的 30 个 case 覆盖：
+- **顶层扁平结构**：Declaration / Sub Program 文件夹，无旧 DECLARE/SUBPROGRAM 分区层
+- **Declaration 包裹层**：5 类声明（Variables/Constants/Cursors/Types/Exceptions）收纳其下
+- **Sub Program 嵌套 L1-L4**：每级子程序在父级 Sub Program 下，且可完整展开（含自身 Declaration/Sub Program/Body）
+- **图标区分**：Procedure=symbol-method，Function=symbol-function
+- **Body 各层**：每层子程序的 Body 含 IF/FOR/WHILE/CASE
+- **递归 getParent 父链**：leaf_func 父链可逐级回溯到包根节点（reveal 不断链）
+
+### 7.2 declaration_render_test.js（27 项，适配新结构）
+- Declaration 包裹文件夹 + 5 类声明分组
+- Sub Program 文件夹 + Procedure/Function 图标区分
+- 子程序内部扁平化（Declaration/Body）
+- getParent 父链：声明项→分组→Declaration→包；子程序→Sub Program→包
