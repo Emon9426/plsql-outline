@@ -427,6 +427,13 @@ A:
 
 ## 🔄 更新日志
 
+### v1.5.3 (2026-08-08)
+- 🗂️ **Sub Program 分组**：所有子程序（函数/过程）统一归入 "Sub Program (N)" 分组，不再平铺在 DECLARE 中
+- 📐 **分区顺序优化**：对象名 → Declare(声明项) → Sub Program(子程序) → Body → Exception → End，更接近 PLSQL Developer
+- 🖱️ **修复光标同步**：在代码页点击某行后，左侧大纲视图现在能正确选中对应位置（变量/游标/子程序/控制结构均可定位）
+- 🔗 **修复 Ctrl+Click 跳转**：移除误杀导航调用的去重守卫，Ctrl+点击变量/游标/子程序名现在真正跳转（而非仅显示 Hover）
+- 🧪 **新增测试**：光标同步测试、Definition 跳转测试；全套 1225 项断言通过
+
 ### v1.5.2 (2026-08-08)
 - 📋 **声明项大纲展示**：在 DECLARE 区域按类别分组显示变量/游标/常量/类型/异常（参照 PLSQL Developer），每个声明项可点击跳转到声明行
 - 🏷️ **新增声明识别**：支持 `CONSTANT`（常量）、`TYPE ... IS RECORD/TABLE OF/VARRAY/REF CURSOR`（自定义类型）

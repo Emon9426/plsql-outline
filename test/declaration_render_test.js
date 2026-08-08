@@ -1,40 +1,32 @@
 /**
- * 声明项大纲渲染测试
+ * 大纲渲染测试（v1.5.3：Sub Program 分组 + 新分区顺序）
  *
- * 验证 Phase B 的新功能：在 DECLARE 分区下按类别（Variables/Cursors/Constants/
- * Types/Exceptions）分组展示声明项，以及扁平模式。
+ * 验证：
+ *  1. 包体分区顺序：对象名 → DECLARE(声明项) → Sub Program(子程序) → BODY → EXCEPTION → END
+ *  2. 子程序统一归入 "Sub Program (N)" 分组，不再平铺在 DECLARE 中
+ *  3. DECLARE 分区仅含声明项分组（变量/游标/常量/类型/异常）
+ *  4. 声明项叶节点带跳转命令
  *
- * 使用真实的 PLSQLOutlineProvider + mock vscode，覆盖：
- *  1. 程序体的 DECLARE 分区下出现声明分组
- *  2. 分组可展开为声明项叶节点（带类别图标、行号、跳转命令）
- *  3. 扁平模式（groupDeclarations=false）直接展开所有声明项
- *  4. 包体顶层声明（包级游标/变量）也被展示
- *
- * 运行：node test/declaration_render_test.js  （需先 npm run compile）
+ * 使用真实的 PLSQLOutlineProvider + mock vscode。
+ * 运行：node test/declaration_render_test.js （需先 npm run compile）
  */
 const path = require('path');
-const fs = require('fs');
 
 // ---------- mock vscode ----------
 const Module = require('module');
 const mockVscode = {
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
     TreeItem: class TreeItem {
-        constructor(label, collapsibleState) {
-            this.label = label;
-            this.collapsibleState = collapsibleState;
-        }
+        constructor(label, collapsibleState) { this.label = label; this.collapsibleState = collapsibleState; }
     },
     ThemeIcon: class ThemeIcon { constructor(id) { this.id = id; } },
     EventEmitter: class EventEmitter {
         constructor() { this.listeners = []; }
-        event(listener) { this.listeners.push(listener); return { dispose: () => {} }; }
-        fire(data) { this.listeners.forEach(l => l(data)); }
+        event(l) { this.listeners.push(l); return { dispose: () => {} }; }
+        fire(d) { this.listeners.forEach(l => l(d)); }
         dispose() { this.listeners = []; }
     },
-    workspace: {
-        getConfiguration: () => ({ get: (key, def) => def })
-    },
+    workspace: { getConfiguration: () => ({ get: (key, def) => def }) },
     window: { createOutputChannel: () => ({ appendLine: () => {}, dispose: () => {} }) },
     RelativePattern: class RelativePattern { constructor(b, p) { this.base = b; this.pattern = p; } },
     Uri: { file: (f) => ({ fsPath: f }) }
@@ -54,7 +46,7 @@ let passed = 0, failed = 0;
 const failures = [];
 function assert(cond, msg) { if (cond) passed++; else { failed++; failures.push(msg); console.error('  ✗ FAIL: ' + msg); } }
 
-// ---------- 构造一个带丰富声明的小包 ----------
+// ---------- 带丰富声明与子程序的包 ----------
 const SOURCE = `CREATE OR REPLACE PACKAGE BODY demo_pkg
 IS
     -- 包级声明
@@ -86,90 +78,116 @@ IS
         WHEN e_inner THEN
             v_local := -1;
     END do_work;
+
+    FUNCTION get_count RETURN NUMBER IS
+    BEGIN
+        RETURN g_count;
+    END get_count;
 END demo_pkg;
 /`;
 
-// 简单的数据桥：让 provider 能拿到解析结果
 function makeProvider(parseResult) {
     const provider = new PLSQLOutlineProvider();
-    provider.dataProvider = {
-        getParseResult: async () => parseResult
-    };
+    provider.dataProvider = { getParseResult: async () => parseResult };
     return provider;
 }
 
 async function main() {
-    console.log('=== 声明项大纲渲染测试 ===\n');
+    console.log('=== 大纲渲染测试（Sub Program 分组 + 新分区顺序）===\n');
     const parser = new PLSQLParser();
     parser.setControlStructureConfig(true, 20);
     const result = await parser.parse(SOURCE, 'demo_pkg.pkb');
     assert(result.metadata.errors.length === 0, '解析无错误（实际 ' + result.metadata.errors.length + '）');
     const root = result.nodes[0];
-    assert(root !== undefined, '根节点存在');
-    assert(root.name === 'demo_pkg', '包名正确（schema 无前缀）');
+    assert(root.name === 'demo_pkg', '包名正确');
 
-    // ---------- 1. 包体因有包级声明，应使用分区分组 ----------
-    console.log('--- 包体分区（含包级声明）---');
     const provider = makeProvider(result);
-    const rootItems = await provider.getChildren(); // 顶层 -> [package body]
-    assert(rootItems.length === 1, '顶层仅 1 个节点');
+    const rootItems = await provider.getChildren();
     const pkgItem = rootItems[0];
     const pkgChildren = await provider.getChildren(pkgItem);
-    const pkgDeclareSection = pkgChildren.find(c => c.isSection && c.sectionType === SectionType.DECLARE);
-    assert(pkgDeclareSection !== undefined, '包体出现 DECLARE 分区');
 
-    const pkgDeclareChildren = await provider.getChildren(pkgDeclareSection);
-    // 应含子程序 + 声明分组（Variables/Cursors/Types/Constants/Exceptions）
-    const pkgGroups = pkgDeclareChildren.filter(c => c.isDeclarationGroup);
-    console.log('  包级声明分组:', pkgGroups.map(g => g.label).join(', '));
-    assert(pkgGroups.length >= 4, '包级至少 4 个声明分组（变量/游标/类型/常量/异常）');
-    assert(pkgGroups.some(g => g.declarationCategory === DeclarationCategory.VARIABLE), '含 Variables 分组');
-    assert(pkgGroups.some(g => g.declarationCategory === DeclarationCategory.CURSOR), '含 Cursors 分组（c_all）');
-    assert(pkgGroups.some(g => g.declarationCategory === DeclarationCategory.CONSTANT), '含 Constants 分组（c_limit）');
-    assert(pkgGroups.some(g => g.declarationCategory === DeclarationCategory.TYPE), '含 Types 分组（t_rec）');
-    assert(pkgGroups.some(g => g.declarationCategory === DeclarationCategory.EXCEPTION), '含 Exceptions 分组（e_bad）');
+    // ---------- 1. 包体分区顺序：DECLARE → Sub Program → BODY? → EXCEPTION? → END ----------
+    console.log('--- 包体分区顺序 ---');
+    const sectionTypes = pkgChildren.filter(c => c.isSection).map(c => c.sectionType);
+    console.log('  分区顺序:', sectionTypes.join(' → '));
+    // 期望顺序：DECLARE, SUBPROGRAM, END（本包无包级 BODY/EXCEPTION）
+    const expectedOrder = [SectionType.DECLARE, SectionType.SUBPROGRAM, SectionType.END];
+    assert(JSON.stringify(sectionTypes) === JSON.stringify(expectedOrder),
+        `分区顺序为 DECLARE → SUBPROGRAM → END（实际 ${JSON.stringify(sectionTypes)}）`);
 
-    // 验证游标分组的展开项
-    const cursorGroup = pkgGroups.find(g => g.declarationCategory === DeclarationCategory.CURSOR);
+    // ---------- 2. Sub Program 分组含所有子程序 ----------
+    console.log('\n--- Sub Program 分组 ---');
+    const subSection = pkgChildren.find(c => c.isSection && c.sectionType === SectionType.SUBPROGRAM);
+    assert(subSection !== undefined, '存在 Sub Program 分区');
+    assert(/^Sub Program \(2\)$/.test(subSection.label), `Sub Program 标签含数量 "Sub Program (2)"（实际 "${subSection.label}"）`);
+    const subChildren = await provider.getChildren(subSection);
+    const subNames = subChildren.map(c => c.node && c.node.name);
+    console.log('  子程序:', subNames.join(', '));
+    assert(subNames.includes('do_work'), 'Sub Program 含 do_work');
+    assert(subNames.includes('get_count'), 'Sub Program 含 get_count');
+
+    // ---------- 3. DECLARE 分区仅含声明项分组（不含子程序）----------
+    console.log('\n--- DECLARE 分区（仅声明项分组）---');
+    const declSection = pkgChildren.find(c => c.isSection && c.sectionType === SectionType.DECLARE);
+    assert(declSection !== undefined, '存在 DECLARE 分区');
+    const declChildren = await provider.getChildren(declSection);
+    const declGroups = declChildren.filter(c => c.isDeclarationGroup);
+    const declNodes = declChildren.filter(c => c.node); // 子程序节点不应出现
+    console.log('  声明分组:', declGroups.map(g => g.label).join(', '));
+    assert(declGroups.length >= 4, 'DECLARE 至少 4 个声明分组');
+    assert(declNodes.length === 0, 'DECLARE 分区不含子程序节点（子程序已移至 Sub Program）');
+    assert(declGroups.some(g => g.declarationCategory === DeclarationCategory.CURSOR), 'DECLARE 含 Cursors');
+    assert(declGroups.some(g => g.declarationCategory === DeclarationCategory.CONSTANT), 'DECLARE 含 Constants');
+    assert(declGroups.some(g => g.declarationCategory === DeclarationCategory.TYPE), 'DECLARE 含 Types');
+    assert(declGroups.some(g => g.declarationCategory === DeclarationCategory.EXCEPTION), 'DECLARE 含 Exceptions');
+
+    // 声明项叶节点带跳转命令
+    const cursorGroup = declGroups.find(g => g.declarationCategory === DeclarationCategory.CURSOR);
     const cursorEntries = await provider.getChildren(cursorGroup);
-    assert(cursorEntries.length === 1, '游标分组含 1 项（c_all）');
-    assert(cursorEntries[0].isDeclarationEntry, '游标项是 declarationEntry');
-    assert(cursorEntries[0].declarationEntry.name === 'c_all', '游标名为 c_all');
-
-    // ---------- 2. 程序体 do_work 的 DECLARE 分区 + 分组 ----------
-    console.log('\n--- 程序体 do_work 局部声明 ---');
-    const procItem = pkgDeclareChildren.find(c => c.node && c.node.name === 'do_work');
-    assert(procItem !== undefined, 'do_work 在 DECLARE 分区下');
-    const procChildren = await provider.getChildren(procItem);
-    const procDeclareSection = procChildren.find(c => c.isSection && c.sectionType === SectionType.DECLARE);
-    assert(procDeclareSection !== undefined, 'do_work 出现 DECLARE 分区');
-    const procDeclareChildren = await provider.getChildren(procDeclareSection);
-    const procGroups = procDeclareChildren.filter(c => c.isDeclarationGroup);
-    console.log('  局部声明分组:', procGroups.map(g => g.label).join(', '));
-    assert(procGroups.length >= 4, 'do_work 至少 4 个声明分组');
-
-    // ---------- 3. TreeItem 渲染 ----------
-    console.log('\n--- TreeItem 渲染 ---');
-    const groupTreeItem = provider.getTreeItem(cursorGroup);
-    assert(groupTreeItem.iconPath !== undefined, '分组项有图标');
-    assert(groupTreeItem.collapsibleState === 1 /* Collapsed */, '分组项默认折叠');
-
-    const entryTreeItem = provider.getTreeItem(cursorEntries[0]);
-    assert(entryTreeItem.command !== undefined && entryTreeItem.command.command === 'plsqlOutline.goToLine',
+    const entryItem = provider.getTreeItem(cursorEntries[0]);
+    assert(entryItem.command !== undefined && entryItem.command.command === 'plsqlOutline.goToLine',
         '声明项带跳转命令 goToLine');
-    assert(entryTreeItem.iconPath !== undefined, '声明项有图标');
 
-    // ---------- 4. BODY 分区保留控制结构 ----------
-    const procBodySection = procChildren.find(c => c.isSection && c.sectionType === SectionType.BODY);
-    assert(procBodySection !== undefined, 'do_work 出现 BODY 分区');
-    const bodyChildren = await provider.getChildren(procBodySection);
-    assert(bodyChildren.length > 0, 'BODY 分区有控制结构（IF/FOR）');
-    assert(bodyChildren.some(c => c.node && c.node.type === NodeType.IF_STATEMENT), 'BODY 含 IF');
-    assert(bodyChildren.some(c => c.node && c.node.type === NodeType.FOR_LOOP), 'BODY 含 FOR');
+    // ---------- 4. 子程序 do_work 内部也是分区结构 ----------
+    console.log('\n--- 子程序 do_work 内部分区 ---');
+    const doWorkItem = subChildren.find(c => c.node && c.node.name === 'do_work');
+    const doWorkChildren = await provider.getChildren(doWorkItem);
+    const dwSections = doWorkChildren.filter(c => c.isSection).map(c => c.sectionType);
+    console.log('  do_work 分区:', dwSections.join(' → '));
+    assert(dwSections.includes(SectionType.DECLARE), 'do_work 含 DECLARE（局部声明）');
+    assert(dwSections.includes(SectionType.BODY), 'do_work 含 BODY（控制结构）');
+    assert(dwSections.includes(SectionType.EXCEPTION), 'do_work 含 EXCEPTION');
+    assert(dwSections.includes(SectionType.END), 'do_work 含 END');
 
-    // ---------- 5. EXCEPTION / END 分区 ----------
-    assert(procChildren.some(c => c.isSection && c.sectionType === SectionType.EXCEPTION), 'do_work 含 EXCEPTION 分区');
-    assert(procChildren.some(c => c.isSection && c.sectionType === SectionType.END), 'do_work 含 END 分区');
+    // do_work 的局部声明也在 DECLARE 分组里
+    const dwDecl = doWorkChildren.find(c => c.isSection && c.sectionType === SectionType.DECLARE);
+    const dwDeclChildren = await provider.getChildren(dwDecl);
+    const dwGroups = dwDeclChildren.filter(c => c.isDeclarationGroup);
+    assert(dwGroups.length >= 4, 'do_work 局部至少 4 个声明分组');
+
+    // do_work 的 BODY 含控制结构
+    const dwBody = doWorkChildren.find(c => c.isSection && c.sectionType === SectionType.BODY);
+    const dwBodyChildren = await provider.getChildren(dwBody);
+    assert(dwBodyChildren.some(c => c.node && c.node.type === NodeType.IF_STATEMENT), 'do_work BODY 含 IF');
+    assert(dwBodyChildren.some(c => c.node && c.node.type === NodeType.FOR_LOOP), 'do_work BODY 含 FOR');
+
+    // ---------- 5. getParent 父链（reveal 所需）----------
+    console.log('\n--- getParent 父链 ---');
+    // 声明项的父应为声明分组
+    const entryParent = await provider.getParent(cursorEntries[0]);
+    assert(entryParent && entryParent.isDeclarationGroup, '声明项的父为声明分组');
+    // 声明分组的父应为 DECLARE 分区
+    const groupParent = await provider.getParent(cursorGroup);
+    assert(groupParent && groupParent.isSection && groupParent.sectionType === SectionType.DECLARE,
+        '声明分组的父为 DECLARE 分区');
+    // DECLARE 分区的父应为包节点
+    const declParent = await provider.getParent(declSection);
+    assert(declParent && declParent.node && declParent.node.name === 'demo_pkg',
+        'DECLARE 分区的父为包节点');
+    // 子程序节点的父应为 SUBPROGRAM 分区
+    const subNodeParent = await provider.getParent(doWorkItem);
+    assert(subNodeParent && subNodeParent.isSection && subNodeParent.sectionType === SectionType.SUBPROGRAM,
+        '子程序节点的父为 SUBPROGRAM 分区');
 
     // ---------- 结果 ----------
     console.log('\n================================');

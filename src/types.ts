@@ -62,6 +62,7 @@ export enum StructureBlockType {
  */
 export enum SectionType {
     DECLARE = 'DECLARE',
+    SUBPROGRAM = 'SUBPROGRAM',
     BODY = 'BODY',
     EXCEPTION = 'EXCEPTION',
     END = 'END'

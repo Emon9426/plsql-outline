@@ -21,9 +21,6 @@ export class PLSQLOutlineExtension {
     private symbolIndex: SymbolIndex;
     private outputChannel: vscode.OutputChannel;
 
-    // Definition 防重复调用
-    private lastDefCall: { key: string; time: number } | null = null;
-
     // 内存监控相关
     private memoryCheckInterval: NodeJS.Timeout | null = null;
     private lastMemoryCheck: number = 0;
@@ -193,9 +190,9 @@ export class PLSQLOutlineExtension {
             }
         );
 
-        // 注册定义提供者 - 使用文件模式避免双语言匹配导致重复调用
+        // 注册定义提供者（Ctrl+Click 跳转）- 使用语言选择器，与悬停提供者一致
         const definitionProvider = vscode.languages.registerDefinitionProvider(
-            { pattern: '**/*.{sql,pks,pkb,prc,fnc,fcn,trg,typ}' },
+            [{ language: 'sql' }, { language: 'plsql' }],
             {
                 provideDefinition: (document, position, token) => this.provideDefinition(document, position, token)
             }
@@ -326,26 +323,9 @@ export class PLSQLOutlineExtension {
      * 提供定义位置 - 支持跨文件导航
      */
     private provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Definition | vscode.LocationLink[]> {
-        // ===== 诊断日志 =====
-        const diagId = Date.now() + '-' + Math.random().toString(36).substr(2, 5);
-        const wordRange = document.getWordRangeAtPosition(position);
-        const word = wordRange ? document.getText(wordRange) : '(none)';
-        console.log(`[PLSQL-DEF] CALL #${diagId} pos=${position.line}:${position.character} word="${word}"`);
-        // ===== 诊断日志结束 =====
-
-        // 防重复调用：相同位置在 100ms 内的第二次调用返回 null
-        const callKey = `${document.uri.toString()}:${position.line}:${position.character}`;
-        const now = Date.now();
-        if (this.lastDefCall && this.lastDefCall.key === callKey && now - this.lastDefCall.time < 100) {
-            console.log(`[PLSQL-DEF] RETURN #${diagId} result=null (dedup)`);
-            return null;
-        }
-        this.lastDefCall = { key: callKey, time: now };
-
         // 解析光标处的调用格式 (支持 pkg.proc_name 或 proc_name)
         const callInfo = this.parseCallAtPosition(document, position);
         if (!callInfo) {
-            console.log(`[PLSQL-DEF] RETURN #${diagId} result=null (no callInfo)`);
             return null;
         }
 
@@ -356,7 +336,6 @@ export class PLSQLOutlineExtension {
             );
             if (variableInfo) {
                 const definitionPosition = new vscode.Position(variableInfo.line - 1, 0);
-                console.log(`[PLSQL-DEF] RETURN #${diagId} result=Location(variable, line ${variableInfo.line})`);
                 return new vscode.Location(document.uri, definitionPosition);
             }
 
@@ -366,7 +345,6 @@ export class PLSQLOutlineExtension {
             );
             if (localNode) {
                 const definitionPosition = new vscode.Position(localNode.declarationLine - 1, 0);
-                console.log(`[PLSQL-DEF] RETURN #${diagId} result=Location(localNode "${localNode.name}", line ${localNode.declarationLine})`);
                 return new vscode.Location(document.uri, definitionPosition);
             }
         }
@@ -376,7 +354,6 @@ export class PLSQLOutlineExtension {
         const pathConfigs = config.get<PathConfig[]>('codeRepository.paths', []);
 
         if (pathConfigs.length === 0) {
-            console.log(`[PLSQL-DEF] RETURN #${diagId} result=null (no paths configured)`);
             return null;
         }
 
@@ -385,7 +362,6 @@ export class PLSQLOutlineExtension {
         );
 
         if (entries.length === 0) {
-            console.log(`[PLSQL-DEF] RETURN #${diagId} result=null (no index entries)`);
             return null;
         }
 
@@ -396,7 +372,6 @@ export class PLSQLOutlineExtension {
         );
 
         if (crossFileEntries.length === 0) {
-            console.log(`[PLSQL-DEF] RETURN #${diagId} result=null (all entries in current file)`);
             return null;
         }
 
@@ -404,7 +379,6 @@ export class PLSQLOutlineExtension {
             const entry = crossFileEntries[0];
             const uri = vscode.Uri.file(entry.filePath);
             const pos = new vscode.Position(entry.line - 1, 0);
-            console.log(`[PLSQL-DEF] RETURN #${diagId} result=Location(crossFile "${entry.name}", line ${entry.line}, file ${entry.filePath})`);
             return new vscode.Location(uri, pos);
         }
 
@@ -414,7 +388,6 @@ export class PLSQLOutlineExtension {
         );
         if (isPackageItself) {
             this.showSymbolQuickPick(crossFileEntries);
-            console.log(`[PLSQL-DEF] RETURN #${diagId} result=null (showQuickPick for package)`);
             return null;
         }
 
@@ -424,7 +397,6 @@ export class PLSQLOutlineExtension {
         ) || crossFileEntries[0];
         const uri = vscode.Uri.file(bodyEntry.filePath);
         const pos = new vscode.Position(bodyEntry.line - 1, 0);
-        console.log(`[PLSQL-DEF] RETURN #${diagId} result=Location(crossFile body "${bodyEntry.name}", line ${bodyEntry.line})`);
         return new vscode.Location(uri, pos);
     }
 
@@ -756,7 +728,8 @@ export class PLSQLOutlineExtension {
         const target = this.findTargetByLine(this.currentParseResult.nodes, currentLine);
         
         if (target) {
-            this.debugLog(`光标同步: 找到目标 - 类型: ${target.type}, 节点: ${target.node.name}, 块类型: ${target.blockType || 'N/A'}`);
+            const targetName = target.entry ? target.entry.name : (target.node ? target.node.name : 'N/A');
+            this.debugLog(`光标同步: 找到目标 - 类型: ${target.type}, 名称: ${targetName}, 块类型: ${target.blockType || 'N/A'}`);
             // 在大纲视图中选中对应的目标
             await this.treeViewManager.selectAndRevealTarget(target);
         } else {
@@ -767,43 +740,53 @@ export class PLSQLOutlineExtension {
     }
 
     /**
-     * 根据行号查找目标（节点或结构块）- 严格按照实际行号匹配
+     * 根据行号查找目标（节点/结构块/声明项）- 严格按照实际行号匹配
      */
-    private findTargetByLine(nodes: ParseNode[], line: number): { type: 'node' | 'structureBlock', node: ParseNode, blockType?: string } | null {
-        // 首先收集所有可能的匹配项
-        const candidates: Array<{ node: ParseNode, blockType?: string, priority: number }> = [];
-        
-        // 递归收集所有匹配的节点和结构块
+    private findTargetByLine(nodes: ParseNode[], line: number): { type: 'node' | 'structureBlock' | 'declarationEntry', node?: ParseNode, blockType?: string, entry?: VariableInfo } | null {
+        // 候选项：node/blockType 用于节点与结构块；entry 用于声明项（变量/游标等）
+        const candidates: Array<{ node?: ParseNode, blockType?: string, entry?: VariableInfo, priority: number }> = [];
+
+        // 递归收集所有匹配的节点、结构块与声明项
         this.collectCandidates(nodes, line, candidates);
-        
+
         if (candidates.length === 0) {
             return null;
         }
-        
+
         // 按优先级排序（优先级越高越优先）
         candidates.sort((a, b) => b.priority - a.priority);
-        
-        const bestCandidate = candidates[0];
-        
-        if (bestCandidate.blockType) {
-            return {
-                type: 'structureBlock',
-                node: bestCandidate.node,
-                blockType: bestCandidate.blockType
-            };
-        } else {
-            return {
-                type: 'node',
-                node: bestCandidate.node
-            };
+
+        const best = candidates[0];
+        if (best.entry) {
+            return { type: 'declarationEntry', node: best.node, entry: best.entry };
         }
+        if (best.blockType && best.node) {
+            return { type: 'structureBlock', node: best.node, blockType: best.blockType };
+        }
+        if (best.node) {
+            return { type: 'node', node: best.node };
+        }
+        return null;
     }
-    
+
     /**
-     * 收集候选匹配项
+     * 收集候选匹配项（节点 / 结构块 / 声明项）
      */
-    private collectCandidates(nodes: ParseNode[], line: number, candidates: Array<{ node: ParseNode, blockType?: string, priority: number }>): void {
+    private collectCandidates(nodes: ParseNode[], line: number, candidates: Array<{ node?: ParseNode, blockType?: string, entry?: VariableInfo, priority: number }>): void {
         for (const node of nodes) {
+            // 声明项（变量/游标/常量/类型/异常）：行号精确匹配，优先级高
+            if (node.variableTable) {
+                for (const v of node.variableTable.values()) {
+                    if (v.line === line) {
+                        candidates.push({
+                            node: node,
+                            entry: v,
+                            priority: 1100 + node.level // 声明项优先级最高
+                        });
+                    }
+                }
+            }
+
             // 检查节点的声明行
             if (node.declarationLine === line) {
                 candidates.push({
@@ -811,7 +794,7 @@ export class PLSQLOutlineExtension {
                     priority: 1000 + node.level // 声明行优先级最高
                 });
             }
-            
+
             // 检查结构块的精确匹配
             if (node.beginLine === line) {
                 candidates.push({
@@ -820,7 +803,7 @@ export class PLSQLOutlineExtension {
                     priority: 900 + node.level // BEGIN块优先级很高
                 });
             }
-            
+
             if (node.exceptionLine === line) {
                 candidates.push({
                     node: node,
@@ -828,7 +811,7 @@ export class PLSQLOutlineExtension {
                     priority: 900 + node.level // EXCEPTION块优先级很高
                 });
             }
-            
+
             if (node.endLine === line) {
                 candidates.push({
                     node: node,
@@ -836,14 +819,14 @@ export class PLSQLOutlineExtension {
                     priority: 900 + node.level // END块优先级很高
                 });
             }
-            
+
             // 检查是否在节点的范围内（但不是精确匹配）
-            if (this.isLineInNodeRange(node, line) && 
-                node.declarationLine !== line && 
-                node.beginLine !== line && 
-                node.exceptionLine !== line && 
+            if (this.isLineInNodeRange(node, line) &&
+                node.declarationLine !== line &&
+                node.beginLine !== line &&
+                node.exceptionLine !== line &&
                 node.endLine !== line) {
-                
+
                 // 检查是否在特定结构块的范围内
                 const blockType = this.getStructureBlockTypeForRange(node, line);
                 if (blockType) {
@@ -859,7 +842,7 @@ export class PLSQLOutlineExtension {
                     });
                 }
             }
-            
+
             // 递归检查子节点
             this.collectCandidates(node.children, line, candidates);
         }

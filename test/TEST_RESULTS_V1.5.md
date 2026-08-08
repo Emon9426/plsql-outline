@@ -1,6 +1,6 @@
 # PL/SQL Outline V1.5 测试结果文档
 
-> 版本：1.5.2
+> 版本：1.5.3
 > 测试日期：2026-08-08
 > 测试环境：Node.js v22.x，Windows，TypeScript 编译后运行
 
@@ -14,9 +14,11 @@
 | regression_edge_test.js | 23 | ✅ 全部通过 | 6 类边界场景（初始化块、独立函数、签名行 IS、ELSIF/ELSE、CASE WHEN） |
 | ui_structure_test.js | 44 | ✅ 全部通过 | TreeView 分区（DECLARE/BODY/EXCEPTION/END）、IF 组合并、标签简化 |
 | symbolIndex_test.js | 35 | ✅ 全部通过 | 跨文件符号索引（构建、查找、优先级、增量、持久化、大小写） |
-| **huge_package_test.js** | **25** | ✅ **新增·全部通过** | **13,259 行万级代码性能与正确性** |
-| **declaration_render_test.js** | **27** | ✅ **新增·全部通过** | **声明项按类别分组渲染** |
-| **合计** | **1206** | **✅ 100% 通过** | |
+| huge_package_test.js | 25 | ✅ 全部通过 | 13,259 行万级代码性能与正确性 |
+| declaration_render_test.js | 26 | ✅ 全部通过 | Sub Program 分组 + 分区顺序 + 声明项分组 + getParent 父链 |
+| **cursor_sync_test.js** | **13** | ✅ **新增·全部通过** | **光标同步：声明项/子程序/控制结构行定位（Bug A 修复）** |
+| **definition_test.js** | **7** | ✅ **新增·全部通过** | **Ctrl+Click 跳转：去重守卫移除后两次调用都返回 Location** |
+| **合计** | **1225** | **✅ 100% 通过** | |
 
 所有测试脚本位于 `test/` 目录，运行方式：
 ```bash
@@ -174,3 +176,33 @@ END LOOP;
 ### 配置项
 - `plsql-outline.view.showDeclarations`（默认 true）：是否显示声明项
 - `plsql-outline.view.groupDeclarations`（默认 true）：是否按类别分组（false 则扁平展开）
+
+---
+
+## 六、v1.5.3 修复（Sub Program 分组 + 光标同步 + Ctrl+Click 跳转）
+
+### 1. Sub Program 分组（declaration_render_test.js，26 项）
+- 所有子程序（函数/过程）统一归入 "Sub Program (N)" 分组，不再平铺在 DECLARE 中
+- 分区顺序：对象名 → Declare(声明项) → **Sub Program(子程序)** → Body → Exception → End
+- DECLARE 分区仅含声明项分组（变量/游标/常量/类型/异常）
+- getParent 父链验证：声明项→声明分组→DECLARE分区→包节点；子程序→SUBPROGRAM分区
+
+### 2. 光标同步修复（cursor_sync_test.js，13 项）
+修复 4 个叠加 bug：
+- **Bug A**：`findTargetByLine` 现在遍历 `variableTable`，点击变量/游标/常量/类型/异常声明行能定位到 declarationEntry（优先级 1100，高于节点声明行的 1000）
+- **Bug B**：`reveal()` 改为 try/catch 容错（不可见时静默跳过，可见时不再被错误吞掉）
+- **Bug C**：构造的 TreeItemData 字段与 getChildren 产出逐字段一致
+- **Bug D**：`getParent()` 新增 section/declarationGroup/declarationEntry/子程序 的父链重建（buildSectionItem / buildDeclarationGroupItem / findOwnerNodeOfVariable）
+
+验证场景：
+- 点击 g_count / c_all / e_bad 声明行 → 定位到 declarationEntry
+- 点击 v_local 局部变量行 → 定位到 declarationEntry
+- 点击 do_work 声明行 → 定位到 node
+- 点击 BEGIN / EXCEPTION 行 → 定位到结构块
+- 声明项行优先于所在节点范围
+
+### 3. Ctrl+Click 跳转修复（definition_test.js，7 项）
+- **根因**：`provideDefinition` 的 100ms 去重守卫误杀 VS Code 第二次（真正导航）调用
+- **修复**：移除去重守卫 + 对齐 DefinitionProvider 选择器为 `[{language:'sql'},{language:'plsql'}]`（与 HoverProvider 一致）
+- **验证**：同一位置连续两次 provideDefinition 调用都返回 Location（不再第二次为 null）
+- 变量跳转：点击 g_count 使用处 → 跳转到声明行
