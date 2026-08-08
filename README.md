@@ -425,6 +425,11 @@ A:
 
 ## 🔄 更新日志
 
+### v1.6.1 (2026-08-08)
+- 🔴 **支持跨行 Q-quote 字符串**：Q-quote 跨多行时不再破坏解析（跨行状态机追踪未闭合的 Q-quote/标准字符串，内容整体丢弃，内部 `--`/`/*` 不外泄）
+- 🆕 **TYPE BODY 成员方法识别**：`MEMBER FUNCTION` / `STATIC FUNCTION` / `MEMBER PROCEDURE` / `CONSTRUCTOR` 等对象类型方法前缀被识别为子节点
+- 🧪 新增 GMLTest/qquote_edge_test（30 项）：5 种定界符 + 任意定界符、Q-quote 内含双横线/斜杠星号/分号/BEGIN-END/单引号、跨行 Q-quote、200 个 Q-quote 性能、真实 EXECUTE IMMEDIATE 动态 SQL 包
+
 ### v1.6.0 (2026-08-08)
 - 🔴 **修复 Q-quote 字符串导致实际代码解析失败（根因）**：支持 Oracle 替代引用 `q'[...]'` / `q'{...}'` / `q'<...>'` / `q'(...)'` / `q'|...|'` 及 `nq'...'`。原字符串剥离正则不识别 Q-quote，遇到含 `--` / `/* */` 的动态 SQL 时会提前结束、把残留当注释剥离，**删除真实代码**，导致 BEGIN/END 平衡崩溃、大纲塌陷。现改为字符级状态机剥离器，Q-quote 内部的注释标记与引号不再被误判。
 - 🔧 **放宽多行 CREATE 前瞻**：5 行 → 15 行、500 字符 → 2000 字符，避免真实长签名（多参数函数/过程）被丢弃；补充 `PARALLEL_ENABLE`/`AGGREGATE`/`ACCESSIBLE` 终止关键字。

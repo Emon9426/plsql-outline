@@ -133,11 +133,9 @@ END;
     rec.assert('typebody_recognized', 'CREATE TYPE BODY 被识别为 TYPE_BODY 节点',
         tbr.nodes[0] && tbr.nodes[0].type === 'TYPE_BODY' && tbr.nodes[0].name === 'address_t',
         tbr.nodes[0] && tbr.nodes[0].type);
-    // 注：TYPE BODY 内的 MEMBER/STATIC FUNCTION 是对象类型特有语法，
-    // 当前 matchFunctionProcedure 不识别 MEMBER 前缀（未来增强）。本用例验证 TYPE BODY 主体被识别即可。
-    rec.assert('typebody_body_recognized', 'TYPE BODY 主体被识别（MEMBER FUNCTION 为未来增强项）',
-        tbr.nodes[0] && tbr.nodes[0].type === 'TYPE_BODY',
-        tbr.nodes[0] && tbr.nodes[0].type);
+    rec.assert('typebody_member_func', 'TYPE BODY 内 MEMBER FUNCTION 被识别',
+        tbr.nodes[0] && tbr.nodes[0].children.some(c => c.name === 'full_addr'),
+        tbr.nodes[0] && tbr.nodes[0].children.map(c => c.name).join(','));
 
     const viewSrc = `CREATE OR REPLACE VIEW active_orders_v AS
     SELECT id, status FROM orders WHERE status = 'ACTIVE';

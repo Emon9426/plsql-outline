@@ -170,26 +170,47 @@ export class PLSQLParser {
         const lines = content.split('\n');
         const cleanLines: string[] = [];
         const lineMapping: number[] = [];
-        let inMultiLineComment = false;
+        // 跨行状态：多行注释 + 未闭合的字符串（Q-quote 或标准字符串可能跨行）
+        const state: {
+            inMultiLineComment: boolean;
+            // 未闭合字符串：kind='q' 为 Q-quote（含闭合定界符序列），kind='std' 为标准字符串
+            openString: { kind: 'q' | 'std'; closeSeq: string } | null;
+        } = { inMultiLineComment: false, openString: null };
 
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
             const originalLineNumber = i + 1;
 
-            // 处理多行注释（继续中的）
-            if (inMultiLineComment) {
+            // 跨行状态处理：先消耗上一行遗留的状态
+            // 1) 多行注释继续中
+            if (state.inMultiLineComment) {
                 const endIndex = line.indexOf('*/');
                 if (endIndex !== -1) {
-                    inMultiLineComment = false;
+                    state.inMultiLineComment = false;
                     line = line.substring(endIndex + 2);
                 } else {
                     continue;
                 }
             }
-
-            // 单遍字符级扫描：同步识别并剥离字符串字面量、-- 单行注释、/* */ 注释。
-            // 关键：Q-quote 字符串内部的 -- / /* / ' 不会被误判（用配对定界符精确闭合）。
-            line = this.stripLiteralsAndComments(line, (entered) => { inMultiLineComment = entered; });
+            // 2) 未闭合的字符串（跨行 Q-quote / 标准字符串）继续中：本行先处于字符串内，
+            //    跳过到闭合定界符（字符串内容整体丢弃，不触发注释/字符串识别）
+            if (state.openString) {
+                const os = state.openString;
+                const closeIdx = line.indexOf(os.closeSeq);
+                if (closeIdx !== -1) {
+                    // 本行闭合：消耗到闭合序列之后，继续扫描剩余
+                    state.openString = null;
+                    line = line.substring(closeIdx + os.closeSeq.length);
+                    // 剩余部分继续走正常剥离
+                    line = this.stripLiteralsAndComments(line, state);
+                } else {
+                    // 本行整行仍在字符串内：整行丢弃，状态保持
+                    continue;
+                }
+            } else {
+                // 单遍字符级扫描：同步识别并剥离字符串字面量、-- 单行注释、/* */ 注释。
+                line = this.stripLiteralsAndComments(line, state);
+            }
 
             // 去除首尾空白并检查是否为空行
             line = line.trim();
@@ -207,11 +228,11 @@ export class PLSQLParser {
      *  - 标准字符串（单引号包裹，双单引号为转义引号）
      *  - Q-quote 字符串：前缀 nq 或 q + 单引号 + 配对定界符包裹内容
      *  - 双横线单行注释（到行尾）
-     *  - 斜杠星 多行注释（可能跨行，跨行时通过 onMultiLineComment 回调通知调用者）
+     *  - 斜杠星 多行注释（可能跨行，跨行时设置 state.inMultiLineComment）
      * 字符串替换为空串，注释移除。字符串内的注释标记与引号不触发识别。
-     * 注意：本方法对单行处理；若多行注释未在本行闭合，调用 onMultiLineComment(true)。
+     * 若 Q-quote 或标准字符串在本行未闭合（跨行），设置 state.openString 供下一行继续。
      */
-    private stripLiteralsAndComments(line: string, onMultiLineComment: (entered: boolean) => void): string {
+    private stripLiteralsAndComments(line: string, state: { inMultiLineComment: boolean; openString: { kind: 'q' | 'std'; closeSeq: string } | null }): string {
         let out = '';
         let i = 0;
         const n = line.length;
@@ -219,39 +240,47 @@ export class PLSQLParser {
             const ch = line[i];
             const two = line.substring(i, i + 2);
 
-            // -- 单行注释：到行尾
+            // 双横线单行注释：到行尾
             if (two === '--') {
                 break;
             }
 
-            // /* 多行注释
+            // 斜杠星 多行注释
             if (two === '/*') {
                 const close = line.indexOf('*/', i + 2);
                 if (close !== -1) {
                     i = close + 2; // 本行内闭合，跳过
                     continue;
                 } else {
-                    onMultiLineComment(true); // 跨行：通知调用者，本行剩余丢弃
+                    state.inMultiLineComment = true; // 跨行：本行剩余丢弃
                     return out;
                 }
             }
 
-            // 字符串字面量（标准 '...' 或 Q-quote [n]q'...'）
-            // 检测可选前缀 n / q / nq（大小写不敏感）
+            // 字符串字面量（标准 单引号 或 Q-quote [n]q'...'）
             const qStart = this.matchQStringStart(line, i);
             if (ch === '\'' || qStart !== null) {
-                const end = qStart !== null
-                    ? this.scanQStringEnd(line, i, qStart)
-                    : this.scanStdStringEnd(line, i);
+                if (qStart !== null) {
+                    const end = this.scanQStringEnd(line, i, qStart);
+                    if (end > i) {
+                        out += '""';
+                        i = end + 1;
+                        continue;
+                    }
+                    // Q-quote 未在本行闭合：记录闭合序列（定界符+引号），整行剩余归入字符串
+                    state.openString = { kind: 'q', closeSeq: qStart.close + '\'' };
+                    return out;
+                }
+                // 标准字符串
+                const end = this.scanStdStringEnd(line, i);
                 if (end > i) {
                     out += '""';
                     i = end + 1;
                     continue;
                 }
-                // 无法闭合（如行尾奇数引号）：按原样保留，避免吞掉代码
-                out += ch;
-                i++;
-                continue;
+                // 标准字符串未闭合（行尾奇数引号，可能跨行拼接）：记录闭合序列（单引号）
+                state.openString = { kind: 'std', closeSeq: '\'' };
+                return out;
             }
 
             out += ch;
@@ -492,12 +521,15 @@ export class PLSQLParser {
      * 匹配FUNCTION/PROCEDURE关键字（子程序）
      */
     private matchFunctionProcedure(line: string): { type: NodeType; name: string } | null {
-        let match = line.match(/^\s*FUNCTION\s+(\w+)/i);
+        // 支持对象类型方法前缀：MEMBER / STATIC / FINAL / OVERRIDING / CONSTRUCTOR / MAP
+        const prefix = '(?:MEMBER|STATIC|FINAL|OVERRIDING|CONSTRUCTOR|MAP)?\\s*';
+
+        let match = line.match(new RegExp('^\\s*' + prefix + 'FUNCTION\\s+(\\w+)', 'i'));
         if (match) {
             return { type: NodeType.FUNCTION, name: match[1] };
         }
 
-        match = line.match(/^\s*PROCEDURE\s+(\w+)/i);
+        match = line.match(new RegExp('^\\s*' + prefix + 'PROCEDURE\\s+(\\w+)', 'i'));
         if (match) {
             return { type: NodeType.PROCEDURE, name: match[1] };
         }
