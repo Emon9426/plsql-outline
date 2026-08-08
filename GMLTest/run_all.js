@@ -8,7 +8,10 @@ const fs = require('fs');
 const path = require('path');
 
 const suites = [
-    require('./nested_subprograms_test')
+    require('./nested_subprograms_test'),
+    require('./standalone_proc_func_test'),
+    require('./anon_block_trigger_test'),
+    require('./large_package_render_test')
 ];
 
 function escapeHtml(s) {

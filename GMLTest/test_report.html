@@ -36,17 +36,17 @@
 </head>
 <body>
     <h1>PL/SQL Outline — GMLTest 测试报告</h1>
-    <div class="meta">生成时间：2026/8/8 12:52:03 ｜ 版本：v1.5.4 ｜ 测试框架：Node.js + 自研断言</div>
+    <div class="meta">生成时间：2026/8/8 13:15:12 ｜ 版本：v1.5.4 ｜ 测试框架：Node.js + 自研断言</div>
 
     <div class="banner ok">
         ✓ 全部测试通过
     </div>
 
     <div class="summary">
-        <div class="card total"><div class="num">30</div><div class="lbl">用例总数</div></div>
-        <div class="card pass"><div class="num">30</div><div class="lbl">通过</div></div>
+        <div class="card total"><div class="num">111</div><div class="lbl">用例总数</div></div>
+        <div class="card pass"><div class="num">111</div><div class="lbl">通过</div></div>
         <div class="card fail"><div class="num">0</div><div class="lbl">失败</div></div>
-        <div class="card time"><div class="num">13 ms</div><div class="lbl">解析总耗时</div></div>
+        <div class="card time"><div class="num">43 ms</div><div class="lbl">解析总耗时</div></div>
     </div>
 
     <h2>测试套件汇总</h2>
@@ -57,10 +57,34 @@
         <tbody>
             <tr>
             <td>nested_subprograms_test</td>
+            <td>32</td>
+            <td class="pass">32</td>
+            <td class="">0</td>
+            <td>7 ms</td>
+            <td class="status-pass">通过</td>
+        </tr>
+<tr>
+            <td>standalone_proc_func_test</td>
             <td>30</td>
             <td class="pass">30</td>
             <td class="">0</td>
-            <td>13 ms</td>
+            <td>1 ms</td>
+            <td class="status-pass">通过</td>
+        </tr>
+<tr>
+            <td>anon_block_trigger_test</td>
+            <td>26</td>
+            <td class="pass">26</td>
+            <td class="">0</td>
+            <td>- ms</td>
+            <td class="status-pass">通过</td>
+        </tr>
+<tr>
+            <td>large_package_render_test</td>
+            <td>23</td>
+            <td class="pass">23</td>
+            <td class="">0</td>
+            <td>35 ms</td>
             <td class="status-pass">通过</td>
         </tr>
         </tbody>
@@ -109,8 +133,8 @@
             </tr>
 <tr>
                 <td>nested_subprograms_test</td>
-                <td><code>top_subprogram</code></td>
-                <td>顶层有 Sub Program 文件夹</td>
+                <td><code>top_no_subprogram_folder</code></td>
+                <td>包下无 Sub Program 文件夹（子程序直接显示）</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -151,8 +175,15 @@
             </tr>
 <tr>
                 <td>nested_subprograms_test</td>
-                <td><code>l1_outer_in_subprogram</code></td>
-                <td>outer_proc 在顶层 Sub Program 下</td>
+                <td><code>l1_outer_direct</code></td>
+                <td>outer_proc 直接在包下显示（非 Sub Program 文件夹）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l1_topfunc_direct</code></td>
+                <td>top_func 直接在包下显示</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -160,6 +191,13 @@
                 <td>nested_subprograms_test</td>
                 <td><code>l1_outer_procedure_icon</code></td>
                 <td>outer_proc 为 Procedure 图标 (symbol-method)</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_subprograms_test</td>
+                <td><code>l1_outer_label_nameonly</code></td>
+                <td>outer_proc 标签仅名称（无 &quot;Procedure:&quot; 前缀）</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -279,6 +317,559 @@
                 <td>nested_subprograms_test</td>
                 <td><code>icon_distinction</code></td>
                 <td>Procedure(symbol-method) 与 Function(symbol-function) 图标不同</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>parse_clean</code></td>
+                <td>源码解析零错误</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>parse_perf</code></td>
+                <td>解析性能 &lt; 200ms</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>two_toplevel</code></td>
+                <td>解析出 2 个顶层程序（Procedure + Function）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>two_topitems</code></td>
+                <td>大纲顶层 2 个节点</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_exists</code></td>
+                <td>存在独立 Procedure calc_order_total</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_type</code></td>
+                <td>calc_order_total 为 PROCEDURE 类型</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_icon</code></td>
+                <td>calc_order_total 图标 symbol-method</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_declaration</code></td>
+                <td>Procedure 有 Declaration 包裹层</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_decl_vars</code></td>
+                <td>Procedure Declaration 含 Variables</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_decl_cursors</code></td>
+                <td>Procedure Declaration 含 Cursors</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_decl_constants</code></td>
+                <td>Procedure Declaration 含 Constants</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_decl_types</code></td>
+                <td>Procedure Declaration 含 Types</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_decl_exceptions</code></td>
+                <td>Procedure Declaration 含 Exceptions</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_subprogram</code></td>
+                <td>Procedure 有 Sub Program 文件夹（嵌套子程序）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_nested_func</code></td>
+                <td>Procedure Sub Program 含 apply_discount (Function)</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_nested_proc</code></td>
+                <td>Procedure Sub Program 含 accumulate (Procedure)</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_nested_func_icon</code></td>
+                <td>apply_discount 为 Function 图标</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_nested_proc_icon</code></td>
+                <td>accumulate 为 Procedure 图标</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_body</code></td>
+                <td>Procedure 有 Body 文件夹</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_body_control</code></td>
+                <td>Procedure Body 含 FOR/IF 控制结构</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_exception</code></td>
+                <td>Procedure 有 EXCEPTION 叶子</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_end</code></td>
+                <td>Procedure 有 END 叶子</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>proc_parent_nested</code></td>
+                <td>嵌套子程序父为 Sub Program 文件夹</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>func_exists</code></td>
+                <td>存在独立 Function get_customer_tier</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>func_type</code></td>
+                <td>get_customer_tier 为 FUNCTION 类型</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>func_icon</code></td>
+                <td>get_customer_tier 图标 symbol-function</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>func_declaration</code></td>
+                <td>Function 有 Declaration 包裹层</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>func_decl_constants</code></td>
+                <td>Function Declaration 含 Constants (c_gold/c_silver)</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>func_no_subprogram</code></td>
+                <td>Function 无 Sub Program 文件夹（无嵌套子程序）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>standalone_proc_func_test</td>
+                <td><code>func_exception</code></td>
+                <td>Function 有 EXCEPTION 叶子</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>parse_clean</code></td>
+                <td>源码解析零错误</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>parse_perf</code></td>
+                <td>解析性能 &lt; 200ms</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>two_toplevel</code></td>
+                <td>解析出 2 个顶层程序（匿名块 + 触发器）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_exists</code></td>
+                <td>存在匿名块（ANONYMOUS_BLOCK）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_icon</code></td>
+                <td>匿名块图标 file-code</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_declaration</code></td>
+                <td>匿名块有 Declaration 包裹层</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_decl_vars</code></td>
+                <td>匿名块 Declaration 含 Variables</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_decl_cursors</code></td>
+                <td>匿名块 Declaration 含 Cursors</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_decl_constants</code></td>
+                <td>匿名块 Declaration 含 Constants</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_decl_types</code></td>
+                <td>匿名块 Declaration 含 Types</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_decl_exceptions</code></td>
+                <td>匿名块 Declaration 含 Exceptions</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_subprogram</code></td>
+                <td>匿名块有 Sub Program 文件夹</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_nested_func</code></td>
+                <td>匿名块 Sub Program 含 is_valid_amount (Function)</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_nested_proc</code></td>
+                <td>匿名块 Sub Program 含 accumulate (Procedure)</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_body</code></td>
+                <td>匿名块有 Body 文件夹</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_body_for</code></td>
+                <td>匿名块 Body 含 FOR_LOOP</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_body_while</code></td>
+                <td>匿名块 Body 含 WHILE_LOOP</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_body_while_nested_case</code></td>
+                <td>匿名块 WHILE 内含 CASE（递归验证）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_exception</code></td>
+                <td>匿名块有 EXCEPTION 叶子</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_end</code></td>
+                <td>匿名块有 END 叶子</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>anon_parent_nested</code></td>
+                <td>匿名块嵌套子程序父为 Sub Program 文件夹</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>trg_exists</code></td>
+                <td>存在触发器（TRIGGER audit_order_trg）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>trg_name</code></td>
+                <td>触发器名 audit_order_trg</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>trg_icon</code></td>
+                <td>触发器图标 zap</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>trg_expandable</code></td>
+                <td>触发器可展开（含子节点）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>anon_block_trigger_test</td>
+                <td><code>trg_has_body_content</code></td>
+                <td>触发器含主体内容（嵌套匿名块或 Sub Program 文件夹）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>fixture_exists</code></td>
+                <td>万行级测试文件存在</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>fixture_lines</code></td>
+                <td>文件达到万行级（&gt;=10000 行）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>parse_clean</code></td>
+                <td>万行解析零错误</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>parse_perf</code></td>
+                <td>万行解析性能 &lt; 3000ms</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>root_pkg</code></td>
+                <td>根节点为 PACKAGE_BODY</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>root_name</code></td>
+                <td>包名 huge_test_pkg（schema 剥离）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>render_perf_toplevel</code></td>
+                <td>顶层渲染性能 &lt; 500ms</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>top_declaration</code></td>
+                <td>万行包顶层有 Declaration 包裹文件夹</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>top_no_subprogram_folder</code></td>
+                <td>万行包顶层无 Sub Program 文件夹（子程序直接显示）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>top_no_section</code></td>
+                <td>万行包无旧 DECLARE/SUBPROGRAM 分区层（isSection）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>decl_groups_count</code></td>
+                <td>万行包 Declaration 有多个类别分组（&gt;=4）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>decl_vars_present</code></td>
+                <td>万行包 Declaration 含包级变量（&gt;=10）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>decl_cursors_many</code></td>
+                <td>万行包 Cursors 组含多个游标（&gt;=10）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>subprogram_count</code></td>
+                <td>万行包下直接显示 150 个子程序</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>subprogram_all_icons</code></td>
+                <td>全部 150 个子程序都有图标</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>subprogram_icon_variety</code></td>
+                <td>万行包子程序图标有区分（含 method 和 function）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>subprogram_label_nameonly</code></td>
+                <td>子程序标签仅名称（无类型前缀）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>sample_proc_icon</code></td>
+                <td>抽样子程序图标正确（symbol-method）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>sample_proc_declaration</code></td>
+                <td>抽样子程序有 Declaration 包裹层</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>sample_proc_subprogram</code></td>
+                <td>抽样子程序有 Sub Program 文件夹（嵌套子程序）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>sample_proc_body</code></td>
+                <td>抽样子程序有 Body 文件夹</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>large_parent_chain</code></td>
+                <td>万行树中嵌套子程序父链可达包根节点</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>large_package_render_test</td>
+                <td><code>top_end</code></td>
+                <td>万行包顶层有 END 叶子</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>

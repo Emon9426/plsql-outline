@@ -78,14 +78,15 @@ async function run() {
     const pkgItem = topItems[0];
     const pkgChildren = await provider.getChildren(pkgItem);
 
-    // ---- Case 1: 顶层结构（Declaration / Sub Program / Exception / End）----
+    // ---- Case 1: 顶层结构（Declaration + 子程序直接显示 + Exception/End）----
     const labels = pkgChildren.map(c => c.label);
     const hasDeclaration = pkgChildren.some(c => c.isDeclarationSection);
-    const hasSubProgram = pkgChildren.some(c => c.isProgramGroup && c.programGroupKind === 'subprogram');
     const hasException = pkgChildren.some(c => c.isStructureBlock && c.label === 'EXCEPTION' || (c.structureBlock && c.label === 'EXCEPTION'));
     const hasEnd = pkgChildren.some(c => c.label === 'END');
     rec.assert('top_declaration', '顶层有 Declaration 包裹文件夹', hasDeclaration, labels.join(','));
-    rec.assert('top_subprogram', '顶层有 Sub Program 文件夹', hasSubProgram, labels.join(','));
+    // 包下子程序直接显示（不再有 Sub Program 文件夹）
+    rec.assert('top_no_subprogram_folder', '包下无 Sub Program 文件夹（子程序直接显示）',
+        !pkgChildren.some(c => c.isProgramGroup && c.programGroupKind === 'subprogram'), labels.join(','));
     rec.assert('top_no_section_layer', '无 DECLARE/SUBPROGRAM 旧分区层（isSection）', !pkgChildren.some(c => c.isSection), labels.join(','));
 
     // ---- Case 2: Declaration 包裹层含全部 5 类别 ----
@@ -102,15 +103,17 @@ async function run() {
     rec.assert('decl_has_constants', 'Declaration 含 Constants（c_max_retry）',
         declCats.includes(DeclarationCategory.CONSTANT), declCats.join(','));
 
-    // ---- Case 3: Sub Program 嵌套 L1（outer_proc 在顶层 Sub Program 下，Procedure 图标）----
-    const subGroup = pkgChildren.find(c => c.isProgramGroup && c.programGroupKind === 'subprogram');
-    const subChildren = await provider.getChildren(subGroup);
-    const outerProc = subChildren.find(c => c.node && c.node.name === 'outer_proc');
-    rec.assert('l1_outer_in_subprogram', 'outer_proc 在顶层 Sub Program 下', !!outerProc, subChildren.map(c => c.node && c.node.name).join(','));
+    // ---- Case 3: Sub Program 嵌套 L1（outer_proc 直接在包下，Procedure 图标）----
+    // 包下子程序直接显示（无 Sub Program 文件夹）
+    const outerProc = pkgChildren.find(c => c.node && c.node.name === 'outer_proc');
+    const topFunc = pkgChildren.find(c => c.node && c.node.name === 'top_func');
+    rec.assert('l1_outer_direct', 'outer_proc 直接在包下显示（非 Sub Program 文件夹）', !!outerProc, labels.join(','));
+    rec.assert('l1_topfunc_direct', 'top_func 直接在包下显示', !!topFunc, labels.join(','));
     const outerItem = provider.getTreeItem(outerProc);
     rec.assert('l1_outer_procedure_icon', 'outer_proc 为 Procedure 图标 (symbol-method)',
         outerItem.iconPath && outerItem.iconPath.id === 'symbol-method', outerItem.iconPath && outerItem.iconPath.id);
-    const topFunc = subChildren.find(c => c.node && c.node.name === 'top_func');
+    rec.assert('l1_outer_label_nameonly', 'outer_proc 标签仅名称（无 "Procedure:" 前缀）',
+        outerItem.label === 'outer_proc', outerItem.label);
     const topFuncItem = provider.getTreeItem(topFunc);
     rec.assert('l1_topfunc_function_icon', 'top_func 为 Function 图标 (symbol-function)',
         topFuncItem.iconPath && topFuncItem.iconPath.id === 'symbol-function', topFuncItem.iconPath && topFuncItem.iconPath.id);

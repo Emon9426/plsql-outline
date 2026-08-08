@@ -109,13 +109,14 @@ async function main() {
     const labels = pkgChildren.map(c => c.label);
     console.log('  包体子项:', labels.join(', '));
 
-    // ---------- 1. 顶层结构：Declaration / Sub Program（无旧 section 层）----------
-    console.log('\n--- 顶层扁平化结构 ---');
+    // ---------- 1. 顶层结构：Declaration + 子程序直接显示（无 Sub Program 文件夹）----------
+    console.log('\n--- 顶层扁平化结构（包下子程序直接显示）---');
     assert(!pkgChildren.some(c => c.isSection), '无旧 DECLARE/SUBPROGRAM 分区层（isSection）');
     const declSection = pkgChildren.find(c => c.isDeclarationSection);
-    const subGroup = pkgChildren.find(c => c.isProgramGroup && c.programGroupKind === 'subprogram');
     assert(declSection !== undefined, '存在 Declaration 包裹文件夹');
-    assert(subGroup !== undefined, '存在 Sub Program 文件夹');
+    // 包的子程序直接出现在顶层（无需 Sub Program 文件夹）
+    assert(!pkgChildren.some(c => c.isProgramGroup && c.programGroupKind === 'subprogram'),
+        '包下不再有 Sub Program 文件夹（子程序直接显示）');
 
     // ---------- 2. Declaration 包裹层含 5 类 ----------
     console.log('\n--- Declaration 包裹层 ---');
@@ -137,25 +138,26 @@ async function main() {
     assert(entryItem.command !== undefined && entryItem.command.command === 'plsqlOutline.goToLine',
         '声明项带跳转命令 goToLine');
 
-    // ---------- 3. Sub Program 文件夹含所有子程序 ----------
-    console.log('\n--- Sub Program 文件夹 ---');
-    assert(/^Sub Program \(2\)$/.test(subGroup.label), `Sub Program 标签含数量（实际 "${subGroup.label}"）`);
-    const subChildren = await provider.getChildren(subGroup);
-    const subNames = subChildren.map(c => c.node && c.node.name);
-    console.log('  子程序:', subNames.join(', '));
-    assert(subNames.includes('do_work'), 'Sub Program 含 do_work');
-    assert(subNames.includes('get_count'), 'Sub Program 含 get_count');
+    // ---------- 3. 包下子程序直接显示（仅名称，无 "Procedure:" 前缀）----------
+    console.log('\n--- 包下子程序直接显示 ---');
+    const doWorkItem = pkgChildren.find(c => c.node && c.node.name === 'do_work');
+    const getCountItem = pkgChildren.find(c => c.node && c.node.name === 'get_count');
+    assert(doWorkItem !== undefined, 'do_work 直接在包下显示');
+    assert(getCountItem !== undefined, 'get_count 直接在包下显示');
+    // 子程序标签仅名称（无 "Procedure:"/"Function:" 前缀）
+    assert(doWorkItem.label === 'do_work', `do_work 标签仅名称（实际 "${doWorkItem.label}"）`);
+    assert(getCountItem.label === 'get_count', `get_count 标签仅名称（实际 "${getCountItem.label}"）`);
 
     // ---------- 4. 子程序图标区分 Procedure/Function ----------
     console.log('\n--- 子程序图标区分 ---');
-    const doWorkItem = subChildren.find(c => c.node && c.node.name === 'do_work');
-    const getCountItem = subChildren.find(c => c.node && c.node.name === 'get_count');
     const doWorkIcon = provider.getTreeItem(doWorkItem).iconPath;
     const getCountIcon = provider.getTreeItem(getCountItem).iconPath;
     assert(doWorkIcon && doWorkIcon.id === 'symbol-method', `do_work 为 Procedure 图标 symbol-method（实际 ${doWorkIcon && doWorkIcon.id}）`);
     assert(getCountIcon && getCountIcon.id === 'symbol-function', `get_count 为 Function 图标 symbol-function（实际 ${getCountIcon && getCountIcon.id}）`);
+    // 子程序无描述（无 "L2"/"N个子项"）
+    assert(provider.getTreeItem(doWorkItem).description === '', 'do_work 无描述（仅名称+图标）');
 
-    // ---------- 5. 子程序内部同样扁平化 ----------
+    // ---------- 5. 子程序内部扁平化（嵌套子程序仍用 Sub Program 文件夹）----------
     console.log('\n--- 子程序 do_work 内部扁平化 ---');
     const doWorkChildren = await provider.getChildren(doWorkItem);
     assert(doWorkChildren.some(c => c.isDeclarationSection), 'do_work 含 Declaration');
@@ -171,7 +173,15 @@ async function main() {
     assert(dwBodyChildren.some(c => c.node && c.node.type === NodeType.IF_STATEMENT), 'do_work Body 含 IF');
     assert(dwBodyChildren.some(c => c.node && c.node.type === NodeType.FOR_LOOP), 'do_work Body 含 FOR');
 
-    // ---------- 6. getParent 父链 ----------
+    // ---------- 6. Body 节点点击跳转 BEGIN 行（需求2）----------
+    console.log('\n--- Body 跳转 BEGIN 行 ---');
+    const bodyItem = provider.getTreeItem(dwBody);
+    assert(bodyItem.command !== undefined && bodyItem.command.command === 'plsqlOutline.goToLine',
+        'Body 节点带跳转命令');
+    assert(bodyItem.command && bodyItem.command.arguments[0] === doWorkItem.node.beginLine,
+        `Body 跳转到 BEGIN 行（L${doWorkItem.node.beginLine}）`);
+
+    // ---------- 7. getParent 父链 ----------
     console.log('\n--- getParent 父链 ---');
     // 声明项的父 → 声明分组
     const entryParent = await provider.getParent(cursorEntries[0]);
@@ -182,14 +192,14 @@ async function main() {
     // Declaration 包裹层的父 → 包节点
     const declParent = await provider.getParent(declSection);
     assert(declParent && declParent.node && declParent.node.name === 'demo_pkg', 'Declaration 包裹层的父为包节点');
-    // 子程序节点的父 → Sub Program 文件夹
+    // 包下子程序节点的父 → 包节点（直接，非 Sub Program 文件夹）
     const subNodeParent = await provider.getParent(doWorkItem);
-    assert(subNodeParent && subNodeParent.isProgramGroup && subNodeParent.programGroupKind === 'subprogram',
-        '子程序节点的父为 Sub Program 文件夹');
-    // Sub Program 文件夹的父 → 包节点
-    const subGroupParent = await provider.getParent(subGroup);
-    assert(subGroupParent && subGroupParent.node && subGroupParent.node.name === 'demo_pkg',
-        'Sub Program 文件夹的父为包节点');
+    assert(subNodeParent && subNodeParent.node && subNodeParent.node.name === 'demo_pkg',
+        '包下子程序节点的父为包节点（直接显示）');
+    // Body 文件夹的父 → do_work 节点
+    const bodyParent = await provider.getParent(dwBody);
+    assert(bodyParent && bodyParent.node && bodyParent.node.name === 'do_work',
+        'Body 文件夹的父为 do_work 节点');
 
     // ---------- 结果 ----------
     console.log('\n================================');

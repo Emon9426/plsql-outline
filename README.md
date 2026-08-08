@@ -427,6 +427,12 @@ A:
 
 ## 🔄 更新日志
 
+### v1.5.5 (2026-08-08)
+- 📦 **包下子程序直接显示**：Package 下的 Function/Procedure 不再收纳在 "Sub Program" 文件夹中，直接挂在包名下（它们本就属于该包）；嵌套子程序（子程序内的子程序）仍用 Sub Program 文件夹
+- 🎯 **点击节点只跳转，箭头负责展开**：点击大纲节点本身跳转到该节点首行；展开/折叠仅通过左侧箭头操作
+- 🏷️ **子程序简洁显示**：Function/Procedure 仅显示名称+图标（去掉 "Function:"/"Procedure:" 前缀、行号、子项数描述）
+- ▶️ **Body 跳转 BEGIN**：点击 Body 文件夹跳转到 BEGIN 关键字所在行
+
 ### v1.5.4 (2026-08-08)
 - 📐 **扁平化分组样式（参照 PLSQL Developer）**：去掉 DECLARE/SUBPROGRAM/BODY 分区层，改为对象名下直接挂 Declaration / Sub Program / Body / Exception / End 文件夹
 - 📁 **Declaration 包裹文件夹**：变量/游标/常量/类型/异常统一收纳在 Declaration 文件夹下，按类别子分组

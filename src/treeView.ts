@@ -318,7 +318,16 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
                     const childType = element.node.type;
                     if (childType === NodeType.FUNCTION || childType === NodeType.PROCEDURE ||
                         childType === NodeType.FUNCTION_DECLARATION || childType === NodeType.PROCEDURE_DECLARATION) {
-                        // 子程序 → 父节点的 Sub Program 文件夹
+                        // 子程序：若父节点是包，则子程序直接挂在包下（父=包节点本身）；
+                        // 否则（嵌套子程序）父为 Sub Program 文件夹
+                        if (parent.type === NodeType.PACKAGE_BODY || parent.type === NodeType.PACKAGE_HEADER) {
+                            return {
+                                node: parent,
+                                isStructureBlock: false,
+                                label: this.getNodeLabel(parent),
+                                line: parent.declarationLine
+                            };
+                        }
                         return this.buildProgramGroupItem(parent, 'subprogram');
                     }
                     if (this.isControlStructureType(childType)) {
@@ -586,17 +595,33 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             });
         }
 
-        // 2. Sub Program 文件夹：所有子程序（Procedure + Function 统一归此）
+        // 2. 子程序展示：
+        //    - Package Body / Package Header：子程序直接平铺（它们本身就属于该包，无需 Sub Program 文件夹）
+        //    - 其他代码单元（Procedure/Function/Trigger/匿名块）：子程序用 "Sub Program" 文件夹收纳（嵌套子程序）
+        const isPackage = node.type === NodeType.PACKAGE_BODY || node.type === NodeType.PACKAGE_HEADER;
         if (subprogramChildren.length > 0) {
-            items.push({
-                isStructureBlock: false,
-                isProgramGroup: true,
-                programGroupKind: 'subprogram',
-                programGroupChildren: subprogramChildren,
-                parentNode: node,
-                label: `Sub Program (${subprogramChildren.length})`,
-                line: subprogramChildren[0].declarationLine
-            });
+            if (isPackage) {
+                // 包：子程序直接作为子项
+                for (const child of subprogramChildren) {
+                    items.push({
+                        node: child,
+                        isStructureBlock: false,
+                        label: this.getDeclareNodeLabel(child),
+                        line: child.declarationLine
+                    });
+                }
+            } else {
+                // 嵌套子程序：用 Sub Program 文件夹
+                items.push({
+                    isStructureBlock: false,
+                    isProgramGroup: true,
+                    programGroupKind: 'subprogram',
+                    programGroupChildren: subprogramChildren,
+                    parentNode: node,
+                    label: `Sub Program (${subprogramChildren.length})`,
+                    line: subprogramChildren[0].declarationLine
+                });
+            }
         }
 
         // 3. Body 文件夹：控制结构（IF/LOOP/CASE）
@@ -827,13 +852,12 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * DECLARE区域的节点标签
+     * 子程序节点标签（仅显示名称，类型由图标区分）
      */
     private getDeclareNodeLabel(node: ParseNode): string {
-        if (node.type === NodeType.FUNCTION || node.type === NodeType.FUNCTION_DECLARATION) {
-            return `Function: ${node.name}`;
-        } else if (node.type === NodeType.PROCEDURE || node.type === NodeType.PROCEDURE_DECLARATION) {
-            return `Procedure: ${node.name}`;
+        if (node.type === NodeType.FUNCTION || node.type === NodeType.FUNCTION_DECLARATION ||
+            node.type === NodeType.PROCEDURE || node.type === NodeType.PROCEDURE_DECLARATION) {
+            return node.name;
         }
         return this.getNodeLabel(node);
     }
@@ -1050,11 +1074,18 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             vscode.TreeItemCollapsibleState.Collapsed
         );
         treeItem.iconPath = new vscode.ThemeIcon('symbol-folder');
-        const count = element.programGroupChildren ? element.programGroupChildren.length : 0;
-        treeItem.description = count > 0 ? `${count} 项` : '';
         const kindLabel = element.programGroupKind === 'subprogram' ? '子程序' : '控制结构';
         treeItem.tooltip = `${element.label} — ${kindLabel}`;
         treeItem.contextValue = element.programGroupKind === 'subprogram' ? 'subprogramGroup' : 'bodyGroup';
+        // 点击文件夹本身跳转：Body → 跳到 BEGIN 行；Sub Program → 跳到首个子程序行
+        // （展开/折叠仅通过左侧箭头）
+        if (element.line !== undefined) {
+            treeItem.command = {
+                command: 'plsqlOutline.goToLine',
+                title: '跳转到行',
+                arguments: [element.line]
+            };
+        }
         return treeItem;
     }
 
@@ -1122,28 +1153,37 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
 
     /**
      * 创建节点树项
+     * 行为：点击节点本身 → 跳转到该节点首行（command）；展开/折叠 → 仅通过左侧箭头
+     * （VS Code 中设置 command 的节点，点击标签只触发命令，不展开；箭头负责展开）
      */
     private createNodeTreeItem(element: TreeItemData): vscode.TreeItem {
         const node = element.node!;
-        
-        // 确定折叠状态：考虑mergedChildren和分区模式
+
+        // 确定折叠状态
         let collapsibleState: vscode.TreeItemCollapsibleState;
         if (element.mergedChildren && element.mergedChildren.length > 0) {
             collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
         } else if (this.shouldUseSectionGrouping(node)) {
-            // 使用分区模式的节点总是可展开的
-            collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+            // 有代码体的节点可展开（Declaration/Sub Program/Body 等）
+            collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
         } else {
             collapsibleState = this.getCollapsibleState(node);
         }
 
         const treeItem = new vscode.TreeItem(element.label, collapsibleState);
-        
+
         treeItem.iconPath = this.getNodeIcon(node.type);
         treeItem.tooltip = this.getNodeTooltip(node);
-        treeItem.description = this.getNodeDescription(node);
-        
-        // 设置命令（点击跳转）
+        // 子程序（Function/Procedure）不显示描述（按需求仅名称+图标）；
+        // 其他节点（包/触发器/控制结构）保留简洁描述
+        if (node.type === NodeType.FUNCTION || node.type === NodeType.PROCEDURE ||
+            node.type === NodeType.FUNCTION_DECLARATION || node.type === NodeType.PROCEDURE_DECLARATION) {
+            treeItem.description = '';
+        } else {
+            treeItem.description = this.getNodeDescription(node);
+        }
+
+        // 设置命令（点击标签 → 跳转到该节点首行；展开仅靠箭头）
         if (element.line !== undefined) {
             treeItem.command = {
                 command: 'plsqlOutline.goToLine',
@@ -1151,7 +1191,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
                 arguments: [element.line]
             };
         }
-        
+
         // 设置上下文值（用于右键菜单）
         treeItem.contextValue = this.getNodeContextValue(node);
         
