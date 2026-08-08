@@ -11,7 +11,8 @@ const suites = [
     require('./nested_subprograms_test'),
     require('./standalone_proc_func_test'),
     require('./anon_block_trigger_test'),
-    require('./large_package_render_test')
+    require('./large_package_render_test'),
+    require('./nested_definition_test')
 ];
 
 function escapeHtml(s) {

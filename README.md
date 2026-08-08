@@ -427,6 +427,11 @@ A:
 
 ## 🔄 更新日志
 
+### v1.5.7 (2026-08-08)
+- 🔗 **修复嵌套子程序 Ctrl+Click 跳转**：findProcFuncInChildren 改为递归，任意深度嵌套子程序（如 calculate_total → compute_line_total → apply_rounding）的 Ctrl+Click 现在能跳转到声明行（原 Bug A：仅查直接子节点，嵌套 ≥2 级时静默返回 null，只显示 Hover 不跳转）
+- 🔗 **修复跨文件跳转回退**：符号索引中存在当前文件定义时不再误返 null（Bug C 兜底）
+- 🧪 新增 GMLTest/nested_definition_test（11 项，针对 order_mgmt_pkg 的 2/3 级嵌套子程序跳转）
+
 ### v1.5.6 (2026-08-08)
 - 🎨 **图标完全重构（数据库主题）**：所有大纲节点图标改为统一的"数据库圆筒"主题自定义 SVG
 - 🔤 **Procedure/Function 图标区分 P/F**：Procedure 图标含蓝色 "P"，Function 图标含琥珀色 "F"，仅看图标即可区分

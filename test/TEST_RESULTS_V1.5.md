@@ -1,6 +1,6 @@
 # PL/SQL Outline V1.5 测试结果文档
 
-> 版本：1.5.6
+> 版本：1.5.7
 > 测试日期：2026-08-08
 > 测试环境：Node.js v22.x，Windows，TypeScript 编译后运行
 
@@ -22,7 +22,8 @@
 | **GMLTest/standalone_proc_func_test.js** | **30** | ✅ 全部通过 | 独立 Procedure/Function 渲染（无包包裹） |
 | **GMLTest/anon_block_trigger_test.js** | **26** | ✅ 全部通过 | 匿名块（DECLARE...BEGIN...END）+ 触发器渲染 |
 | **GMLTest/large_package_render_test.js** | **23** | ✅ 全部通过 | 万行级 Package 渲染（13,258 行，性能+扁平化样式） |
-| **合计** | **1342** | **✅ 100% 通过** | |
+| **GMLTest/nested_definition_test.js** | **11** | ✅ **新增·全部通过** | **嵌套子程序 Ctrl+Click 跳转（2/3 级嵌套，Bug A/C 回归）** |
+| **合计** | **1353** | **✅ 100% 通过** | |
 
 所有测试脚本位于 `test/` 与 `GMLTest/` 目录，运行方式：
 ```bash

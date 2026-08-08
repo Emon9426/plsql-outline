@@ -36,17 +36,17 @@
 </head>
 <body>
     <h1>PL/SQL Outline — GMLTest 测试报告</h1>
-    <div class="meta">生成时间：2026/8/8 13:31:37 ｜ 版本：v1.5.4 ｜ 测试框架：Node.js + 自研断言</div>
+    <div class="meta">生成时间：2026/8/8 14:09:19 ｜ 版本：v1.5.4 ｜ 测试框架：Node.js + 自研断言</div>
 
     <div class="banner ok">
         ✓ 全部测试通过
     </div>
 
     <div class="summary">
-        <div class="card total"><div class="num">111</div><div class="lbl">用例总数</div></div>
-        <div class="card pass"><div class="num">111</div><div class="lbl">通过</div></div>
+        <div class="card total"><div class="num">122</div><div class="lbl">用例总数</div></div>
+        <div class="card pass"><div class="num">122</div><div class="lbl">通过</div></div>
         <div class="card fail"><div class="num">0</div><div class="lbl">失败</div></div>
-        <div class="card time"><div class="num">56 ms</div><div class="lbl">解析总耗时</div></div>
+        <div class="card time"><div class="num">65 ms</div><div class="lbl">解析总耗时</div></div>
     </div>
 
     <h2>测试套件汇总</h2>
@@ -60,7 +60,7 @@
             <td>32</td>
             <td class="pass">32</td>
             <td class="">0</td>
-            <td>5 ms</td>
+            <td>8 ms</td>
             <td class="status-pass">通过</td>
         </tr>
 <tr>
@@ -68,7 +68,7 @@
             <td>30</td>
             <td class="pass">30</td>
             <td class="">0</td>
-            <td>2 ms</td>
+            <td>1 ms</td>
             <td class="status-pass">通过</td>
         </tr>
 <tr>
@@ -84,7 +84,15 @@
             <td>23</td>
             <td class="pass">23</td>
             <td class="">0</td>
-            <td>48 ms</td>
+            <td>53 ms</td>
+            <td class="status-pass">通过</td>
+        </tr>
+<tr>
+            <td>nested_definition_test</td>
+            <td>11</td>
+            <td class="pass">11</td>
+            <td class="">0</td>
+            <td>2 ms</td>
             <td class="status-pass">通过</td>
         </tr>
         </tbody>
@@ -870,6 +878,83 @@
                 <td>large_package_render_test</td>
                 <td><code>top_end</code></td>
                 <td>万行包顶层有 END 叶子</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_definition_test</td>
+                <td><code>parse_clean</code></td>
+                <td>order_mgmt_pkg 解析零错误</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_definition_test</td>
+                <td><code>parse_perf</code></td>
+                <td>解析性能 &lt; 200ms</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_definition_test</td>
+                <td><code>root_name</code></td>
+                <td>包名 order_mgmt_pkg</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_definition_test</td>
+                <td><code>nested2_compute_line_total_jumps</code></td>
+                <td>compute_line_total（2级嵌套）Ctrl+Click 跳转成功</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_definition_test</td>
+                <td><code>nested2_compute_line_total_line</code></td>
+                <td>compute_line_total 跳转到声明行</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_definition_test</td>
+                <td><code>nested2_accumulate_jumps</code></td>
+                <td>accumulate（2级嵌套）Ctrl+Click 跳转成功</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_definition_test</td>
+                <td><code>nested2_accumulate_line</code></td>
+                <td>accumulate 跳转到声明行</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_definition_test</td>
+                <td><code>nested3_apply_rounding_jumps</code></td>
+                <td>apply_rounding（3级嵌套）Ctrl+Click 跳转成功</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_definition_test</td>
+                <td><code>nested3_apply_rounding_line</code></td>
+                <td>apply_rounding 跳转到声明行</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_definition_test</td>
+                <td><code>parse_call_no_throw</code></td>
+                <td>parseCallAtPosition 不抛异常</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>nested_definition_test</td>
+                <td><code>dedup_removed_twice_jump</code></td>
+                <td>连续两次 Ctrl+Click 都返回跳转（去重守卫已移除）</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>

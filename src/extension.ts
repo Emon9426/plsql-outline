@@ -367,11 +367,22 @@ export class PLSQLOutlineExtension {
 
         // 过滤掉当前文件中的条目（跨文件跳转不需要）
         const currentFilePath = document.uri.fsPath;
+        const normCurrent = path.normalize(currentFilePath).toLowerCase();
         const crossFileEntries = entries.filter(e =>
-            path.normalize(e.filePath).toLowerCase() !== path.normalize(currentFilePath).toLowerCase()
+            path.normalize(e.filePath).toLowerCase() !== normCurrent
         );
 
         if (crossFileEntries.length === 0) {
+            // 无跨文件条目：若索引中存在当前文件的定义，作为兜底跳转目标
+            // （findNodeInCurrentFile 因解析差异未命中时，索引可能仍记录了声明行）
+            const localEntry = entries.find(e =>
+                path.normalize(e.filePath).toLowerCase() === normCurrent
+            );
+            if (localEntry) {
+                const uri = vscode.Uri.file(localEntry.filePath);
+                const pos = new vscode.Position(localEntry.line - 1, 0);
+                return new vscode.Location(uri, pos);
+            }
             return null;
         }
 
@@ -466,12 +477,20 @@ export class PLSQLOutlineExtension {
     }
 
     /**
-     * 在子节点中查找过程/函数
+     * 在子节点中递归查找过程/函数（支持任意深度嵌套子程序）
+     * 例如 calculate_total → compute_line_total → apply_rounding，
+     * Ctrl+Click apply_rounding 调用需能逐级下钻找到声明。
      */
     private findProcFuncInChildren(children: ParseNode[], upperName: string): ParseNode | null {
         for (const child of children) {
+            // 当前子节点匹配
             if (this.isCallableNode(child) && child.name.toUpperCase() === upperName) {
                 return child;
+            }
+            // 递归进入下一层（嵌套子程序）
+            const found = this.findProcFuncInChildren(child.children, upperName);
+            if (found) {
+                return found;
             }
         }
         return null;
