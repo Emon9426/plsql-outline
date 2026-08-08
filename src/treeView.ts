@@ -1147,6 +1147,9 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             case NodeType.PROCEDURE_DECLARATION: return 'Procedure Declaration';
             case NodeType.TRIGGER: return 'Trigger';
             case NodeType.ANONYMOUS_BLOCK: return 'Anonymous Block';
+            case NodeType.TYPE: return 'Type';
+            case NodeType.TYPE_BODY: return 'Type Body';
+            case NodeType.VIEW: return 'View';
             case NodeType.IF_STATEMENT: return 'IF';
             case NodeType.ELSIF_BRANCH: return 'ELSIF';
             case NodeType.ELSE_BRANCH: return 'ELSE';
@@ -1255,8 +1258,13 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
                 return this.getCustomIcon('trigger');
             case NodeType.ANONYMOUS_BLOCK:
                 return this.getCustomIcon('anon');
+            case NodeType.TYPE:
+            case NodeType.TYPE_BODY:
+                return this.getCustomIcon('type');       // T
+            case NodeType.VIEW:
+                return this.getCustomIcon('package');     // 视图复用包图标
             default:
-                // 控制结构等保留 codicon（无需字母区分）
+                // 控制结构等
                 return this.getCustomIcon('variable');
         }
     }
@@ -1578,6 +1586,9 @@ export class TreeViewManager {
             case NodeType.PROCEDURE_DECLARATION: return 'Procedure Declaration';
             case NodeType.TRIGGER: return 'Trigger';
             case NodeType.ANONYMOUS_BLOCK: return 'Anonymous Block';
+            case NodeType.TYPE: return 'Type';
+            case NodeType.TYPE_BODY: return 'Type Body';
+            case NodeType.VIEW: return 'View';
             case NodeType.IF_STATEMENT: return 'IF';
             case NodeType.ELSIF_BRANCH: return 'ELSIF';
             case NodeType.ELSE_BRANCH: return 'ELSE';

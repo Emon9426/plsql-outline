@@ -425,6 +425,13 @@ A:
 
 ## 🔄 更新日志
 
+### v1.6.0 (2026-08-08)
+- 🔴 **修复 Q-quote 字符串导致实际代码解析失败（根因）**：支持 Oracle 替代引用 `q'[...]'` / `q'{...}'` / `q'<...>'` / `q'(...)'` / `q'|...|'` 及 `nq'...'`。原字符串剥离正则不识别 Q-quote，遇到含 `--` / `/* */` 的动态 SQL 时会提前结束、把残留当注释剥离，**删除真实代码**，导致 BEGIN/END 平衡崩溃、大纲塌陷。现改为字符级状态机剥离器，Q-quote 内部的注释标记与引号不再被误判。
+- 🔧 **放宽多行 CREATE 前瞻**：5 行 → 15 行、500 字符 → 2000 字符，避免真实长签名（多参数函数/过程）被丢弃；补充 `PARALLEL_ENABLE`/`AGGREGATE`/`ACCESSIBLE` 终止关键字。
+- 🆕 **支持 CREATE TYPE / TYPE BODY / VIEW**：新增 NodeType，识别为程序单元（原 `matchCreateStatement` 只认 PACKAGE/FUNCTION/PROCEDURE/TRIGGER，CREATE TYPE 等被丢弃）。
+- 🐛 **次要修复**：统一 `patterns.ts` 字符串正则（PL/SQL 用 `''` 而非 `\` 转义）；`isEndStatement` 排除带标签的 `END IF lbl;` / `END LOOP lbl;`。
+- 🧪 新增 GMLTest/qquote_create_test（17 项）
+
 ### v1.5.9 (2026-08-08)
 - 🖱️ **修复光标在过程体内不跟随**：光标停在 BEGIN 与 EXCEPTION 之间的代码行（如过程体内任意语句）时，大纲现选中所属 Procedure/Function 节点（原 BEGIN 在新扁平结构无对应树节点导致 reveal 静默失败）
 - 🗑️ **删除无效配置**：移除 `view.showControlStructures` 与 `parsing.controlStructureMaxDepth`（两项均未与代码接通，开关无效果）

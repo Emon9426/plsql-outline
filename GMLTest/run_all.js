@@ -12,7 +12,8 @@ const suites = [
     require('./standalone_proc_func_test'),
     require('./anon_block_trigger_test'),
     require('./large_package_render_test'),
-    require('./nested_definition_test')
+    require('./nested_definition_test'),
+    require('./qquote_create_test')
 ];
 
 function escapeHtml(s) {

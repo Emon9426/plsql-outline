@@ -162,6 +162,9 @@ export class PLSQLParser {
     /**
      * 预处理内容：去除注释、空行等，但保持原始行号映射
      * BUG-7修复：字符串字面量移除在注释剥离之前执行
+     * Q-quote修复：支持 Oracle 替代引用 q'[...]' / q'{...}' / q'<...>' / q'(...)' / q'|...|'（及 nq'...'）
+     * —— 旧正则 /'[^']*(?:''[^']*)*'/g 不识别 Q-quote，遇到 q'[...含 -- 或 /* ...]' 时会提前结束，
+     *    残留的 -- /* 被当作注释剥离，删除真实代码，导致 BEGIN/END 平衡崩溃、大纲塌陷。
      */
     private preprocessContent(content: string): { cleanLines: string[], lineMapping: number[] } {
         const lines = content.split('\n');
@@ -172,7 +175,7 @@ export class PLSQLParser {
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
             const originalLineNumber = i + 1;
-            
+
             // 处理多行注释（继续中的）
             if (inMultiLineComment) {
                 const endIndex = line.indexOf('*/');
@@ -184,27 +187,9 @@ export class PLSQLParser {
                 }
             }
 
-            // BUG-7修复：先移除字符串字面量，再处理注释
-            // 使用支持PL/SQL转义引号('')的正则
-            line = line.replace(/'[^']*(?:''[^']*)*'/g, '""');
-
-            // 检查多行注释开始
-            const startIndex = line.indexOf('/*');
-            if (startIndex !== -1) {
-                const endIndex = line.indexOf('*/', startIndex + 2);
-                if (endIndex !== -1) {
-                    line = line.substring(0, startIndex) + line.substring(endIndex + 2);
-                } else {
-                    inMultiLineComment = true;
-                    line = line.substring(0, startIndex);
-                }
-            }
-
-            // 移除单行注释
-            const commentIndex = line.indexOf('--');
-            if (commentIndex !== -1) {
-                line = line.substring(0, commentIndex);
-            }
+            // 单遍字符级扫描：同步识别并剥离字符串字面量、-- 单行注释、/* */ 注释。
+            // 关键：Q-quote 字符串内部的 -- / /* / ' 不会被误判（用配对定界符精确闭合）。
+            line = this.stripLiteralsAndComments(line, (entered) => { inMultiLineComment = entered; });
 
             // 去除首尾空白并检查是否为空行
             line = line.trim();
@@ -215,6 +200,133 @@ export class PLSQLParser {
         }
 
         return { cleanLines, lineMapping };
+    }
+
+    /**
+     * 字符级剥离器：在单行内同步处理
+     *  - 标准字符串（单引号包裹，双单引号为转义引号）
+     *  - Q-quote 字符串：前缀 nq 或 q + 单引号 + 配对定界符包裹内容
+     *  - 双横线单行注释（到行尾）
+     *  - 斜杠星 多行注释（可能跨行，跨行时通过 onMultiLineComment 回调通知调用者）
+     * 字符串替换为空串，注释移除。字符串内的注释标记与引号不触发识别。
+     * 注意：本方法对单行处理；若多行注释未在本行闭合，调用 onMultiLineComment(true)。
+     */
+    private stripLiteralsAndComments(line: string, onMultiLineComment: (entered: boolean) => void): string {
+        let out = '';
+        let i = 0;
+        const n = line.length;
+        while (i < n) {
+            const ch = line[i];
+            const two = line.substring(i, i + 2);
+
+            // -- 单行注释：到行尾
+            if (two === '--') {
+                break;
+            }
+
+            // /* 多行注释
+            if (two === '/*') {
+                const close = line.indexOf('*/', i + 2);
+                if (close !== -1) {
+                    i = close + 2; // 本行内闭合，跳过
+                    continue;
+                } else {
+                    onMultiLineComment(true); // 跨行：通知调用者，本行剩余丢弃
+                    return out;
+                }
+            }
+
+            // 字符串字面量（标准 '...' 或 Q-quote [n]q'...'）
+            // 检测可选前缀 n / q / nq（大小写不敏感）
+            const qStart = this.matchQStringStart(line, i);
+            if (ch === '\'' || qStart !== null) {
+                const end = qStart !== null
+                    ? this.scanQStringEnd(line, i, qStart)
+                    : this.scanStdStringEnd(line, i);
+                if (end > i) {
+                    out += '""';
+                    i = end + 1;
+                    continue;
+                }
+                // 无法闭合（如行尾奇数引号）：按原样保留，避免吞掉代码
+                out += ch;
+                i++;
+                continue;
+            }
+
+            out += ch;
+            i++;
+        }
+        return out;
+    }
+
+    /**
+     * 检测 position 是否为 Q-quote 字符串起始（[n]q'<delim>）。
+     * 返回定界符信息 { prefixLen, open, close } 或 null。
+     * 支持：q' / nq' / Q' / NQ'（大小写不敏感）。open 为起始定界符（[ { < ( 或其他字符），close 为对应闭合定界符。
+     */
+    private matchQStringStart(line: string, i: number): { prefixLen: number; open: string; close: string } | null {
+        // 尝试匹配可选 N + Q（共 1~2 个字符前缀）后跟 '
+        const lower = line.toLowerCase();
+        // 模式：[n]q'  → 前缀长度 1 (q) 或 2 (nq)
+        // 先试 2 字符前缀 nq'
+        if (i + 2 < line.length && (lower[i] === 'n' && lower[i + 1] === 'q' && line[i + 2] === '\'')) {
+            return this.qDelimAt(line, i + 3, 2);
+        }
+        // 1 字符前缀 q'
+        if (i + 1 < line.length && lower[i] === 'q' && line[i + 1] === '\'') {
+            return this.qDelimAt(line, i + 2, 1);
+        }
+        return null;
+    }
+
+    /**
+     * 在 q' 之后的 position 读取定界符，返回 { prefixLen, open, close }。
+     * 配对定界符：[ ]、{ }、< >、( )；其他字符 c 则 open=close=c。
+     */
+    private qDelimAt(line: string, pos: number, prefixLen: number): { prefixLen: number; open: string; close: string } | null {
+        if (pos >= line.length) { return null; }
+        const open = line[pos];
+        let close: string;
+        switch (open) {
+            case '[': close = ']'; break;
+            case '{': close = '}'; break;
+            case '<': close = '>'; break;
+            case '(': close = ')'; break;
+            default: close = open; break;
+        }
+        return { prefixLen, open, close };
+    }
+
+    /**
+     * 扫描 Q-quote 字符串结束位置，返回闭合 ' 的索引（不含），未闭合返回 -1。
+     * start 为前缀起始索引（指向 n 或 q），delim 为定界符信息。
+     * Q-quote 闭合形式：close'（先出现 close 定界符再紧跟 '）。无需转义。
+     */
+    private scanQStringEnd(line: string, start: number, delim: { prefixLen: number; open: string; close: string }): number {
+        // 内容起始 = start + prefixLen + 1(q') + 1(open)
+        let j = start + delim.prefixLen + 1 + 1;
+        const closeSeq = delim.close + '\'';
+        const idx = line.indexOf(closeSeq, j);
+        return idx !== -1 ? idx + 1 : -1; // 返回闭合 ' 的索引
+    }
+
+    /**
+     * 扫描标准字符串 '...' 结束位置（处理 '' 转义），返回闭合 ' 的索引，未闭合返回 -1。
+     */
+    private scanStdStringEnd(line: string, start: number): number {
+        let j = start + 1; // 跳过起始 '
+        while (j < line.length) {
+            if (line[j] === '\'') {
+                if (line[j + 1] === '\'') {
+                    j += 2; // 转义引号 ''
+                    continue;
+                }
+                return j; // 闭合 '
+            }
+            j++;
+        }
+        return -1; // 未闭合（行尾奇数引号）
     }
 
     /**
@@ -287,26 +399,26 @@ export class PLSQLParser {
 
         let combinedLine = startLine;
         let endIndex = startIndex;
-        
-        // BUG-5修复：最大前瞻5行
-        const maxLookAhead = Math.min(5, lines.length - startIndex - 1);
+
+        // 放宽前瞻：最大 15 行（原 5 行在真实长签名 CREATE 上会过早放弃，导致程序单元被丢弃）
+        const maxLookAhead = Math.min(15, lines.length - startIndex - 1);
         for (let i = 1; i <= maxLookAhead; i++) {
             const nextLineIndex = startIndex + i;
             const nextLine = lines[nextLineIndex];
-            
+
             if (/^\s*(FUNCTION|PROCEDURE)\s+\w+/i.test(nextLine)) {
                 break;
             }
-            
-            // BUG-5修复：遇到这些关键字终止拼接
-            if (/^\s*(IS|AS|AUTHID|DETERMINISTIC|RESULT_CACHE|PIPELINED)\s*/i.test(nextLine)) {
+
+            // 遇到这些关键字终止拼接（补充 PARALLEL_ENABLE/AGGREGATE/ACCESSIBLE 等真实子句）
+            if (/^\s*(IS|AS|AUTHID|DETERMINISTIC|RESULT_CACHE|PIPELINED|PARALLEL_ENABLE|AGGREGATE|ACCESSIBLE)\b/i.test(nextLine)) {
                 break;
             }
-            
+
             combinedLine += ' ' + nextLine;
-            
-            // BUG-5修复：总长度超过500字符放弃
-            if (combinedLine.length > 500) {
+
+            // 放宽长度上限：2000 字符（原 500 在多参数签名上会过早放弃）
+            if (combinedLine.length > 2000) {
                 break;
             }
             
@@ -353,6 +465,24 @@ export class PLSQLParser {
         match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\s+(?:\w+\.)?(\w+)/i);
         if (match) {
             return { type: NodeType.TRIGGER, name: match[1] };
+        }
+
+        // CREATE TYPE BODY（先匹配，因含 TYPE 关键字）
+        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TYPE\s+BODY\s+(?:\w+\.)?(\w+)/i);
+        if (match) {
+            return { type: NodeType.TYPE_BODY, name: match[1] };
+        }
+
+        // CREATE TYPE（对象类型/集合类型）
+        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TYPE\s+(?!BODY\s)(?:\w+\.)?(\w+)/i);
+        if (match) {
+            return { type: NodeType.TYPE, name: match[1] };
+        }
+
+        // CREATE VIEW / MATERIALIZED VIEW（视图非 PL/SQL 程序单元，但识别以免被丢弃）
+        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?(?:MATERIALIZED\s+)?VIEW\s+(?:\w+\.)?(\w+)/i);
+        if (match) {
+            return { type: NodeType.VIEW, name: match[1] };
         }
 
         return null;
@@ -676,11 +806,11 @@ export class PLSQLParser {
      * BUG-4修复：分号/斜杠可选
      */
     private isEndStatement(line: string): boolean {
-        // 排除控制结构的END语句
-        if (/^\s*END\s+(IF|LOOP|CASE|WHILE)\s*[;]?\s*$/i.test(line)) {
+        // 排除控制结构的END语句（含带标签形式：END IF lbl; / END LOOP lbl; / END CASE lbl;）
+        if (/^\s*END\s+(IF|LOOP|CASE|WHILE)(\s+\w+)?\s*;?\s*$/i.test(line)) {
             return false;
         }
-        // 匹配函数/过程/包的END语句（分号/斜杠可选）
+        // 匹配函数/过程/包/类型的END语句（分号/斜杠可选）
         return /^\s*END(\s+\w+)?\s*[;/]?\s*$/i.test(line);
     }
 

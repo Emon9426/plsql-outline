@@ -183,8 +183,9 @@ export class KeywordPatterns {
 
     /**
      * 字符串字面量模式（用于排除字符串中的关键字）
+     * PL/SQL 用双单引号 '' 作为引号转义（非反斜杠转义）。
      */
-    static readonly STRING_LITERAL = /'([^'\\]|\\.)*'/g;
+    static readonly STRING_LITERAL = /'[^']*(?:''[^']*)*'/g;
 
     /**
      * 分号结束模式
