@@ -149,12 +149,13 @@ async function run() {
 
         const trgChildren = await provider.getChildren(trgItem);
         const tLabels = trgChildren.map(c => c.label);
-        // 触发器顶层可展开（含嵌套匿名块）
+        // 触发器主体被解析为嵌套匿名块（触发器本身无 beginLine），内联匿名块提升其控制结构。
+        // 触发器展开后应有内容（END 叶子或提升的 Body/控制结构）
         rec.assert('trg_expandable', '触发器可展开（含子节点）', trgChildren.length > 0, tLabels.join(','));
-        // 触发器内的匿名块（DECLARE...BEGIN...END 被解析为嵌套匿名块）
-        const hasNestedAnon = trgChildren.some(c => c.node && c.node.type === NodeType.ANONYMOUS_BLOCK) ||
-            trgChildren.some(c => c.isProgramGroup); // 匿名块归入 Sub Program 文件夹
-        rec.assert('trg_has_body_content', '触发器含主体内容（嵌套匿名块或 Sub Program 文件夹）', hasNestedAnon, tLabels.join(','));
+        // 触发器主体（嵌套匿名块）的控制结构被提升到 Body 文件夹，或至少有 END 叶子
+        rec.assert('trg_has_content', '触发器含主体内容（Body 文件夹或 END 叶子）',
+            trgChildren.some(c => c.label === 'END' || (c.isProgramGroup && c.programGroupKind === 'body')),
+            tLabels.join(','));
     }
 
     return { suiteName: 'anon_block_trigger_test', cases: rec.cases, parseTime };

@@ -425,6 +425,11 @@ A:
 
 ## 🔄 更新日志
 
+### v1.6.3 (2026-08-08)
+- 🖱️ **修复所有节点点击名称会展开**：Declaration 文件夹、Variables/Cursors 等声明分组文件夹原来缺少跳转命令，点击名称会触发展开。现所有可展开节点点击名称只跳转，展开仅靠箭头。
+- 📦 **紧凑过程生成 Body 节点**：`PROCEDURE x IS BEGIN xxx; END;` 这种 Body 内无控制结构的紧凑结构，原来不生成 Body 文件夹。现只要有 BEGIN 就生成 Body 节点，点击跳转到 BEGIN 行。
+- 🔧 触发器主体（嵌套匿名块）的控制结构提升到 Body 文件夹
+
 ### v1.6.2 (2026-08-08)
 - 🐛 **修复内联匿名块误入 Sub Program 文件夹**（代码审查根因）：过程体内的 `DECLARE...BEGIN...END;` 块不再被当作 Sub Program 的可见子项渲染。三处展示路径修复：
   1. `createGroupedChildren` 分类逻辑：ANONYMOUS_BLOCK 不再走 else 分支进入 subprogramChildren

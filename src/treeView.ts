@@ -607,16 +607,25 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             }
         }
 
-        // 3. Body 文件夹：控制结构（IF/LOOP/CASE）
-        if (bodyChildren.length > 0) {
+        // 3. Body 文件夹：BEGIN...END 代码体。只要有 beginLine 就显示（即使体内无控制结构，
+        //    如 PROCEDURE x IS BEGIN xxx; END;），点击跳转到 BEGIN 行。
+        // 触发器等主体被解析为嵌套匿名块的节点，用匿名块的 beginLine 作为 Body 跳转目标。
+        let beginLine = node.beginLine;
+        if ((beginLine === null || beginLine === undefined) && bodyChildren.length > 0) {
+            // 无直接 beginLine 但有提升的控制结构（触发器场景），使用第一个控制结构的声明行附近
+            const anonChild = (node.children || []).find(c => c.type === NodeType.ANONYMOUS_BLOCK);
+            if (anonChild && anonChild.beginLine) { beginLine = anonChild.beginLine; }
+        }
+        const hasBegin = beginLine !== null && beginLine !== undefined;
+        if (hasBegin) {
             items.push({
                 isStructureBlock: false,
                 isProgramGroup: true,
                 programGroupKind: 'body',
                 programGroupChildren: bodyChildren,
                 parentNode: node,
-                label: `Body (${bodyChildren.length})`,
-                line: node.beginLine || undefined
+                label: bodyChildren.length > 0 ? `Body (${bodyChildren.length})` : 'Body',
+                line: beginLine || undefined
             });
         }
 
@@ -1003,6 +1012,14 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         treeItem.description = `${count} 项`;
         treeItem.tooltip = `${element.label} — 共 ${count} 个声明项`;
         treeItem.contextValue = 'declarationGroup';
+        // 点击名称跳转（展开仅靠箭头）
+        if (element.line !== undefined) {
+            treeItem.command = {
+                command: 'plsqlOutline.goToLine',
+                title: '跳转到行',
+                arguments: [element.line]
+            };
+        }
         return treeItem;
     }
 
@@ -1046,6 +1063,14 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         treeItem.description = total > 0 ? `${total} 项` : '';
         treeItem.tooltip = `Declaration — 声明项（变量/游标/常量/类型/异常）`;
         treeItem.contextValue = 'declarationSection';
+        // 点击名称跳转（展开仅靠箭头）
+        if (element.line !== undefined) {
+            treeItem.command = {
+                command: 'plsqlOutline.goToLine',
+                title: '跳转到行',
+                arguments: [element.line]
+            };
+        }
         return treeItem;
     }
 
