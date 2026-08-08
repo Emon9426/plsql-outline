@@ -70,5 +70,9 @@ CREATE OR REPLACE PACKAGE BODY complex_package AS
    * 包体结束
    * 包含关键字：BEGIN 和 END
    */
+   BEGIN
+    IF 1 = 1 THEN
+      NULL; -- 测试 BEGIN 和 END
+    END IF;
 END complex_package;
 /
