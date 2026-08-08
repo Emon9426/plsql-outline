@@ -1,6 +1,6 @@
 # PL/SQL Outline V1.5 测试结果文档
 
-> 版本：1.5.5
+> 版本：1.5.6
 > 测试日期：2026-08-08
 > 测试环境：Node.js v22.x，Windows，TypeScript 编译后运行
 
@@ -15,14 +15,14 @@
 | ui_structure_test.js | 44 | ✅ 全部通过 | TreeView 分区（DECLARE/BODY/EXCEPTION/END）、IF 组合并、标签简化 |
 | symbolIndex_test.js | 35 | ✅ 全部通过 | 跨文件符号索引（构建、查找、优先级、增量、持久化、大小写） |
 | huge_package_test.js | 25 | ✅ 全部通过 | 13,259 行万级代码性能与正确性 |
-| declaration_render_test.js | 31 | ✅ 全部通过 | Declaration 包裹层 + 包下子程序直接显示 + Body 跳 BEGIN + getParent |
+| declaration_render_test.js | 32 | ✅ 全部通过 | Declaration 包裹层 + 包下子程序直接显示 + P/F 图标(proc/func) + Body 跳 BEGIN |
 | cursor_sync_test.js | 13 | ✅ 全部通过 | 光标同步：声明项/子程序/控制结构行定位（Bug A 修复） |
 | definition_test.js | 7 | ✅ 全部通过 | Ctrl+Click 跳转：去重守卫移除后两次调用都返回 Location |
 | **GMLTest/nested_subprograms_test.js** | **32** | ✅ 全部通过 | 4 级 Sub Program 嵌套（Package Body） |
 | **GMLTest/standalone_proc_func_test.js** | **30** | ✅ 全部通过 | 独立 Procedure/Function 渲染（无包包裹） |
 | **GMLTest/anon_block_trigger_test.js** | **26** | ✅ 全部通过 | 匿名块（DECLARE...BEGIN...END）+ 触发器渲染 |
 | **GMLTest/large_package_render_test.js** | **23** | ✅ 全部通过 | 万行级 Package 渲染（13,258 行，性能+扁平化样式） |
-| **合计** | **1341** | **✅ 100% 通过** | |
+| **合计** | **1342** | **✅ 100% 通过** | |
 
 所有测试脚本位于 `test/` 与 `GMLTest/` 目录，运行方式：
 ```bash

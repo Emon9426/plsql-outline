@@ -17,6 +17,7 @@ node_modules/**
 .github/**
 .zcode/**
 Design/**
+scripts/**
 DEV_REQUIREMENTS_*.md
 update_*.js
 generate_*.js

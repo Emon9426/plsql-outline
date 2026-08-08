@@ -32,6 +32,12 @@ require.cache['vscode_mock'] = { exports: mockVscode };
 const { PLSQLParser } = require('../out/parser');
 const { PLSQLOutlineProvider } = require('../out/treeView');
 const { DeclarationCategory, NodeType } = require('../out/types');
+const iconPathMod = require('path');
+function iconName(icon) {
+    if (!icon) return 'none';
+    if (icon.dark && icon.dark.fsPath) return iconPathMod.basename(icon.dark.fsPath).replace(/\.svg$/, '');
+    return icon.id ? ('codicon:' + icon.id) : 'unknown';
+}
 
 function makeRecorder() {
     const cases = [];
@@ -72,7 +78,7 @@ async function run() {
     if (procItem) {
         const procTree = provider.getTreeItem(procItem);
         rec.assert('proc_type', 'calc_order_total 为 PROCEDURE 类型', procItem.node.type === NodeType.PROCEDURE, procItem.node.type);
-        rec.assert('proc_icon', 'calc_order_total 图标 symbol-method', procTree.iconPath && procTree.iconPath.id === 'symbol-method', procTree.iconPath && procTree.iconPath.id);
+        rec.assert('proc_icon', 'calc_order_total 图标 proc/P（Procedure）', iconName(procTree.iconPath) === 'proc', iconName(procTree.iconPath));
 
         const procChildren = await provider.getChildren(procItem);
         const labels = procChildren.map(c => c.label);
@@ -100,10 +106,10 @@ async function run() {
             // 图标区分
             const applyDisc = subKids.find(c => c.node && c.node.name === 'apply_discount');
             const accum = subKids.find(c => c.node && c.node.name === 'accumulate');
-            rec.assert('proc_nested_func_icon', 'apply_discount 为 Function 图标',
-                provider.getTreeItem(applyDisc).iconPath.id === 'symbol-function', provider.getTreeItem(applyDisc).iconPath.id);
-            rec.assert('proc_nested_proc_icon', 'accumulate 为 Procedure 图标',
-                provider.getTreeItem(accum).iconPath.id === 'symbol-method', provider.getTreeItem(accum).iconPath.id);
+            rec.assert('proc_nested_func_icon', 'apply_discount 为 Function 图标 func/F',
+                iconName(provider.getTreeItem(applyDisc).iconPath) === 'func', iconName(provider.getTreeItem(applyDisc).iconPath));
+            rec.assert('proc_nested_proc_icon', 'accumulate 为 Procedure 图标 proc/P',
+                iconName(provider.getTreeItem(accum).iconPath) === 'proc', iconName(provider.getTreeItem(accum).iconPath));
         }
 
         // Body 控制结构
@@ -138,7 +144,7 @@ async function run() {
     if (funcItem) {
         const funcTree = provider.getTreeItem(funcItem);
         rec.assert('func_type', 'get_customer_tier 为 FUNCTION 类型', funcItem.node.type === NodeType.FUNCTION, funcItem.node.type);
-        rec.assert('func_icon', 'get_customer_tier 图标 symbol-function', funcTree.iconPath && funcTree.iconPath.id === 'symbol-function', funcTree.iconPath && funcTree.iconPath.id);
+        rec.assert('func_icon', 'get_customer_tier 图标 func/F（Function）', iconName(funcTree.iconPath) === 'func', iconName(funcTree.iconPath));
 
         const funcChildren = await provider.getChildren(funcItem);
         const fLabels = funcChildren.map(c => c.label);

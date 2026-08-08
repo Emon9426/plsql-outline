@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import {
     ParseResult,
     ParseNode,
@@ -865,8 +866,9 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     // ====== 声明项（变量/游标/常量/类型/异常）分组展示 ======
 
     /**
-     * 声明类别 → (标签, 图标, 排序权重)
+     * 声明类别 → (标签, 图标名, 排序权重)
      * 顺序：Variables → Constants → Cursors → Types → Exceptions
+     * icon 为 res/icons/ 下的 SVG 名（明/暗自适应）
      */
     private static readonly DECL_CATEGORY_META: {
         key: DeclarationCategory;
@@ -874,11 +876,11 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         icon: string;
         order: number;
     }[] = [
-        { key: DeclarationCategory.VARIABLE, label: 'Variables', icon: 'symbol-variable', order: 1 },
-        { key: DeclarationCategory.CONSTANT, label: 'Constants', icon: 'symbol-constant', order: 2 },
-        { key: DeclarationCategory.CURSOR, label: 'Cursors', icon: 'database', order: 3 },
-        { key: DeclarationCategory.TYPE, label: 'Types', icon: 'symbol-class', order: 4 },
-        { key: DeclarationCategory.EXCEPTION, label: 'Exceptions', icon: 'warning', order: 5 }
+        { key: DeclarationCategory.VARIABLE, label: 'Variables', icon: 'variable', order: 1 },
+        { key: DeclarationCategory.CONSTANT, label: 'Constants', icon: 'constant', order: 2 },
+        { key: DeclarationCategory.CURSOR, label: 'Cursors', icon: 'cursor', order: 3 },
+        { key: DeclarationCategory.TYPE, label: 'Types', icon: 'type', order: 4 },
+        { key: DeclarationCategory.EXCEPTION, label: 'Exceptions', icon: 'exception', order: 5 }
     ];
 
     /**
@@ -950,16 +952,16 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 单个声明项的图标
+     * 单个声明项的图标（数据库圆筒主题，按类别）
      */
-    private getDeclarationEntryIcon(entry: VariableInfo): vscode.ThemeIcon {
+    private getDeclarationEntryIcon(entry: VariableInfo): { light: vscode.Uri; dark: vscode.Uri } {
         switch (entry.category) {
-            case DeclarationCategory.CURSOR: return new vscode.ThemeIcon('database');
-            case DeclarationCategory.CONSTANT: return new vscode.ThemeIcon('symbol-constant');
-            case DeclarationCategory.TYPE: return new vscode.ThemeIcon('symbol-class');
-            case DeclarationCategory.EXCEPTION: return new vscode.ThemeIcon('warning');
+            case DeclarationCategory.CURSOR: return this.getCustomIcon('cursor');
+            case DeclarationCategory.CONSTANT: return this.getCustomIcon('constant');
+            case DeclarationCategory.TYPE: return this.getCustomIcon('type');
+            case DeclarationCategory.EXCEPTION: return this.getCustomIcon('exception');
             case DeclarationCategory.VARIABLE:
-            default: return new vscode.ThemeIcon('symbol-variable');
+            default: return this.getCustomIcon('variable');
         }
     }
 
@@ -991,15 +993,15 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 获取分区图标
+     * 获取分区图标（旧版兼容）
      */
-    private getSectionIcon(type: SectionType): vscode.ThemeIcon {
+    private getSectionIcon(type: SectionType): { light: vscode.Uri; dark: vscode.Uri } {
         switch (type) {
-            case SectionType.DECLARE: return new vscode.ThemeIcon('symbol-variable');
-            case SectionType.SUBPROGRAM: return new vscode.ThemeIcon('symbol-method');
-            case SectionType.BODY: return new vscode.ThemeIcon('play');
-            case SectionType.EXCEPTION: return new vscode.ThemeIcon('warning');
-            case SectionType.END: return new vscode.ThemeIcon('debug-stop');
+            case SectionType.DECLARE: return this.getCustomIcon('folder-decl');
+            case SectionType.SUBPROGRAM: return this.getCustomIcon('folder-sub');
+            case SectionType.BODY: return this.getCustomIcon('folder-body');
+            case SectionType.EXCEPTION: return this.getCustomIcon('exception-block');
+            case SectionType.END: return this.getCustomIcon('end');
         }
     }
 
@@ -1014,7 +1016,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         const meta = PLSQLOutlineProvider.DECL_CATEGORY_META.find(
             m => m.key === element.declarationCategory
         );
-        treeItem.iconPath = new vscode.ThemeIcon(meta ? meta.icon : 'symbol-folder');
+        treeItem.iconPath = this.getCustomIcon(meta ? meta.icon : 'variable');
         const count = element.declarationEntries ? element.declarationEntries.length : 0;
         treeItem.description = `${count} 项`;
         treeItem.tooltip = `${element.label} — 共 ${count} 个声明项`;
@@ -1053,7 +1055,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             element.label,
             vscode.TreeItemCollapsibleState.Collapsed
         );
-        treeItem.iconPath = new vscode.ThemeIcon('symbol-folder');
+        treeItem.iconPath = this.getCustomIcon('folder-decl');
         // 统计声明项总数
         let total = 0;
         if (element.parentNode && element.parentNode.variableTable) {
@@ -1073,7 +1075,9 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             element.label,
             vscode.TreeItemCollapsibleState.Collapsed
         );
-        treeItem.iconPath = new vscode.ThemeIcon('symbol-folder');
+        treeItem.iconPath = this.getCustomIcon(
+            element.programGroupKind === 'subprogram' ? 'folder-sub' : 'folder-body'
+        );
         const kindLabel = element.programGroupKind === 'subprogram' ? '子程序' : '控制结构';
         treeItem.tooltip = `${element.label} — ${kindLabel}`;
         treeItem.contextValue = element.programGroupKind === 'subprogram' ? 'subprogramGroup' : 'bodyGroup';
@@ -1314,44 +1318,66 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
                node.endLine !== null;
     }
 
+    // ====== 自定义数据库主题图标（SVG，明/暗主题自适应）======
+    // 图标位于 res/icons/<name>.svg（dark）与 <name>-light.svg（light）。
+    // 编译后 out/ 中的代码通过 ../res/icons 解析到资源目录。
+    private static ICONS_DIR = path.join(__dirname, '..', 'res', 'icons');
+    private iconCache: Map<string, { light: vscode.Uri; dark: vscode.Uri }> = new Map();
+
     /**
-     * 获取节点图标
+     * 加载自定义图标，返回 { light, dark } 对（VS Code 按当前主题选用）。
+     * @param name 图标名（不含扩展名与 -light 后缀）
      */
-    private getNodeIcon(type: NodeType): vscode.ThemeIcon {
+    private getCustomIcon(name: string): { light: vscode.Uri; dark: vscode.Uri } {
+        const cached = this.iconCache.get(name);
+        if (cached) { return cached; }
+        const icon: { light: vscode.Uri; dark: vscode.Uri } = {
+            light: vscode.Uri.file(path.join(PLSQLOutlineProvider.ICONS_DIR, `${name}-light.svg`)),
+            dark: vscode.Uri.file(path.join(PLSQLOutlineProvider.ICONS_DIR, `${name}.svg`))
+        };
+        this.iconCache.set(name, icon);
+        return icon;
+    }
+
+    /**
+     * 获取节点图标（数据库圆筒主题；Procedure=P 蓝，Function=F 琥珀）
+     */
+    private getNodeIcon(type: NodeType): { light: vscode.Uri; dark: vscode.Uri } {
         switch (type) {
             case NodeType.PACKAGE_HEADER:
             case NodeType.PACKAGE_BODY:
-                return new vscode.ThemeIcon('package');
+                return this.getCustomIcon('package');
             case NodeType.FUNCTION:
             case NodeType.FUNCTION_DECLARATION:
-                return new vscode.ThemeIcon('symbol-function');
+                return this.getCustomIcon('func');   // F
             case NodeType.PROCEDURE:
             case NodeType.PROCEDURE_DECLARATION:
-                return new vscode.ThemeIcon('symbol-method');
+                return this.getCustomIcon('proc');   // P
             case NodeType.TRIGGER:
-                return new vscode.ThemeIcon('zap');
+                return this.getCustomIcon('trigger');
             case NodeType.ANONYMOUS_BLOCK:
-                return new vscode.ThemeIcon('file-code');
+                return this.getCustomIcon('anon');
             default:
-                return new vscode.ThemeIcon('symbol-misc');
+                // 控制结构等保留 codicon（无需字母区分）
+                return this.getCustomIcon('variable');
         }
     }
 
     /**
      * 获取结构块图标
      */
-    private getStructureBlockIcon(type: StructureBlockType): vscode.ThemeIcon {
+    private getStructureBlockIcon(type: StructureBlockType): { light: vscode.Uri; dark: vscode.Uri } {
         switch (type) {
             case StructureBlockType.BEGIN:
-                return new vscode.ThemeIcon('play');
+                return this.getCustomIcon('begin');
             case StructureBlockType.EXCEPTION:
-                return new vscode.ThemeIcon('warning');
+                return this.getCustomIcon('exception-block');
             case StructureBlockType.END:
-                return new vscode.ThemeIcon('stop');
+                return this.getCustomIcon('end');
             case StructureBlockType.PACKAGE_INITIALIZATION:
-                return new vscode.ThemeIcon('refresh');
+                return this.getCustomIcon('begin');
             default:
-                return new vscode.ThemeIcon('circle-outline');
+                return this.getCustomIcon('end');
         }
     }
 

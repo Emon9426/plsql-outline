@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <path d="M 1.5 4.0 L 6.0 4.0 L 7.2 5.2 L 14.5 5.2 L 14.5 13.0 L 1.5 13.0 Z"
+        fill="#c5c8ce" fill-opacity="0.18" stroke="#c5c8ce" stroke-width="1.0" stroke-linejoin="round"/>
+  <ellipse cx="8" cy="9.2" rx="2.6" ry="0.9" fill="none" stroke="#c5c8ce" stroke-width="0.7"/>
+  <path d="M 5.4 9.2 L 5.4 11.0 A 2.6 0.9 0 0 0 10.6 11.0 L 10.6 9.2" fill="none" stroke="#c5c8ce" stroke-width="0.7"/>
+  <text x="12.6" y="11.6" font-family="Segoe UI, Arial, sans-serif" font-size="4.6" font-weight="700" text-anchor="middle" fill="#4d9bff">S</text>
+</svg>

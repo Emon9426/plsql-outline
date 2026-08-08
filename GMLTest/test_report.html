@@ -36,7 +36,7 @@
 </head>
 <body>
     <h1>PL/SQL Outline — GMLTest 测试报告</h1>
-    <div class="meta">生成时间：2026/8/8 13:15:12 ｜ 版本：v1.5.4 ｜ 测试框架：Node.js + 自研断言</div>
+    <div class="meta">生成时间：2026/8/8 13:31:37 ｜ 版本：v1.5.4 ｜ 测试框架：Node.js + 自研断言</div>
 
     <div class="banner ok">
         ✓ 全部测试通过
@@ -46,7 +46,7 @@
         <div class="card total"><div class="num">111</div><div class="lbl">用例总数</div></div>
         <div class="card pass"><div class="num">111</div><div class="lbl">通过</div></div>
         <div class="card fail"><div class="num">0</div><div class="lbl">失败</div></div>
-        <div class="card time"><div class="num">43 ms</div><div class="lbl">解析总耗时</div></div>
+        <div class="card time"><div class="num">56 ms</div><div class="lbl">解析总耗时</div></div>
     </div>
 
     <h2>测试套件汇总</h2>
@@ -60,7 +60,7 @@
             <td>32</td>
             <td class="pass">32</td>
             <td class="">0</td>
-            <td>7 ms</td>
+            <td>5 ms</td>
             <td class="status-pass">通过</td>
         </tr>
 <tr>
@@ -68,7 +68,7 @@
             <td>30</td>
             <td class="pass">30</td>
             <td class="">0</td>
-            <td>1 ms</td>
+            <td>2 ms</td>
             <td class="status-pass">通过</td>
         </tr>
 <tr>
@@ -76,7 +76,7 @@
             <td>26</td>
             <td class="pass">26</td>
             <td class="">0</td>
-            <td>- ms</td>
+            <td>1 ms</td>
             <td class="status-pass">通过</td>
         </tr>
 <tr>
@@ -84,7 +84,7 @@
             <td>23</td>
             <td class="pass">23</td>
             <td class="">0</td>
-            <td>35 ms</td>
+            <td>48 ms</td>
             <td class="status-pass">通过</td>
         </tr>
         </tbody>
@@ -190,7 +190,7 @@
 <tr>
                 <td>nested_subprograms_test</td>
                 <td><code>l1_outer_procedure_icon</code></td>
-                <td>outer_proc 为 Procedure 图标 (symbol-method)</td>
+                <td>outer_proc 为 Procedure 图标 proc/P（数据库圆筒+P）</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -204,7 +204,7 @@
 <tr>
                 <td>nested_subprograms_test</td>
                 <td><code>l1_topfunc_function_icon</code></td>
-                <td>top_func 为 Function 图标 (symbol-function)</td>
+                <td>top_func 为 Function 图标 func/F（数据库圆筒+F）</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -239,7 +239,7 @@
 <tr>
                 <td>nested_subprograms_test</td>
                 <td><code>l2_inner_function_icon</code></td>
-                <td>inner_func 为 Function 图标</td>
+                <td>inner_func 为 Function 图标 func/F</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -260,7 +260,7 @@
 <tr>
                 <td>nested_subprograms_test</td>
                 <td><code>l3_deepest_procedure_icon</code></td>
-                <td>deepest_proc 为 Procedure 图标</td>
+                <td>deepest_proc 为 Procedure 图标 proc/P</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -316,7 +316,7 @@
 <tr>
                 <td>nested_subprograms_test</td>
                 <td><code>icon_distinction</code></td>
-                <td>Procedure(symbol-method) 与 Function(symbol-function) 图标不同</td>
+                <td>Procedure(proc/P) 与 Function(func/F) 图标可区分</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -365,7 +365,7 @@
 <tr>
                 <td>standalone_proc_func_test</td>
                 <td><code>proc_icon</code></td>
-                <td>calc_order_total 图标 symbol-method</td>
+                <td>calc_order_total 图标 proc/P（Procedure）</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -435,14 +435,14 @@
 <tr>
                 <td>standalone_proc_func_test</td>
                 <td><code>proc_nested_func_icon</code></td>
-                <td>apply_discount 为 Function 图标</td>
+                <td>apply_discount 为 Function 图标 func/F</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
 <tr>
                 <td>standalone_proc_func_test</td>
                 <td><code>proc_nested_proc_icon</code></td>
-                <td>accumulate 为 Procedure 图标</td>
+                <td>accumulate 为 Procedure 图标 proc/P</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -498,7 +498,7 @@
 <tr>
                 <td>standalone_proc_func_test</td>
                 <td><code>func_icon</code></td>
-                <td>get_customer_tier 图标 symbol-function</td>
+                <td>get_customer_tier 图标 func/F（Function）</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -561,7 +561,7 @@
 <tr>
                 <td>anon_block_trigger_test</td>
                 <td><code>anon_icon</code></td>
-                <td>匿名块图标 file-code</td>
+                <td>匿名块图标 anon（数据库圆筒+&lt;/&gt;）</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -694,7 +694,7 @@
 <tr>
                 <td>anon_block_trigger_test</td>
                 <td><code>trg_icon</code></td>
-                <td>触发器图标 zap</td>
+                <td>触发器图标 trigger（数据库圆筒+闪电）</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -820,7 +820,7 @@
 <tr>
                 <td>large_package_render_test</td>
                 <td><code>subprogram_icon_variety</code></td>
-                <td>万行包子程序图标有区分（含 method 和 function）</td>
+                <td>万行包子程序图标有区分（含 proc/P 和 func/F）</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>
@@ -834,7 +834,7 @@
 <tr>
                 <td>large_package_render_test</td>
                 <td><code>sample_proc_icon</code></td>
-                <td>抽样子程序图标正确（symbol-method）</td>
+                <td>抽样子程序图标正确 proc/P（Procedure）</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>

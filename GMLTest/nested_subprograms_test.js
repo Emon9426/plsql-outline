@@ -29,6 +29,15 @@ require.cache['vscode_mock'] = { exports: mockVscode };
 const { PLSQLParser } = require('../out/parser');
 const { PLSQLOutlineProvider } = require('../out/treeView');
 const { SectionType, DeclarationCategory, NodeType } = require('../out/types');
+const iconPathMod = require('path');
+// 从 iconPath 提取 SVG 基名（自定义图标 {light,dark}；codicon {id}）
+function iconName(icon) {
+    if (!icon) return 'none';
+    if (icon.dark && icon.dark.fsPath) {
+        return iconPathMod.basename(icon.dark.fsPath).replace(/\.svg$/, '');
+    }
+    return icon.id ? ('codicon:' + icon.id) : 'unknown';
+}
 
 // ---------- 断言收集器（供 HTML 报告） ----------
 function makeRecorder() {
@@ -110,13 +119,13 @@ async function run() {
     rec.assert('l1_outer_direct', 'outer_proc 直接在包下显示（非 Sub Program 文件夹）', !!outerProc, labels.join(','));
     rec.assert('l1_topfunc_direct', 'top_func 直接在包下显示', !!topFunc, labels.join(','));
     const outerItem = provider.getTreeItem(outerProc);
-    rec.assert('l1_outer_procedure_icon', 'outer_proc 为 Procedure 图标 (symbol-method)',
-        outerItem.iconPath && outerItem.iconPath.id === 'symbol-method', outerItem.iconPath && outerItem.iconPath.id);
+    rec.assert('l1_outer_procedure_icon', 'outer_proc 为 Procedure 图标 proc/P（数据库圆筒+P）',
+        iconName(outerItem.iconPath) === 'proc', iconName(outerItem.iconPath));
     rec.assert('l1_outer_label_nameonly', 'outer_proc 标签仅名称（无 "Procedure:" 前缀）',
         outerItem.label === 'outer_proc', outerItem.label);
     const topFuncItem = provider.getTreeItem(topFunc);
-    rec.assert('l1_topfunc_function_icon', 'top_func 为 Function 图标 (symbol-function)',
-        topFuncItem.iconPath && topFuncItem.iconPath.id === 'symbol-function', topFuncItem.iconPath && topFuncItem.iconPath.id);
+    rec.assert('l1_topfunc_function_icon', 'top_func 为 Function 图标 func/F（数据库圆筒+F）',
+        iconName(topFuncItem.iconPath) === 'func', iconName(topFuncItem.iconPath));
 
     // ---- Case 4: outer_proc 展开后有自己的 Declaration / Sub Program / Body ----
     const outerChildren = await provider.getChildren(outerProc);
@@ -131,8 +140,8 @@ async function run() {
     const siblingProc = outerSubChildren.find(c => c.node && c.node.name === 'sibling_proc');
     rec.assert('l2_sibling_in_outer_subprogram', 'sibling_proc 也在 outer_proc 的 Sub Program 下', !!siblingProc, outerSubChildren.map(c => c.node && c.node.name).join(','));
     const innerItem = provider.getTreeItem(innerFunc);
-    rec.assert('l2_inner_function_icon', 'inner_func 为 Function 图标',
-        innerItem.iconPath && innerItem.iconPath.id === 'symbol-function', innerItem.iconPath && innerItem.iconPath.id);
+    rec.assert('l2_inner_function_icon', 'inner_func 为 Function 图标 func/F',
+        iconName(innerItem.iconPath) === 'func', iconName(innerItem.iconPath));
 
     // ---- Case 6: Sub Program 嵌套 L3（deepest_proc 在 inner_func 的 Sub Program 下）----
     const innerChildren = await provider.getChildren(innerFunc);
@@ -142,8 +151,8 @@ async function run() {
     const deepestProc = innerSubChildren.find(c => c.node && c.node.name === 'deepest_proc');
     rec.assert('l3_deepest_in_inner_subprogram', 'deepest_proc 在 inner_func 的 Sub Program 下（L3 嵌套）', !!deepestProc, innerSubChildren.map(c => c.node && c.node.name).join(','));
     const deepestItem = provider.getTreeItem(deepestProc);
-    rec.assert('l3_deepest_procedure_icon', 'deepest_proc 为 Procedure 图标',
-        deepestItem.iconPath && deepestItem.iconPath.id === 'symbol-method', deepestItem.iconPath && deepestItem.iconPath.id);
+    rec.assert('l3_deepest_procedure_icon', 'deepest_proc 为 Procedure 图标 proc/P',
+        iconName(deepestItem.iconPath) === 'proc', iconName(deepestItem.iconPath));
 
     // ---- Case 7: Sub Program 嵌套 L4（leaf_func 在 deepest_proc 的 Sub Program 下）----
     const deepestChildren = await provider.getChildren(deepestProc);
@@ -188,11 +197,11 @@ async function run() {
         }
     }
 
-    // ---- Case 10: 子程序图标在 Sub Program 下区分 Procedure/Function ----
-    // outer_proc(Procedure) 与 top_func(Function) 图标不同
-    rec.assert('icon_distinction', 'Procedure(symbol-method) 与 Function(symbol-function) 图标不同',
-        outerItem.iconPath.id !== topFuncItem.iconPath.id,
-        `${outerItem.iconPath.id} vs ${topFuncItem.iconPath.id}`);
+    // ---- Case 10: 子程序图标在 Sub Program 下区分 Procedure/Function（P vs F）----
+    // outer_proc(Procedure=proc) 与 top_func(Function=func) 图标不同
+    rec.assert('icon_distinction', 'Procedure(proc/P) 与 Function(func/F) 图标可区分',
+        iconName(outerItem.iconPath) !== iconName(topFuncItem.iconPath),
+        `${iconName(outerItem.iconPath)} vs ${iconName(topFuncItem.iconPath)}`);
 
     return { suiteName: 'nested_subprograms_test', cases: rec.cases, parseTime };
 }

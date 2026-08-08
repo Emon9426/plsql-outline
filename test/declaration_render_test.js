@@ -42,10 +42,19 @@ require.cache['vscode_mock'] = { exports: mockVscode };
 const { PLSQLParser } = require('../out/parser');
 const { PLSQLOutlineProvider } = require('../out/treeView');
 const { SectionType, DeclarationCategory, NodeType } = require('../out/types');
+const iconPath = require('path');
 
 let passed = 0, failed = 0;
 const failures = [];
 function assert(cond, msg) { if (cond) passed++; else { failed++; failures.push(msg); console.error('  ✗ FAIL: ' + msg); } }
+// 从 iconPath 提取 SVG 基名（自定义图标为 {light,dark} Uri 对；codicon 为 {id}）
+function iconName(icon) {
+    if (!icon) return 'none';
+    if (icon.dark && icon.dark.fsPath) {
+        return iconPath.basename(icon.dark.fsPath).replace(/\.svg$/, '');
+    }
+    return icon.id ? ('codicon:' + icon.id) : 'unknown';
+}
 
 // 带丰富声明与子程序的包
 const SOURCE = `CREATE OR REPLACE PACKAGE BODY demo_pkg
@@ -148,12 +157,13 @@ async function main() {
     assert(doWorkItem.label === 'do_work', `do_work 标签仅名称（实际 "${doWorkItem.label}"）`);
     assert(getCountItem.label === 'get_count', `get_count 标签仅名称（实际 "${getCountItem.label}"）`);
 
-    // ---------- 4. 子程序图标区分 Procedure/Function ----------
-    console.log('\n--- 子程序图标区分 ---');
+    // ---------- 4. 子程序图标区分 Procedure(P)/Function(F) ----------
+    console.log('\n--- 子程序图标区分 P/F ---');
     const doWorkIcon = provider.getTreeItem(doWorkItem).iconPath;
     const getCountIcon = provider.getTreeItem(getCountItem).iconPath;
-    assert(doWorkIcon && doWorkIcon.id === 'symbol-method', `do_work 为 Procedure 图标 symbol-method（实际 ${doWorkIcon && doWorkIcon.id}）`);
-    assert(getCountIcon && getCountIcon.id === 'symbol-function', `get_count 为 Function 图标 symbol-function（实际 ${getCountIcon && getCountIcon.id}）`);
+    assert(iconName(doWorkIcon) === 'proc', `do_work 为 Procedure 图标 proc/P（实际 ${iconName(doWorkIcon)}）`);
+    assert(iconName(getCountIcon) === 'func', `get_count 为 Function 图标 func/F（实际 ${iconName(getCountIcon)}）`);
+    assert(iconName(doWorkIcon) !== iconName(getCountIcon), 'Procedure 与 Function 图标可区分');
     // 子程序无描述（无 "L2"/"N个子项"）
     assert(provider.getTreeItem(doWorkItem).description === '', 'do_work 无描述（仅名称+图标）');
 

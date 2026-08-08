@@ -30,6 +30,12 @@ require.cache['vscode_mock'] = { exports: mockVscode };
 const { PLSQLParser } = require('../out/parser');
 const { PLSQLOutlineProvider } = require('../out/treeView');
 const { DeclarationCategory, NodeType } = require('../out/types');
+const iconPathMod = require('path');
+function iconName(icon) {
+    if (!icon) return 'none';
+    if (icon.dark && icon.dark.fsPath) return iconPathMod.basename(icon.dark.fsPath).replace(/\.svg$/, '');
+    return icon.id ? ('codicon:' + icon.id) : 'unknown';
+}
 
 function makeRecorder() {
     const cases = [];
@@ -66,7 +72,7 @@ async function run() {
     rec.assert('anon_exists', '存在匿名块（ANONYMOUS_BLOCK）', !!anonItem, topItems.map(t => t.node && t.node.type).join(','));
     if (anonItem) {
         const anonTree = provider.getTreeItem(anonItem);
-        rec.assert('anon_icon', '匿名块图标 file-code', anonTree.iconPath && anonTree.iconPath.id === 'file-code', anonTree.iconPath && anonTree.iconPath.id);
+        rec.assert('anon_icon', '匿名块图标 anon（数据库圆筒+</>）', iconName(anonTree.iconPath) === 'anon', iconName(anonTree.iconPath));
 
         const anonChildren = await provider.getChildren(anonItem);
         const labels = anonChildren.map(c => c.label);
@@ -139,7 +145,7 @@ async function run() {
     if (trgItem) {
         const trgTree = provider.getTreeItem(trgItem);
         rec.assert('trg_name', '触发器名 audit_order_trg', trgItem.node.name === 'audit_order_trg', trgItem.node.name);
-        rec.assert('trg_icon', '触发器图标 zap', trgTree.iconPath && trgTree.iconPath.id === 'zap', trgTree.iconPath && trgTree.iconPath.id);
+        rec.assert('trg_icon', '触发器图标 trigger（数据库圆筒+闪电）', iconName(trgTree.iconPath) === 'trigger', iconName(trgTree.iconPath));
 
         const trgChildren = await provider.getChildren(trgItem);
         const tLabels = trgChildren.map(c => c.label);

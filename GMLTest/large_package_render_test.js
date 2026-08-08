@@ -38,6 +38,12 @@ require.cache['vscode_mock'] = { exports: mockVscode };
 const { PLSQLParser } = require('../out/parser');
 const { PLSQLOutlineProvider } = require('../out/treeView');
 const { DeclarationCategory, NodeType } = require('../out/types');
+const iconPathMod = require('path');
+function iconName(icon) {
+    if (!icon) return 'none';
+    if (icon.dark && icon.dark.fsPath) return iconPathMod.basename(icon.dark.fsPath).replace(/\.svg$/, '');
+    return icon.id ? ('codicon:' + icon.id) : 'unknown';
+}
 
 function makeRecorder() {
     const cases = [];
@@ -127,14 +133,14 @@ async function run() {
         }
         rec.assert('subprogram_all_icons', '全部 150 个子程序都有图标', allHaveIcon, '部分缺失');
 
-        // 图标区分：抽样前几个，应有 symbol-method(Procedure) 和 symbol-function(Function)
+        // 图标区分：抽样前几个，应有 proc(Procedure/P) 和 func(Function/F)
         const iconIds = new Set();
         for (let i = 0; i < Math.min(10, subChildren.length); i++) {
             const ti = provider.getTreeItem(subChildren[i]);
-            if (ti.iconPath) iconIds.add(ti.iconPath.id);
+            if (ti.iconPath) iconIds.add(iconName(ti.iconPath));
         }
-        rec.assert('subprogram_icon_variety', '万行包子程序图标有区分（含 method 和 function）',
-            iconIds.has('symbol-method') && iconIds.has('symbol-function'), Array.from(iconIds).join(','));
+        rec.assert('subprogram_icon_variety', '万行包子程序图标有区分（含 proc/P 和 func/F）',
+            iconIds.has('proc') && iconIds.has('func'), Array.from(iconIds).join(','));
 
         // 子程序标签仅名称（无 "Procedure:"/"Function:" 前缀）
         const firstSubTree = provider.getTreeItem(subChildren[0]);
@@ -148,8 +154,8 @@ async function run() {
         const sampleProc = subChildren.find(c => c.node && c.node.type === NodeType.PROCEDURE);
         if (sampleProc) {
             const sampleTree = provider.getTreeItem(sampleProc);
-            rec.assert('sample_proc_icon', '抽样子程序图标正确（symbol-method）',
-                sampleTree.iconPath && sampleTree.iconPath.id === 'symbol-method', sampleTree.iconPath && sampleTree.iconPath.id);
+            rec.assert('sample_proc_icon', '抽样子程序图标正确 proc/P（Procedure）',
+                iconName(sampleTree.iconPath) === 'proc', iconName(sampleTree.iconPath));
             const sampleKids = await provider.getChildren(sampleProc);
             rec.assert('sample_proc_declaration', '抽样子程序有 Declaration 包裹层',
                 sampleKids.some(c => c.isDeclarationSection), sampleKids.map(c => c.label).join(','));
