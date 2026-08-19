@@ -2,7 +2,7 @@
   "name": "plsql-outline",
   "displayName": "PL/SQL Outline",
   "description": "PL/SQL代码结构解析器和大纲视图",
-  "version": "1.6.3",
+  "version": "1.6.4",
   "publisher": "EmonZhang3438",
   "icon": "res/Icon.png",
   "engines": {
@@ -104,12 +104,6 @@
         "title": "展开所有",
         "category": "PL/SQL Outline",
         "icon": "$(expand-all)"
-      },
-      {
-        "command": "plsqlOutline.testExpandAll",
-        "title": "测试展开所有",
-        "category": "PL/SQL Outline",
-        "icon": "$(test-view-icon)"
       },
       {
         "command": "plsqlOutline.rebuildIndex",
@@ -375,9 +369,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
+    "test": "npm run compile && node GMLTest/run_all.js",
     "package": "vsce package",
     "publish": "vsce publish"
   },
