@@ -24,7 +24,7 @@ CREATE OR REPLACE PACKAGE BODY complex_package AS
     v_index PLS_INTEGER;
     
     -- 嵌套过程：更新薪水
-    PROCEDURE update_salary(emp IN OUT t_employee) IS
+  PROCEDURE update_salary(emp IN OUT t_employee) IS
     BEGIN
       emp.salary := emp.salary * 1.1; -- 涨薪10%
     END update_salary;
