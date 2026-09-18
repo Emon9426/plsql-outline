@@ -13,8 +13,8 @@ npm run compile   # 所有测试直接 require out/ 编译产物，必须先编�
 
 | # | 命令 | 基线 | 覆盖 |
 |---|---|---|---|
-| 1 | `npm run test:corpus`（= validate.js + render-validate.js） | **33/33 + 33 OK** | 142k 行语料的解析层 + 显示层 |
-| 2 | `npm test`（= compile + tests/unit/run_all.js） | **333/333（19 套件）** | 解析/渲染/导航/取消/设置契约 |
+| 1 | `npm run test:corpus`（= validate.js + render-validate.js） | **34/34 + 34 OK** | 143k 行语料（含 .pck）的解析层 + 显示层 |
+| 2 | `npm test`（= compile + tests/unit/run_all.js） | **351/351（20 套件）** | 解析/渲染/导航/取消/设置/引号标识符契约 |
 | 3 | `npm run test:regression` | **11/11 套件** | 真实世界包/超大文件/边界/光标同步/定义跳转/符号索引/内存 |
 | 4 | `npm run test:e2e` | **anonDefinition 通过 + smoke 7/7** | 真实 VS Code 宿主（@vscode/test-electron） |
 
