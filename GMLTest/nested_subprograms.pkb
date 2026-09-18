@@ -2,7 +2,7 @@ CREATE OR REPLACE PACKAGE BODY gml_test_pkg
 IS
     -- ===== 包级声明（验证 Declaration 包裹层）=====
     g_pkg_count   NUMBER := 0;
-    c_max_retry   NUMBER CONSTANT := 3;
+    c_max_retry   CONSTANT NUMBER := 3;
     CURSOR c_pkg_orders (p_status VARCHAR2) IS
         SELECT id, status, amount
           FROM orders
@@ -21,7 +21,7 @@ IS
         -- L1 局部声明
         v_local_1   NUMBER := p_param;
         v_local_2   VARCHAR2(100) := 'init';
-        c_local_lim NUMBER CONSTANT := 1000;
+        c_local_lim CONSTANT NUMBER := 1000;
         CURSOR c_local IS SELECT level FROM dual CONNECT BY level <= 10;
         e_local_err EXCEPTION;
 
@@ -36,7 +36,7 @@ IS
             PROCEDURE deepest_proc(y IN NUMBER) IS
                 -- L3 局部声明
                 v_deep NUMBER := y;
-                c_deep NUMBER CONSTANT := 500;
+                c_deep CONSTANT NUMBER := 500;
 
                 -- L4 子程序：Function（最深嵌套）
                 FUNCTION leaf_func(z IN NUMBER) RETURN VARCHAR2 IS

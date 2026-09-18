@@ -21,7 +21,6 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
 
     public dataProvider: IDataProvider | null = null;
     private showStructureBlocks: boolean = true;
-    private defaultCollapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.Expanded;
     private forceExpandAll: boolean = false; // 新增：强制展开所有节点的标志
     // 声明项展示配置
     private showDeclarations: boolean = true;
@@ -31,6 +30,9 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     private treeItemCache: Map<string, vscode.TreeItem> = new Map();
     private maxCacheSize: number = 500;
     private lastRefreshTime: number = 0;
+
+    // 当前解析文件的标识（用作元素稳定键前缀，避免跨文件同键互相污染展开状态）
+    private currentSourceFileTag: string = '';
     
     // 输出通道用于调试信息
     private outputChannel: vscode.OutputChannel;
@@ -133,7 +135,10 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         } else {
             treeItem = this.createNodeTreeItem(element);
         }
-        
+
+        // 稳定 id：VS Code 据此在整树刷新（重新解析/切换文件）后保持展开与选中状态
+        treeItem.id = cacheKey;
+
         // 缓存树项
         this.setCachedTreeItem(cacheKey, treeItem);
         
@@ -141,25 +146,39 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 生成缓存键
+     * 更新当前解析文件的标识（用于元素稳定键前缀）
      */
-    private generateCacheKey(element: TreeItemData): string {
-        if (element.isDeclarationSection && element.parentNode) {
-            return `declsection_${element.parentNode.name}_${element.parentNode.declarationLine}`;
-        } else if (element.isProgramGroup && element.parentNode) {
-            return `proggroup_${element.programGroupKind}_${element.parentNode.name}_${element.parentNode.declarationLine}`;
-        } else if (element.isSection && element.sectionType) {
-            return `section_${element.sectionType}_${element.parentNode?.name}_${element.parentNode?.declarationLine}`;
-        } else if (element.isStructureBlock && element.structureBlock) {
-            return `block_${element.structureBlock.type}_${element.structureBlock.line}_${element.structureBlock.parentNode.name}`;
-        } else if (element.isDeclarationGroup && element.declarationCategory) {
-            return `declgroup_${element.declarationCategory}_${element.parentNode?.name}_${element.parentNode?.declarationLine}`;
-        } else if (element.isDeclarationEntry && element.declarationEntry) {
-            return `declentry_${element.declarationEntry.name}_${element.declarationEntry.line}_${element.declarationEntry.scope}`;
-        } else if (element.node) {
-            return `node_${element.node.type}_${element.node.name}_${element.node.declarationLine}_${element.node.level}`;
+    private updateSourceFileTag(parseResult: ParseResult): void {
+        const sourceFile = parseResult.metadata && parseResult.metadata.sourceFile
+            ? String(parseResult.metadata.sourceFile)
+            : '';
+        if (sourceFile !== this.currentSourceFileTag) {
+            this.currentSourceFileTag = sourceFile;
         }
-        return `unknown_${Date.now()}`;
+    }
+
+    /**
+     * 生成树项的元素稳定键（同时用作 TreeItem.id，供 VS Code 跨刷新保持展开/选中状态）。
+     * 带文件前缀，避免不同文件的同名同位置节点互相污染展开状态。
+     */
+    public generateCacheKey(element: TreeItemData): string {
+        const prefix = this.currentSourceFileTag ? `${this.currentSourceFileTag}::` : '';
+        if (element.isDeclarationSection && element.parentNode) {
+            return `${prefix}declsection_${element.parentNode.name}_${element.parentNode.declarationLine}`;
+        } else if (element.isProgramGroup && element.parentNode) {
+            return `${prefix}proggroup_${element.programGroupKind}_${element.parentNode.name}_${element.parentNode.declarationLine}`;
+        } else if (element.isSection && element.sectionType) {
+            return `${prefix}section_${element.sectionType}_${element.parentNode?.name}_${element.parentNode?.declarationLine}`;
+        } else if (element.isStructureBlock && element.structureBlock) {
+            return `${prefix}block_${element.structureBlock.type}_${element.structureBlock.line}_${element.structureBlock.parentNode.name}`;
+        } else if (element.isDeclarationGroup && element.declarationCategory) {
+            return `${prefix}declgroup_${element.declarationCategory}_${element.parentNode?.name}_${element.parentNode?.declarationLine}`;
+        } else if (element.isDeclarationEntry && element.declarationEntry) {
+            return `${prefix}declentry_${element.declarationEntry.name}_${element.declarationEntry.line}_${element.declarationEntry.scope}`;
+        } else if (element.node) {
+            return `${prefix}node_${element.node.type}_${element.node.name}_${element.node.declarationLine}_${element.node.level}`;
+        }
+        return `${prefix}unknown_${element.label || 'x'}_${element.line ?? 0}`;
     }
 
     /**
@@ -172,12 +191,13 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
 
         try {
             const parseResult = await this.dataProvider.getParseResult();
-            
+
             // 检查解析结果的有效性
             if (!parseResult || !parseResult.nodes) {
                 return [];
             }
-            
+            this.updateSourceFileTag(parseResult);
+
             if (!element) {
                 // 根级别：返回所有顶层节点
                 return this.createTreeItemsFromNodes(parseResult.nodes);
@@ -270,6 +290,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             if (!parseResult || !parseResult.nodes) {
                 return undefined;
             }
+            this.updateSourceFileTag(parseResult);
 
             // 1. 声明项叶节点 → 父为所属声明分组（按 category + 承载节点重建）
             if (element.isDeclarationEntry && element.declarationEntry) {
@@ -320,7 +341,16 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
 
             // 6. 普通节点（子程序 / 控制结构）→ 父为 ParseNode 父节点对应的程序文件夹或父控制结构
             if (element.node) {
-                const parent = this.findParentNode(parseResult.nodes, element.node);
+                let parent = this.findParentNode(parseResult.nodes, element.node);
+                // 内联匿名块（触发器主体等）在展示层被跳过/提升：继续向上找展示父节点。
+                // 顶层匿名块（无更外层父节点）本身是展示单元，保持不变。
+                while (parent && parent.type === NodeType.ANONYMOUS_BLOCK) {
+                    const grandparent = this.findParentNode(parseResult.nodes, parent);
+                    if (!grandparent) {
+                        break;
+                    }
+                    parent = grandparent;
+                }
                 if (parent) {
                     const childType = element.node.type;
                     if (childType === NodeType.FUNCTION || childType === NodeType.PROCEDURE ||
@@ -960,12 +990,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
      * 创建分区树项
      */
     private createSectionTreeItem(element: TreeItemData): vscode.TreeItem {
-        const hasChildren = (element.sectionType === SectionType.DECLARE || element.sectionType === SectionType.BODY) &&
-            element.sectionChildren && element.sectionChildren.length > 0;
-
-        const collapsibleState = hasChildren
-            ? vscode.TreeItemCollapsibleState.Expanded
-            : vscode.TreeItemCollapsibleState.None;
+        const collapsibleState = this.computeElementCollapsibleState(element);
 
         const treeItem = new vscode.TreeItem(element.label, collapsibleState);
         treeItem.iconPath = this.getSectionIcon(element.sectionType!);
@@ -1108,16 +1133,8 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     private createNodeTreeItem(element: TreeItemData): vscode.TreeItem {
         const node = element.node!;
 
-        // 确定折叠状态
-        let collapsibleState: vscode.TreeItemCollapsibleState;
-        if (element.mergedChildren && element.mergedChildren.length > 0) {
-            collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-        } else if (this.shouldUseSectionGrouping(node)) {
-            // 有代码体的节点可展开（Declaration/Sub Program/Body 等）
-            collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
-        } else {
-            collapsibleState = this.getCollapsibleState(node);
-        }
+        // 确定折叠状态（统一走 computeElementCollapsibleState，与可见性判断共用同一套规则）
+        const collapsibleState = this.computeElementCollapsibleState(element);
 
         const treeItem = new vscode.TreeItem(element.label, collapsibleState);
 
@@ -1210,18 +1227,18 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 获取折叠状态
+     * 获取节点折叠状态
      */
     private getCollapsibleState(node: ParseNode): vscode.TreeItemCollapsibleState {
         const hasChildren = node.children.length > 0;
         const hasStructureBlocks = this.showStructureBlocks && this.shouldShowStructureBlocks(node);
-        
+
         if (hasChildren || hasStructureBlocks) {
             // 如果强制展开标志为true，直接返回展开状态
             if (this.forceExpandAll) {
                 return vscode.TreeItemCollapsibleState.Expanded;
             }
-            
+
             // 使用配置中的默认展开设置
             const config = vscode.workspace.getConfiguration('plsql-outline');
             const expandByDefault = config.get('view.expandByDefault', true);
@@ -1232,22 +1249,40 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
+     * 统一计算任意树项的默认折叠状态（各工厂方法与 reveal 可见性判断共用同一套规则）。
+     * 初始默认值保持既有行为：包/控制结构默认展开，代码单元与各文件夹默认折叠。
+     */
+    public computeElementCollapsibleState(element: TreeItemData): vscode.TreeItemCollapsibleState {
+        if (element.isDeclarationSection || element.isDeclarationGroup || element.isProgramGroup) {
+            return vscode.TreeItemCollapsibleState.Collapsed;
+        }
+        if (element.isDeclarationEntry || element.isStructureBlock) {
+            return vscode.TreeItemCollapsibleState.None;
+        }
+        if (element.isSection) {
+            const hasChildren = (element.sectionType === SectionType.DECLARE || element.sectionType === SectionType.BODY) &&
+                element.sectionChildren && element.sectionChildren.length > 0;
+            return hasChildren ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None;
+        }
+        if (element.node) {
+            if (element.mergedChildren && element.mergedChildren.length > 0) {
+                return vscode.TreeItemCollapsibleState.Expanded;
+            }
+            if (this.shouldUseSectionGrouping(element.node)) {
+                // 有代码体的节点可展开（Declaration/Sub Program/Body 等）
+                return vscode.TreeItemCollapsibleState.Collapsed;
+            }
+            return this.getCollapsibleState(element.node);
+        }
+        return vscode.TreeItemCollapsibleState.None;
+    }
+
+    /**
      * 设置强制展开所有节点
      */
     public setForceExpandAll(force: boolean): void {
         this.forceExpandAll = force;
         this.outputChannel.appendLine(`设置强制展开标志: ${force}`);
-    }
-
-    /**
-     * 输出调试信息
-     */
-    private debugLog(message: string, data?: any): void {
-        const timestamp = new Date().toLocaleTimeString();
-        this.outputChannel.appendLine(`[${timestamp}] ${message}`);
-        if (data) {
-            this.outputChannel.appendLine(`数据: ${JSON.stringify(data, null, 2)}`);
-        }
     }
 
     /**
@@ -1388,14 +1423,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         }
     }
 
-    /**
-     * 设置默认折叠状态
-     */
-    setDefaultCollapsibleState(state: vscode.TreeItemCollapsibleState): void {
-        this.defaultCollapsibleState = state;
-    }
 }
-
 /**
  * 树视图管理器
  */
@@ -1404,18 +1432,32 @@ export class TreeViewManager {
     private provider: PLSQLOutlineProvider;
     private outputChannel: vscode.OutputChannel;
 
+    // 用户手动展开/折叠的覆盖表（元素键 → 是否展开）。
+    // reveal 前据此判断目标是否可见：不可见则跳过，避免 VS Code reveal 沿父链自动展开。
+    private expansionOverrides: Map<string, boolean> = new Map();
+
     constructor(context: vscode.ExtensionContext) {
         this.provider = new PLSQLOutlineProvider();
         this.outputChannel = vscode.window.createOutputChannel('PL/SQL Outline');
-        
+
         this.treeView = vscode.window.createTreeView('plsqlOutline', {
             treeDataProvider: this.provider,
             showCollapseAll: true
         });
 
+        // 跟踪用户手动展开/折叠（仅用户操作触发，作为默认状态之上的覆盖值）
+        context.subscriptions.push(
+            this.treeView.onDidExpandElement(e => {
+                this.expansionOverrides.set(this.provider.generateCacheKey(e.element), true);
+            }),
+            this.treeView.onDidCollapseElement(e => {
+                this.expansionOverrides.set(this.provider.generateCacheKey(e.element), false);
+            })
+        );
+
         // 注册命令
         this.registerCommands(context);
-        
+
         // 监听配置变化
         this.registerConfigurationListener(context);
 
@@ -1761,13 +1803,6 @@ export class TreeViewManager {
     }
 
     /**
-     * 获取树视图
-     */
-    getTreeView(): vscode.TreeView<TreeItemData> {
-        return this.treeView;
-    }
-
-    /**
      * 获取提供者
      */
     getProvider(): PLSQLOutlineProvider {
@@ -1775,32 +1810,10 @@ export class TreeViewManager {
     }
 
     /**
-     * 显示树视图
-     */
-    reveal(): void {
-        // 显示树视图面板
-        vscode.commands.executeCommand('plsqlOutline.focus');
-    }
-
-    /**
-     * 获取当前选中项
-     */
-    getSelection(): readonly TreeItemData[] {
-        return this.treeView.selection;
-    }
-
-    /**
      * 设置标题
      */
     setTitle(title: string): void {
         this.treeView.title = title;
-    }
-
-    /**
-     * 设置描述
-     */
-    setDescription(description: string): void {
-        this.treeView.description = description;
     }
 
     /**
@@ -1896,6 +1909,11 @@ export class TreeViewManager {
 
     /**
      * 调用 reveal API（容错：面板不可见时 VS Code 抛错，直接吞掉）
+     *
+     * 不自动展开：VS Code 的 reveal 会沿父链强制展开所有祖先。为满足
+     * "大纲仅在用户手动操作时改变展开状态"，reveal 前先确认目标的全部
+     * 显示层祖先已展开（用户覆盖值优先，否则取默认状态）；任一祖先折叠
+     * 则静默跳过——不选中、不展开。
      */
     private async revealItem(treeItemData: TreeItemData): Promise<void> {
         // 当面板可见时才尝试 reveal；不可见时静默跳过（reveal 会抛 TreeError）
@@ -1903,15 +1921,44 @@ export class TreeViewManager {
             return;
         }
         try {
+            if (!(await this.isTargetVisible(treeItemData))) {
+                this.outputChannel.appendLine('reveal 跳过: 目标位于折叠区域（不自动展开）');
+                return;
+            }
             await this.treeView.reveal(treeItemData, {
                 select: true,
-                focus: false,
-                expand: true
+                focus: false
             });
         } catch (e) {
             // reveal 失败（如父链无法定位）时静默处理
             this.outputChannel.appendLine(`reveal 失败: ${e}`);
         }
+    }
+
+    /**
+     * 判断目标元素当前是否可见：沿 getParent 逐层上溯，每个祖先都必须处于展开状态
+     * （用户覆盖值 ?? 默认折叠状态）。到根（无父）即可见。
+     */
+    private async isTargetVisible(element: TreeItemData): Promise<boolean> {
+        let current: TreeItemData | undefined = element;
+        for (let depth = 0; current && depth < 64; depth++) {
+            const parent: TreeItemData | undefined = await this.provider.getParent(current);
+            if (!parent) {
+                return true;
+            }
+            const state = this.provider.computeElementCollapsibleState(parent);
+            if (state !== vscode.TreeItemCollapsibleState.None) {
+                const key = this.provider.generateCacheKey(parent);
+                const expanded = this.expansionOverrides.has(key)
+                    ? this.expansionOverrides.get(key)!
+                    : state === vscode.TreeItemCollapsibleState.Expanded;
+                if (!expanded) {
+                    return false;
+                }
+            }
+            current = parent;
+        }
+        return true;
     }
 
     /**
@@ -1951,112 +1998,5 @@ export class TreeViewManager {
      */
     dispose(): void {
         this.treeView.dispose();
-    }
-}
-
-/**
- * 树视图工具类
- */
-export class TreeViewUtils {
-    /**
-     * 查找节点
-     */
-    static findNodeByName(nodes: ParseNode[], name: string): ParseNode | null {
-        for (const node of nodes) {
-            if (node.name === name) {
-                return node;
-            }
-            
-            const found = this.findNodeByName(node.children, name);
-            if (found) {
-                return found;
-            }
-        }
-        
-        return null;
-    }
-
-    /**
-     * 查找节点按行号
-     */
-    static findNodeByLine(nodes: ParseNode[], line: number): ParseNode | null {
-        for (const node of nodes) {
-            if (node.declarationLine === line ||
-                node.beginLine === line ||
-                node.exceptionLine === line ||
-                node.endLine === line) {
-                return node;
-            }
-            
-            const found = this.findNodeByLine(node.children, line);
-            if (found) {
-                return found;
-            }
-        }
-        
-        return null;
-    }
-
-    /**
-     * 获取节点路径
-     */
-    static getNodePath(nodes: ParseNode[], targetNode: ParseNode): string[] {
-        const path: string[] = [];
-        
-        const findPath = (currentNodes: ParseNode[], target: ParseNode, currentPath: string[]): boolean => {
-            for (const node of currentNodes) {
-                const newPath = [...currentPath, node.name];
-                
-                if (node === target) {
-                    path.push(...newPath);
-                    return true;
-                }
-                
-                if (findPath(node.children, target, newPath)) {
-                    return true;
-                }
-            }
-            
-            return false;
-        };
-        
-        findPath(nodes, targetNode, []);
-        return path;
-    }
-
-    /**
-     * 统计节点数量
-     */
-    static countNodes(nodes: ParseNode[]): { total: number; byType: Map<NodeType, number> } {
-        const byType = new Map<NodeType, number>();
-        let total = 0;
-        
-        const count = (currentNodes: ParseNode[]): void => {
-            for (const node of currentNodes) {
-                total++;
-                byType.set(node.type, (byType.get(node.type) || 0) + 1);
-                count(node.children);
-            }
-        };
-        
-        count(nodes);
-        return { total, byType };
-    }
-
-    /**
-     * 获取最大嵌套深度
-     */
-    static getMaxDepth(nodes: ParseNode[]): number {
-        let maxDepth = 0;
-        
-        const traverse = (currentNodes: ParseNode[], currentDepth: number): void => {
-            for (const node of currentNodes) {
-                maxDepth = Math.max(maxDepth, currentDepth);
-                traverse(node.children, currentDepth + 1);
-            }
-        };
-        
-        traverse(nodes, 1);
-        return maxDepth;
     }
 }

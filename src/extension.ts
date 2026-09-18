@@ -27,14 +27,19 @@ export class PLSQLOutlineExtension {
     private parseCount: number = 0;
     private maxParseCount: number = 100; // 最大解析次数，超过后强制清理
 
+    // 调试开关缓存：避免每次光标移动/每行解析都读取配置（性能修复）
+    private debugEnabledCache: boolean = false;
+
+    private refreshDebugCache(): void {
+        this.debugEnabledCache = vscode.workspace.getConfiguration('plsql-outline')
+            .get('debug.enabled', false);
+    }
+
     /**
      * 调试日志输出 - 只有在启用调试模式时才输出
      */
     private debugLog(message: string, ...args: any[]): void {
-        const config = vscode.workspace.getConfiguration('plsql-outline');
-        const debugEnabled = config.get('debug.enabled', false);
-        
-        if (debugEnabled) {
+        if (this.debugEnabledCache) {
             console.log(`[PL/SQL Outline Debug] ${message}`, ...args);
         }
     }
@@ -43,10 +48,7 @@ export class PLSQLOutlineExtension {
      * 调试警告输出 - 只有在启用调试模式时才输出
      */
     private debugWarn(message: string, ...args: any[]): void {
-        const config = vscode.workspace.getConfiguration('plsql-outline');
-        const debugEnabled = config.get('debug.enabled', false);
-        
-        if (debugEnabled) {
+        if (this.debugEnabledCache) {
             console.warn(`[PL/SQL Outline Debug] ${message}`, ...args);
         }
     }
@@ -55,10 +57,7 @@ export class PLSQLOutlineExtension {
      * 调试错误输出 - 只有在启用调试模式时才输出
      */
     private debugError(message: string, ...args: any[]): void {
-        const config = vscode.workspace.getConfiguration('plsql-outline');
-        const debugEnabled = config.get('debug.enabled', false);
-        
-        if (debugEnabled) {
+        if (this.debugEnabledCache) {
             console.error(`[PL/SQL Outline Debug] ${message}`, ...args);
         }
     }
@@ -71,6 +70,7 @@ export class PLSQLOutlineExtension {
             this.dataBridge.getDebugManager(),
             this.dataBridge.getLogger()
         );
+        this.refreshDebugCache();
 
         // 初始化符号索引
         this.outputChannel = vscode.window.createOutputChannel('PL/SQL Outline');
@@ -111,15 +111,6 @@ export class PLSQLOutlineExtension {
             () => this.exportParseResult()
         );
 
-        // 测试展开所有命令
-        const testExpandAllCommand = vscode.commands.registerCommand(
-            'plsqlOutline.testExpandAll',
-            () => {
-                this.debugLog('测试展开所有命令被调用');
-                vscode.window.showInformationMessage('展开所有命令测试成功！');
-            }
-        );
-
         // 展开所有命令 - 委托给TreeViewManager
         const expandAllCommand = vscode.commands.registerCommand(
             'plsqlOutline.expandAll',
@@ -140,7 +131,6 @@ export class PLSQLOutlineExtension {
             toggleDebugModeCommand,
             showStatsCommand,
             exportResultCommand,
-            testExpandAllCommand,
             expandAllCommand,
             rebuildIndexCommand
         );
@@ -254,7 +244,10 @@ export class PLSQLOutlineExtension {
                     this.currentParseResult = null;
                 }
                 
-                const parseResult = await this.parser.parse(content, sourceFile);
+                const parseResult = await this.parser.parse(content, sourceFile, {
+                    maxNestingDepth: vscode.workspace.getConfiguration('plsql-outline')
+                        .get('parsing.maxNestingDepth', 15)
+                });
                 
                 progress.report({ increment: 60, message: '处理结果...' });
                 
@@ -700,6 +693,9 @@ export class PLSQLOutlineExtension {
      */
     private onConfigurationChanged(event: vscode.ConfigurationChangeEvent): void {
         if (event.affectsConfiguration('plsql-outline')) {
+            // 刷新调试开关缓存
+            this.refreshDebugCache();
+
             // 刷新数据桥接器配置
             this.dataBridge.refreshConfig();
             
@@ -1088,13 +1084,6 @@ export class PLSQLOutlineExtension {
     }
 
     /**
-     * 获取树视图管理器
-     */
-    getTreeViewManager(): TreeViewManager {
-        return this.treeViewManager;
-    }
-
-    /**
      * 获取数据桥接器
      */
     getDataBridge(): DataBridge {
@@ -1277,11 +1266,4 @@ export function deactivate(): void {
     }
     
     console.log('PL/SQL Outline 扩展停用完成');
-}
-
-/**
- * 获取扩展实例（用于测试）
- */
-export function getExtensionInstance(): PLSQLOutlineExtension | undefined {
-    return extensionInstance;
 }

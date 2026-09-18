@@ -42,6 +42,9 @@ export class PLSQLParser {
     private stringCache: Map<string, string> = new Map();
     private maxCacheSize: number = 1000;
 
+    // 最大嵌套深度（parsing.maxNestingDepth 配置传入；默认与 package.json 声明一致）
+    private maxNestingDepth: number = 15;
+
     /**
      * 设置控制结构配置
      */
@@ -53,11 +56,15 @@ export class PLSQLParser {
     /**
      * 解析PL/SQL代码
      */
-    async parse(content: string, sourceFile: string = 'unknown'): Promise<ParseResult> {
+    async parse(content: string, sourceFile: string = 'unknown', options?: { maxNestingDepth?: number }): Promise<ParseResult> {
         const startTime = Date.now();
-        
+
         try {
             this.initializeGlobalVariables();
+
+            if (options && typeof options.maxNestingDepth === 'number' && options.maxNestingDepth > 0) {
+                this.maxNestingDepth = options.maxNestingDepth;
+            }
             
             if (content.length > 10 * 1024 * 1024) {
                 throw new Error('文件过大，超过10MB限制');
@@ -389,16 +396,29 @@ export class PLSQLParser {
             if (multiLineCreateMatch) {
                 const originalStartLine = lineMapping[multiLineCreateMatch.startIndex];
                 await this.handleCreateStatement(multiLineCreateMatch.match, originalStartLine);
-                
+
                 for (let j = multiLineCreateMatch.startIndex; j <= multiLineCreateMatch.endIndex; j++) {
                     this.processedLines.add(lineMapping[j]);
                 }
-                
+
                 i = multiLineCreateMatch.endIndex;
                 continue;
             }
 
-            await this.parseLine(line, originalLineNumber);
+            // 检查跨行CURSOR声明（参数列表换行：CURSOR name ( ... ) IS）
+            const multiLineCursor = this.checkMultiLineCursor(lines, i);
+            if (multiLineCursor) {
+                this.checkAndRecordCursorDeclaration(multiLineCursor.combinedText, originalLineNumber);
+
+                for (let j = i + 1; j <= multiLineCursor.endIndex; j++) {
+                    this.processedLines.add(lineMapping[j]);
+                }
+
+                i = multiLineCursor.endIndex;
+                continue;
+            }
+
+            await this.parseLine(line, originalLineNumber, lines, i);
             this.processedLines.add(originalLineNumber);
 
             if (i % 50 === 0) {
@@ -467,6 +487,41 @@ export class PLSQLParser {
     }
 
     /**
+     * 检查跨行CURSOR声明：参数列表未在一行内闭合时，向后拼接直到匹配完整声明。
+     * 仅做声明记录（不建节点），SELECT 体仍按普通行流动。
+     */
+    private checkMultiLineCursor(lines: string[], startIndex: number): { combinedText: string, endIndex: number } | null {
+        const startLine = lines[startIndex];
+
+        // 行首为 CURSOR name ( 且单行不构成完整声明
+        if (!/^\s*CURSOR\s+\w+\s*\(/i.test(startLine)) {
+            return null;
+        }
+        if (KeywordPatterns.CURSOR_DECLARATION.test(startLine)) {
+            return null;
+        }
+
+        let combinedLine = startLine;
+        const maxLookAhead = Math.min(10, lines.length - startIndex - 1);
+        for (let i = 1; i <= maxLookAhead; i++) {
+            combinedLine += ' ' + lines[startIndex + i];
+
+            if (combinedLine.length > 2000) {
+                return null;
+            }
+
+            if (KeywordPatterns.CURSOR_DECLARATION.test(combinedLine)) {
+                return {
+                    combinedText: combinedLine,
+                    endIndex: startIndex + i
+                };
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * 匹配CREATE语句（支持schema前缀）
      */
     private matchCreateStatement(line: string): { type: NodeType; name: string } | null {
@@ -519,17 +574,18 @@ export class PLSQLParser {
 
     /**
      * 匹配FUNCTION/PROCEDURE关键字（子程序）
+     * 性能修复：静态正则缓存（原实现每行 new RegExp，大文件热点）
      */
-    private matchFunctionProcedure(line: string): { type: NodeType; name: string } | null {
-        // 支持对象类型方法前缀：MEMBER / STATIC / FINAL / OVERRIDING / CONSTRUCTOR / MAP
-        const prefix = '(?:MEMBER|STATIC|FINAL|OVERRIDING|CONSTRUCTOR|MAP)?\\s*';
+    private static readonly SUB_FUNCTION_RE = /^\s*(?:MEMBER|STATIC|FINAL|OVERRIDING|CONSTRUCTOR|MAP)?\s*FUNCTION\s+(\w+)/i;
+    private static readonly SUB_PROCEDURE_RE = /^\s*(?:MEMBER|STATIC|FINAL|OVERRIDING|CONSTRUCTOR|MAP)?\s*PROCEDURE\s+(\w+)/i;
 
-        let match = line.match(new RegExp('^\\s*' + prefix + 'FUNCTION\\s+(\\w+)', 'i'));
+    private matchFunctionProcedure(line: string): { type: NodeType; name: string } | null {
+        let match = line.match(PLSQLParser.SUB_FUNCTION_RE);
         if (match) {
             return { type: NodeType.FUNCTION, name: match[1] };
         }
 
-        match = line.match(new RegExp('^\\s*' + prefix + 'PROCEDURE\\s+(\\w+)', 'i'));
+        match = line.match(PLSQLParser.SUB_PROCEDURE_RE);
         if (match) {
             return { type: NodeType.PROCEDURE, name: match[1] };
         }
@@ -540,7 +596,7 @@ export class PLSQLParser {
     /**
      * 解析单行 - handler-based 架构
      */
-    private async parseLine(line: string, lineNumber: number): Promise<void> {
+    private async parseLine(line: string, lineNumber: number, lines?: string[], lineIndex?: number): Promise<void> {
         // 检查变量/游标/异常/常量/类型声明
         // 顺序：常量必须在普通变量之前（避免常量被误判为变量）；类型需在游标之前（TYPE...IS 与 CURSOR...IS 形式不同，互不冲突）
         this.checkAndRecordConstantDeclaration(line, lineNumber);
@@ -570,7 +626,7 @@ export class PLSQLParser {
         // FUNCTION/PROCEDURE 关键字处理（子函数/过程）
         const functionMatch = this.matchFunctionProcedure(line);
         if (functionMatch) {
-            await this.handleSubFunctionProcedure(functionMatch, lineNumber);
+            await this.handleSubFunctionProcedure(functionMatch, lineNumber, lines, lineIndex);
             return;
         }
 
@@ -628,9 +684,14 @@ export class PLSQLParser {
 
     /**
      * 处理子函数/过程
+     *
+     * 前置声明修复：声明区的 `PROCEDURE xxx(...);` / `FUNCTION xxx ...;`（无 IS/AS 体）
+     * 此前会被当作真实定义创建节点并切换 currentActiveNode，且永远等不到自己的 END，
+     * 导致其后的所有声明（如游标 C4/C5）被记入这个"幽灵节点"而丢失。
+     * 现在按用户决策：前置声明创建声明节点（不切换状态），同名真实定义出现时原位替换。
      */
-    private async handleSubFunctionProcedure(functionMatch: { type: NodeType; name: string }, lineNumber: number): Promise<void> {
-        if (this.currentLevel >= 20) {
+    private async handleSubFunctionProcedure(functionMatch: { type: NodeType; name: string }, lineNumber: number, lines?: string[], lineIndex?: number): Promise<void> {
+        if (this.currentLevel >= this.maxNestingDepth) {
             throw new Error(`嵌套深度超过限制(${this.currentLevel})`);
         }
 
@@ -643,12 +704,31 @@ export class PLSQLParser {
             return;
         }
 
-        // 普通的子函数/过程处理
+        // 前置声明（... ; 无 IS/AS 体，含多行签名）：只挂声明节点，不切换 currentActiveNode
+        const isForwardDecl = lines !== undefined && lineIndex !== undefined &&
+            this.isForwardDeclaration(lines, lineIndex);
+        if (isForwardDecl && this.currentActiveNode) {
+            const declarationType = functionMatch.type === NodeType.FUNCTION ?
+                NodeType.FUNCTION_DECLARATION : NodeType.PROCEDURE_DECLARATION;
+            const declarationNode = this.createNode(declarationType, functionMatch.name, lineNumber, this.currentLevel + 1);
+            this.currentActiveNode.children.push(declarationNode);
+            return;
+        }
+
+        // 普通的子函数/过程处理；若存在同名前置声明节点（同一父节点下）则原位替换
         const newNode = this.createNode(functionMatch.type, functionMatch.name, lineNumber, this.currentLevel + 1);
 
         if (this.currentActiveNode) {
+            const siblings = this.currentActiveNode.children;
+            const declIndex = siblings.findIndex(c =>
+                (c.type === NodeType.FUNCTION_DECLARATION || c.type === NodeType.PROCEDURE_DECLARATION) &&
+                c.name === functionMatch.name);
+            if (declIndex >= 0) {
+                siblings[declIndex] = newNode;
+            } else {
+                siblings.push(newNode);
+            }
             this.nodeStack.push(this.currentActiveNode);
-            this.currentActiveNode.children.push(newNode);
         }
 
         this.currentActiveNode = newNode;
@@ -657,6 +737,29 @@ export class PLSQLParser {
         // 进入新子程序时清空控制栈与匿名块水位
         this.controlStack = [];
         this.anonBlockCounters = [];
+    }
+
+    /**
+     * 判断 FUNCTION/PROCEDURE 行是否为前置声明（... ; 无 IS/AS 体）。
+     * 从该行起向后扫描（≤15 行，字符串/注释已由预处理剥离）：
+     * 首个出现的 IS/AS 关键字 → 真实定义；首个分号 → 前置声明。
+     * 单行与多行签名均覆盖；超窗未定则按真实定义处理（保持旧行为）。
+     */
+    private isForwardDeclaration(lines: string[], startIndex: number): boolean {
+        const maxLookAhead = Math.min(15, lines.length - startIndex - 1);
+        for (let j = startIndex; j <= startIndex + maxLookAhead; j++) {
+            const text = lines[j];
+            const isAsIndex = text.search(/\b(?:IS|AS)\b/i);
+            const semiIndex = text.indexOf(';');
+
+            if (semiIndex >= 0 && (isAsIndex < 0 || semiIndex < isAsIndex)) {
+                return true;
+            }
+            if (isAsIndex >= 0) {
+                return false;
+            }
+        }
+        return false;
     }
 
     /**

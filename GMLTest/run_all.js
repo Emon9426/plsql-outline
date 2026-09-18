@@ -15,7 +15,9 @@ const suites = [
     require('./nested_definition_test'),
     require('./qquote_create_test'),
     require('./qquote_edge_test'),
-    require('./anonymous_block_render_test')
+    require('./anonymous_block_render_test'),
+    require('./forward_declaration_cursor_test'),
+    require('./constant_declaration_test')
 ];
 
 function escapeHtml(s) {
@@ -100,7 +102,7 @@ function generateHtml(results) {
 </head>
 <body>
     <h1>PL/SQL Outline — GMLTest 测试报告</h1>
-    <div class="meta">生成时间：${now} ｜ 版本：v1.5.4 ｜ 测试框架：Node.js + 自研断言</div>
+    <div class="meta">生成时间：${now} ｜ 版本：v${require('../package.json').version} ｜ 测试框架：Node.js + 自研断言</div>
 
     <div class="banner ${allPassed ? 'ok' : 'bad'}">
         ${allPassed ? '✓ 全部测试通过' : '✗ 存在失败用例'}

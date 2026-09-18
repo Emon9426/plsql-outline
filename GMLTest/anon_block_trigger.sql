@@ -3,7 +3,7 @@ DECLARE
     -- 声明部分
     v_total     NUMBER := 0;
     v_count     NUMBER := 0;
-    c_batch_size NUMBER CONSTANT := 100;
+    c_batch_size CONSTANT NUMBER := 100;
     CURSOR c_orders IS
         SELECT id, amount, status
           FROM orders
@@ -64,7 +64,7 @@ FOR EACH ROW
 DECLARE
     v_user      VARCHAR2(30) := USER;
     v_timestamp DATE := SYSDATE;
-    c_max_len   NUMBER CONSTANT := 50;
+    c_max_len   CONSTANT NUMBER := 50;
 BEGIN
     -- 触发器体
     IF :new.created_by IS NULL THEN

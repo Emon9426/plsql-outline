@@ -7,7 +7,7 @@ CREATE OR REPLACE PROCEDURE calc_order_total(
     v_subtotal   NUMBER := 0;
     v_tax        NUMBER := 0;
     v_total      NUMBER := 0;
-    c_tax_rate   NUMBER CONSTANT := 0.08;
+    c_tax_rate   CONSTANT NUMBER := 0.08;
     CURSOR c_lines(p_id NUMBER) IS
         SELECT product_id, quantity, unit_price
           FROM order_lines
@@ -62,8 +62,8 @@ CREATE OR REPLACE FUNCTION get_customer_tier(
     p_points IN NUMBER
 ) RETURN VARCHAR2 IS
     v_tier   VARCHAR2(20);
-    c_gold   NUMBER CONSTANT := 1000;
-    c_silver NUMBER CONSTANT := 500;
+    c_gold   CONSTANT NUMBER := 1000;
+    c_silver CONSTANT NUMBER := 500;
     e_bad    EXCEPTION;
 BEGIN
     IF p_points IS NULL THEN

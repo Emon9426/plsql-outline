@@ -61,7 +61,7 @@ const SOURCE = `CREATE OR REPLACE PACKAGE BODY demo_pkg
 IS
     -- 包级声明
     g_count   NUMBER := 0;
-    c_limit   NUMBER CONSTANT := 100;
+    c_limit   CONSTANT NUMBER := 100;
     CURSOR c_all (p_id NUMBER) IS
         SELECT * FROM t WHERE id = p_id;
     TYPE t_rec IS RECORD (id NUMBER, nm VARCHAR2(30));
@@ -69,7 +69,7 @@ IS
 
     PROCEDURE do_work(p_in IN NUMBER) IS
         v_local   NUMBER := p_in;
-        c_local   NUMBER CONSTANT := 10;
+        c_local   CONSTANT NUMBER := 10;
         CURSOR c_inner IS SELECT level FROM dual;
         TYPE t_inner IS TABLE OF NUMBER;
         e_inner   EXCEPTION;
