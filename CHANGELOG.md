@@ -3,6 +3,12 @@
 本文件记录 PL/SQL Outline 各版本的变化。完整的版本发布信息也可在
 [GitHub Releases](https://github.com/Emon9426/plsql-outline/releases) 查看。
 
+## v1.7.3 (2026-09-18)
+
+- 🔴 **并发解析互相污染修复（#15，实机 APPLY_PREMIUM.pkb 1.19MiB 场景）**：扩展层此前全局共享一个 PLSQLParser 实例，`parseCurrentFile` 与 `parseDocumentQuiet`（光标同步/悬停/跳转触发）并发时在同一实例上交错推进——`initializeGlobalVariables()` 重置共享状态、共享 `processedLines` 按行号使不同文档的解析互相"吞行"，产生成员丢失/嵌套错乱/杂交树（A 文件的解析结果里出现 B 文件的包名）。**每次解析改用独立 PLSQLParser 实例**，并发行为不变、彻底消除共享状态；`quietParseInFlight` 去重保留
+- 📖 用户关键线索"切换文件再切回来就正确渲染"即非确定性证明：解析逻辑确定性缺陷重解析必然复现，只有并发污染能自愈
+- 🧪 GMLTest 新增 concurrent_parse_isolation_test（7 断言：独立实例并发解析不同文档互不污染、交错启动、幂等性）；全套 313/313，ZCodeTest 基线不变，双 E2E 通过
+
 ## v1.7.2 (2026-09-18)
 
 - 🔴 **内联匿名块不再整棵隐藏（#13，真实脚本 01_NB_MT110 场景）**：过程/函数/匿名块体内的内联 `DECLARE..BEGIN..END;` 块此前在显示层被整体跳过，其内部全部控制结构从大纲消失（Body 只剩块结束后的 IF）；现在作为宿主 Body 内**可展开的 `Anonymous Block` 分组**渲染，展开可见其 Declaration（局部变量/游标/异常）、Sub Program（块内嵌套子程序）、Body（控制结构）、Exception、End
