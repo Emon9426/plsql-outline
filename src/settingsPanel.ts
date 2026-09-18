@@ -51,7 +51,7 @@ export class SettingsPanel {
         SettingsPanel.currentPanel = new SettingsPanel(panel, extensionUri);
     }
 
-    private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+    private constructor(panel: vscode.WebviewPanel, _extensionUri: vscode.Uri) {
         this._panel = panel;
         this._update();
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);

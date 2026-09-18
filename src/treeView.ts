@@ -1745,7 +1745,7 @@ export class TreeViewManager {
             if (target.type === 'declarationEntry' && target.entry && target.node) {
                 // 声明项：reveal 到该声明项（其父链为 node → DECLARE section → declarationGroup → entry）
                 const entry = target.entry;
-                const parentNode = target.node;
+                const _parentNode = target.node;
                 // declarationEntry 叶节点（字段与 getChildren 声明分组分支的产出一致）
                 const treeItemData: TreeItemData = {
                     isStructureBlock: false,

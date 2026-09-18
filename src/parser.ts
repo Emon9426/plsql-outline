@@ -2,7 +2,6 @@ import {
     ParseResult,
     ParseNode,
     NodeType,
-    ParseError,
     VariableInfo,
     DeclarationCategory
 } from './types';
@@ -375,7 +374,7 @@ export class PLSQLParser {
      */
     private scanQStringEnd(line: string, start: number, delim: { prefixLen: number; open: string; close: string }): number {
         // 内容起始 = start + prefixLen + 1(q') + 1(open)
-        let j = start + delim.prefixLen + 1 + 1;
+        const j = start + delim.prefixLen + 1 + 1;
         const closeSeq = delim.close + '\'';
         const idx = line.indexOf(closeSeq, j);
         return idx !== -1 ? idx + 1 : -1; // 返回闭合 ' 的索引
@@ -468,7 +467,7 @@ export class PLSQLParser {
      * 检查跨行CREATE语句
      * BUG-5修复：最大5行前瞻，遇到关键字终止，总长度限制
      */
-    private checkMultiLineCreate(lines: string[], startIndex: number, lineMapping: number[]): { match: { type: NodeType; name: string }, startIndex: number, endIndex: number } | null {
+    private checkMultiLineCreate(lines: string[], startIndex: number, _lineMapping: number[]): { match: { type: NodeType; name: string }, startIndex: number, endIndex: number } | null {
         const startLine = lines[startIndex];
         
         if (!/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?/i.test(startLine)) {
@@ -822,7 +821,7 @@ export class PLSQLParser {
     /**
      * 处理IS/AS语句
      */
-    private async handleIsAsStatement(lineNumber: number): Promise<void> {
+    private async handleIsAsStatement(_lineNumber: number): Promise<void> {
         // 初始化当前节点的变量表
         if (this.currentActiveNode && !this.currentActiveNode.variableTable) {
             this.currentActiveNode.variableTable = new Map<string, VariableInfo>();

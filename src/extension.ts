@@ -382,7 +382,7 @@ export class PLSQLOutlineExtension {
     /**
      * 提供悬停信息
      */
-    private async provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover | null> {
+    private async provideHover(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken): Promise<vscode.Hover | null> {
         // 按需刷新：文档编辑未保存时解析结果已陈旧（匿名块等临时代码场景）
         await this.parseDocumentQuiet(document);
 
@@ -415,7 +415,7 @@ export class PLSQLOutlineExtension {
     /**
      * 提供定义位置 - 支持跨文件导航
      */
-    private async provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Definition | vscode.LocationLink[] | null> {
+    private async provideDefinition(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken): Promise<vscode.Definition | vscode.LocationLink[] | null> {
         // 按需刷新：文档编辑未保存时解析结果已陈旧，Ctrl+Click 前 先拿到最新树
         await this.parseDocumentQuiet(document);
 
@@ -512,7 +512,7 @@ export class PLSQLOutlineExtension {
      * 支持: pkg_name.proc_name 或 proc_name
      */
     private parseCallAtPosition(document: vscode.TextDocument, position: vscode.Position): { name: string; packageName?: string } | null {
-        const line = document.lineAt(position.line).text;
+        const _line = document.lineAt(position.line).text;
         
         // 扩展单词范围来检测 pkg.proc 模式
         const wordRange = document.getWordRangeAtPosition(position, /\w+(?:\.\w+)?/);
@@ -606,7 +606,7 @@ export class PLSQLOutlineExtension {
         });
 
         const items = sorted.map(entry => {
-            const fileName = path.basename(entry.filePath);
+            const _fileName = path.basename(entry.filePath);
             const typeLabel = entry.type === NodeType.FUNCTION || entry.type === NodeType.FUNCTION_DECLARATION
                 ? 'Function' : 'Procedure';
             const pkgInfo = entry.packageName ? `${entry.packageName}.` : '';

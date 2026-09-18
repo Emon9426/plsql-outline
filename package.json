@@ -349,19 +349,18 @@
     "test:corpus": "node tests/corpus/validate.js && node tests/corpus/render-validate.js",
     "test:e2e": "node tests/e2e/anonDefinition.e2e.test.js && node tests/e2e/zcodetest_smoke.e2e.js",
     "package": "vsce package -o release/plsql-outline-$npm_package_version.vsix",
-    "publish": "vsce publish"
+    "publish": "vsce publish",
+    "lint": "eslint src/"
   },
   "devDependencies": {
-    "@types/vscode": "^1.74.0",
     "@types/node": "16.x",
-    "@typescript-eslint/eslint-plugin": "^5.45.0",
-    "@typescript-eslint/parser": "^5.45.0",
-    "eslint": "^8.28.0",
-    "typescript": "^4.9.4",
+    "@types/vscode": "^1.74.0",
     "@vscode/test-electron": "^2.2.0",
-    "@vscode/vsce": "^2.15.0"
+    "@vscode/vsce": "^2.15.0",
+    "eslint": "^9.39.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.0"
   },
-  "dependencies": {},
   "repository": {
     "type": "git",
     "url": "https://github.com/Emon9426/plsql-outline.git"
