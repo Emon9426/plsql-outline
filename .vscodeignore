@@ -21,6 +21,7 @@ CLAUDE.md
 .yarnrc
 package-lock.json
 **/tsconfig.json
+eslint.config.mjs
 **/*.ts
 **/*.map
 

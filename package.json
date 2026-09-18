@@ -2,7 +2,7 @@
   "name": "plsql-outline",
   "displayName": "PL/SQL Outline",
   "description": "PL/SQL代码结构解析器和大纲视图",
-  "version": "1.7.3",
+  "version": "1.8.0",
   "publisher": "EmonZhang3438",
   "icon": "res/Icon.png",
   "engines": {
@@ -348,7 +348,7 @@
     "test:regression": "node tests/regression/run_all.js",
     "test:corpus": "node tests/corpus/validate.js && node tests/corpus/render-validate.js",
     "test:e2e": "node tests/e2e/anonDefinition.e2e.test.js && node tests/e2e/zcodetest_smoke.e2e.js",
-    "package": "vsce package -o release/plsql-outline-$npm_package_version.vsix",
+    "package": "vsce package -o release/",
     "publish": "vsce publish",
     "lint": "eslint src/"
   },
