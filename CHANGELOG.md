@@ -3,6 +3,15 @@
 本文件记录 PL/SQL Outline 各版本的变化。完整的版本发布信息也可在
 [GitHub Releases](https://github.com/Emon9426/plsql-outline/releases) 查看。
 
+## v1.7.1 (2026-09-18)
+
+- 🧪 **ZCodeTest 结构化测试语料库**：33 个文件 / 14.3 万行，覆盖 Function、Procedure、Package Spec+Body、Trigger、匿名块（DECLARE 形与顶层裸 BEGIN 形，各有/无 Exception）及 TYPE/TYPE BODY/VIEW，每种对象 × 简单/复杂/长代码(≥1万行)/长代码+复杂 四形态；复杂结构覆盖注释（单行/多行/注释掉的代码）、3 层嵌套子程序、全部循环种类、嵌套 3 层循环、多 WHEN 异常，另含 Q-quote/前置声明/内联匿名块/CASE ELSE/包初始化块/多行签名等解析器压力点；14 个万行文件由 `generate-long.js` 确定性生成
+- 🧪 **解析层全量验证（validate.js）**：33 文件逐一真实解析，基线 31/33
+- 🧪 **显示层全量渲染校验（render-validate.js）**：真实 treeView 显示层全树 getChildren/getTreeItem 遍历，断言根标签/必现标签/被注释代码不得渲染，基线 31 OK + 2 KNOWN
+- 🧪 **真实 VS Code E2E 冒烟（zcodetest_smoke）**：7 类代表文件的语言关联（.fnc/.prc/.pks/.pkb/.trg→plsql）、解析命令、嵌套子程序跳转全链路验证
+- 📋 **语料发现的缺陷（已记录待修，见 ZCodeTest/README.md）**：① 解析器内联匿名块 currentLevel 泄漏（pkg_body_long*.pkb 解析失败）；② 触发器 DECLARE 区/匿名块内子程序与包规格级声明不渲染；③ 共享解析器实例并发竞争导致快速多文件切换下解析结果偶发损坏
+- 本版本无产品代码（src/）变更，为纯测试基建发布
+
 ## v1.7.0 (2026-09-18)
 
 - 🔴 **常量声明标准语序识别（#4）**：`CONSTANT_DECLARATION` 正则修正为 Oracle 标准语序 `name CONSTANT type := value`，标准常量声明现在能正确记入 variableTable；全部测试 fixtures 同步改为标准语序
