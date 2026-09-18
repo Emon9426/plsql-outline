@@ -35,6 +35,12 @@ export class PLSQLParser {
     // 当 END 让计数器回到该值时,关闭对应的匿名块而非外层方法。
     private anonBlockCounters: number[] = [];
 
+    // 子程序上下文保存栈：进入子程序时保存外层的 beginEndCounter 与匿名块水位，
+    // 子程序 END 闭合时恢复。此前进入子程序直接清零/清空且从不恢复，导致
+    // "单元内联匿名块内含子程序"时宿主单元的 BEGIN 计数永久丢失，父单元永不闭合
+    // （endLine=null，其后的 END 计数漂移为负）。
+    private unitStateStack: Array<{ beginEndCounter: number; anonBlockCounters: number[] }> = [];
+
     private version: string = '2.1.0';
 
     // 内存优化相关
@@ -129,6 +135,7 @@ export class PLSQLParser {
         this.packageInitFlag = false;
         this.controlStack = [];
         this.anonBlockCounters = [];
+        this.unitStateStack = [];
         this.processedLines.clear();
         this.stringCache.clear();
     }
@@ -142,6 +149,7 @@ export class PLSQLParser {
         this.nodeStack = [];
         this.controlStack = [];
         this.anonBlockCounters = [];
+        this.unitStateStack = [];
         this.currentActiveNode = null;
         this.packageNode = null;
     }
@@ -691,6 +699,8 @@ export class PLSQLParser {
         this.beginEndCounter = 0;
         this.controlStack = [];
         this.anonBlockCounters = [];
+        // 新单元开始：丢弃上一个未正确闭合单元遗留的上下文帧
+        this.unitStateStack = [];
     }
 
     /**
@@ -744,8 +754,14 @@ export class PLSQLParser {
 
         this.currentActiveNode = newNode;
         this.currentLevel = this.currentLevel + 1;
+        // 保存外层上下文（计数器+匿名块水位），子程序 END 闭合时恢复；
+        // 直接清零会丢弃宿主单元的 BEGIN 计数与外层内联匿名块的水位
+        this.unitStateStack.push({
+            beginEndCounter: this.beginEndCounter,
+            anonBlockCounters: this.anonBlockCounters
+        });
         this.beginEndCounter = 0;
-        // 进入新子程序时清空控制栈与匿名块水位
+        // 子程序拥有独立的控制结构与匿名块水位刻度
         this.controlStack = [];
         this.anonBlockCounters = [];
     }
@@ -801,7 +817,13 @@ export class PLSQLParser {
         }
 
         // 普通BEGIN处理
-        if (this.beginEndCounter === 0 && this.currentActiveNode) {
+        // BEGIN 归属：计数器为 0（单元自身首个 BEGIN），或活动节点为内联匿名块
+        // 且计数器恰在其水位（宿主单元已计数，匿名块体的首个 BEGIN）
+        const isAnonBodyStart = this.currentActiveNode != null &&
+            this.currentActiveNode.type === NodeType.ANONYMOUS_BLOCK &&
+            this.anonBlockCounters.length > 0 &&
+            this.beginEndCounter === this.anonBlockCounters[this.anonBlockCounters.length - 1];
+        if (this.currentActiveNode && (this.beginEndCounter === 0 || isAnonBodyStart)) {
             this.currentActiveNode.beginLine = lineNumber;
         }
         this.beginEndCounter = this.beginEndCounter + 1;
@@ -811,6 +833,13 @@ export class PLSQLParser {
      * 处理EXCEPTION语句
      */
     private async handleExceptionStatement(lineNumber: number): Promise<void> {
+        // EXCEPTION 归属：内联匿名块体内（计数器 = 水位+1），或单元体首个层级（计数器 1）
+        if (this.currentActiveNode && this.currentActiveNode.type === NodeType.ANONYMOUS_BLOCK
+            && this.anonBlockCounters.length > 0
+            && this.beginEndCounter === this.anonBlockCounters[this.anonBlockCounters.length - 1] + 1) {
+            this.currentActiveNode.exceptionLine = lineNumber;
+            return;
+        }
         if (this.beginEndCounter === 1 && this.currentActiveNode) {
             this.currentActiveNode.exceptionLine = lineNumber;
         }
@@ -841,6 +870,7 @@ export class PLSQLParser {
             this.beginEndCounter = 0;
             this.currentActiveNode = this.packageNode;
             this.controlStack = [];
+            this.unitStateStack = [];
             return;
         }
 
@@ -877,6 +907,14 @@ export class PLSQLParser {
                 this.currentActiveNode = parentNode;
             } else {
                 this.currentActiveNode = this.packageNode;
+            }
+
+            // 子程序闭合：恢复进入它时保存的外层上下文（计数器+匿名块水位），
+            // 使宿主单元/外层内联匿名块的 END 配对回到正确的计数刻度
+            const savedUnitState = this.unitStateStack.pop();
+            if (savedUnitState) {
+                this.beginEndCounter = savedUnitState.beginEndCounter;
+                this.anonBlockCounters = savedUnitState.anonBlockCounters;
             }
 
             // 方法结束时清空控制栈
