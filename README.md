@@ -90,7 +90,7 @@ hr_salary_pkg (Package Body)
 ### ⚡ 性能
 
 - 万行文件毫秒级解析（10,000 行约 20–65ms，13,000+ 行复杂嵌套 ~60ms）
-- 字符级状态机剥离器，正确处理 `q'[...]'`（Q-quote）字符串、跨行字符串、字符串内的注释标记；支持带引号的标识符（`"SCHEMA"."PKG"`）与 `.pck` 完整包文件
+- 字符级状态机剥离器，正确处理 `q'[...]'`（Q-quote）字符串、跨行字符串、字符串内的注释标记；支持带引号的标识符（`"SCHEMA"."PKG"`）、`.pck` 完整包文件，以及 **`dbms_metadata.get_ddl` 直接导出的源码**（`FORCE` / `EDITIONABLE` / `NONEDITIONABLE` 修饰词）
 - 按需让出主线程 + 解析可取消：大文件解析期间界面保持响应，随时可以中断
 - 33 文件 / 14 万行结构化测试语料保障解析正确性
 
@@ -262,6 +262,10 @@ npm run package         # 打包 vsix 到 release/ 目录
 
 适合：不方便公开的代码片段、使用咨询、合作交流。一般在 1–3 个工作日内回复。
 
+## 🙏 致谢
+
+- [@fddc](https://github.com/fddc) —— 通过 [Issue #1](https://github.com/Emon9426/plsql-outline/issues/1) 报告了 `dbms_metadata.get_ddl` 导出源码的支持需求，并提供了真实环境的 `.pck` 样本文件。该样本已成为项目测试语料库的一部分，持续保障 `.pck` / 带引号标识符 / get_ddl 输出形态的解析质量。
+
 ## 📜 更新日志
 
 完整的版本历史见 [CHANGELOG.md](CHANGELOG.md)。
@@ -281,6 +285,7 @@ npm run package         # 打包 vsix 到 release/ 目录
 - Click a node to jump to its line; `Ctrl+Click` an identifier in code to jump to its declaration — across files via configurable repository paths and a symbol index
 - Cursor ↔ outline two-way sync, expand-all, parse statistics, JSON export, a visual settings panel, and a manageable file-extension list
 - Fast: 10,000-line files parse in ~20–65 ms; Q-quote strings handled by a character-level state machine; parsing is cancellable
+- Works with raw `dbms_metadata.get_ddl` output (`FORCE` / `EDITIONABLE` / `NONEDITIONABLE`), quoted identifiers and `.pck` files
 
 **Install**: search "PL/SQL Outline" in the VS Code marketplace, or from the [marketplace page](https://marketplace.visualstudio.com/items?itemName=EmonZhang3438.plsql-outline).
 

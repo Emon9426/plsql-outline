@@ -67,6 +67,8 @@ const EXPECT = {
     'package_body/pkg_body_complex.pkb':              { root: /pkg_order_api_complex/i, must: ['impl_score', 'impl_format', 'impl_check', 'fwd_validate_order', 'fwd_cache_get', 'anonymous block'] },
     'package_body/pkg_body_long.pkb':                 { root: /pkg_long_api/i, must: ['pr_impl_0001'] },
     'package_body/pkg_body_long_complex.pkb':         { root: /pkg_long_api_cx/i, must: ['pr_impl_0001', 'pr_cx_'] },
+    // get_ddl 默认输出形态（Issue #1/#19）：FORCE EDITIONABLE 前导修饰词 + 带引号 schema
+    'package_body/pkg_body_get_ddl.pkb':              { root: /pkg_order_api/i, must: ['get_order_total', 'close_order', 'exception'] },
     // .pck = spec+body 二合一（Issue #18，PR #2 实机文件）：
     // CREATE "APPS"."XXCUST_TEST_PKG" 带引号标识符需被识别（名称去引号），
     // 两个根（spec open + body closed）依次渲染，包体成员直接挂包名下

@@ -579,17 +579,22 @@ export class PLSQLParser {
      */
     private static readonly CREATE_ID = String.raw`(?:(?:"[^"]+"|[\w$#]+)\.)*(?:"([^"]+)"|([\w][\w$#]*))`;
 
+    // get_ddl 前导修饰词（Issue #1/#19）：DBMS_METADATA.GET_DDL 默认输出形如
+    // "CREATE OR REPLACE FORCE EDITIONABLE PACKAGE BODY ..."；FORCE（11g 即有）、
+    // EDITIONABLE / NONEDITIONABLE（12c+）三者独立可选，逐一容忍。
+    private static readonly DDL_MODIFIERS = String.raw`(?:FORCE\s+)?(?:EDITIONABLE\s+|NONEDITIONABLE\s+)?`;
+
     private static readonly CREATE_PATTERNS: ReadonlyArray<{ re: RegExp; type: NodeType }> = [
         // 顺序敏感：BODY 必须先于裸 PACKAGE/TYPE 匹配（包含关系）
-        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+BODY\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.PACKAGE_BODY },
-        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+(?!BODY\s)` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.PACKAGE_HEADER },
-        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.FUNCTION },
-        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.PROCEDURE },
-        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.TRIGGER },
-        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TYPE\s+BODY\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.TYPE_BODY },
-        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TYPE\s+(?!BODY\s)` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.TYPE },
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?` + PLSQLParser.DDL_MODIFIERS + String.raw`PACKAGE\s+BODY\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.PACKAGE_BODY },
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?` + PLSQLParser.DDL_MODIFIERS + String.raw`PACKAGE\s+(?!BODY\s)` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.PACKAGE_HEADER },
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?` + PLSQLParser.DDL_MODIFIERS + String.raw`FUNCTION\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.FUNCTION },
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?` + PLSQLParser.DDL_MODIFIERS + String.raw`PROCEDURE\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.PROCEDURE },
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?` + PLSQLParser.DDL_MODIFIERS + String.raw`TRIGGER\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.TRIGGER },
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?` + PLSQLParser.DDL_MODIFIERS + String.raw`TYPE\s+BODY\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.TYPE_BODY },
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?` + PLSQLParser.DDL_MODIFIERS + String.raw`TYPE\s+(?!BODY\s)` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.TYPE },
         // 视图非 PL/SQL 程序单元，但识别以免被丢弃
-        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?(?:MATERIALIZED\s+)?VIEW\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.VIEW }
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?` + PLSQLParser.DDL_MODIFIERS + String.raw`(?:MATERIALIZED\s+)?VIEW\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.VIEW }
     ];
 
     /**
