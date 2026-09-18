@@ -23,6 +23,7 @@ const suites = [
     require('./anon_subfunc_definition_test'),
     require('./inline_anon_subprogram_test'),
     require('./inline_anon_visible_test'),
+    require('./inline_anon_level_test'),
     require('./concurrent_parse_isolation_test')
 ];
 

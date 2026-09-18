@@ -39,7 +39,7 @@ export class PLSQLParser {
     // 子程序 END 闭合时恢复。此前进入子程序直接清零/清空且从不恢复，导致
     // "单元内联匿名块内含子程序"时宿主单元的 BEGIN 计数永久丢失，父单元永不闭合
     // （endLine=null，其后的 END 计数漂移为负）。
-    private unitStateStack: Array<{ beginEndCounter: number; anonBlockCounters: number[] }> = [];
+    private unitStateStack: Array<{ beginEndCounter: number; anonBlockCounters: number[]; currentLevel: number }> = [];
 
     private version: string = '2.1.0';
 
@@ -753,12 +753,16 @@ export class PLSQLParser {
         }
 
         this.currentActiveNode = newNode;
-        this.currentLevel = this.currentLevel + 1;
-        // 保存外层上下文（计数器+匿名块水位），子程序 END 闭合时恢复；
+        // 保存宿主层级（进入前），子程序 END 闭合时按帧恢复，
+        // 防止方法体内的任何层级漂移带出宿主边界
+        const hostLevel = this.currentLevel;
+        this.currentLevel = hostLevel + 1;
+        // 保存外层上下文（计数器+匿名块水位+层级），子程序 END 闭合时恢复；
         // 直接清零会丢弃宿主单元的 BEGIN 计数与外层内联匿名块的水位
         this.unitStateStack.push({
             beginEndCounter: this.beginEndCounter,
-            anonBlockCounters: this.anonBlockCounters
+            anonBlockCounters: this.anonBlockCounters,
+            currentLevel: hostLevel
         });
         this.beginEndCounter = 0;
         // 子程序拥有独立的控制结构与匿名块水位刻度
@@ -891,6 +895,13 @@ export class PLSQLParser {
                 // 恢复外层方法为活动节点(它在 DECLARE 时被压入 nodeStack)
                 const parentNode = this.nodeStack.pop();
                 this.currentActiveNode = parentNode || this.packageNode;
+                // 内联匿名块泄漏修复（ZCodeTest pkg_body_long 场景）：
+                // startAnonymousBlock 将 currentLevel 抬升到宿主+1，
+                // 闭合时必须恢复宿主层级，否则宿主内每个内联块
+                // 永久泄漏 +1，累积后触发"嵌套深度超过限制"使整文件解析为 0 节点
+                if (parentNode) {
+                    this.currentLevel = parentNode.level;
+                }
                 return;
             }
         }
@@ -909,12 +920,14 @@ export class PLSQLParser {
                 this.currentActiveNode = this.packageNode;
             }
 
-            // 子程序闭合：恢复进入它时保存的外层上下文（计数器+匿名块水位），
-            // 使宿主单元/外层内联匿名块的 END 配对回到正确的计数刻度
+            // 子程序闭合：恢复进入它时保存的外层上下文（计数器+匿名块水位+层级），
+            // 使宿主单元/外层内联匿名块的 END 配对回到正确的计数刻度，
+            // 层级按进入前的宿主值恢复（帧值优先于递减值，自愈体内漂移）
             const savedUnitState = this.unitStateStack.pop();
             if (savedUnitState) {
                 this.beginEndCounter = savedUnitState.beginEndCounter;
                 this.anonBlockCounters = savedUnitState.anonBlockCounters;
+                this.currentLevel = savedUnitState.currentLevel;
             }
 
             // 方法结束时清空控制栈
