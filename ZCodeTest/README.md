@@ -70,29 +70,55 @@ ZCodeTest/
 ## 使用方式
 
 ```bash
-# 1. 批量解析验证（需先编译: npm run compile）
+# 1. 批量解析验证 —— 解析层（需先编译: npm run compile）
 node ZCodeTest/validate.js
 
-# 2. 重新生成长代码文件（确定性输出）
+# 2. 批量渲染验证 —— 显示层（真实 out/treeView.js + vscode mock, 全树 getChildren/getTreeItem 遍历）
+node ZCodeTest/render-validate.js
+
+# 3. 真实 VS Code E2E 冒烟 —— 每类对象代表文件的语言关联/解析命令/嵌套子程序跳转
+node test/integration/zcodetest_smoke.e2e.js
+
+# 4. 重新生成长代码文件（确定性输出）
 node ZCodeTest/generate-long.js
 
-# 3. 在 VS Code 中打开任意 .sql/.fnc/.prc/.pks/.pkb/.trg 文件查看大纲
+# 5. 在 VS Code 中打开任意 .sql/.fnc/.prc/.pks/.pkb/.trg 文件查看大纲
 ```
 
 `validate.js` 检查：解析无错误、有顶层节点、`_long` 文件 ≥10000 行；并打印每个文件的
 顶层节点形态（声明行-结束行/是否含异常段）、节点总数、最大嵌套深度与耗时（长文件
 约 20–65ms）。
 
-## 当前验证结果（v1.7.0 解析器）
+`render-validate.js` 检查"VS Code 大纲真实显示"：每文件经 PLSQLOutlineProvider 全树渲染
+不得抛异常、根标签正确、必现标签（嵌套子程序名/Sub Program/Declaration/Exception）存在、
+被注释掉的代码（legacy_*）不得出现；当前基线 **31/33 OK + 2 KNOWN-FAIL**（同解析缺陷）。
 
-- **31/33 通过**。
+`zcodetest_smoke.e2e.js` 在真实 VS Code 宿主内验证（@vscode/test-electron，--disable-extensions）：
+① 语言关联（.fnc/.prc/.pks/.pkb/.trg → plsql，.sql → sql）；② `plsqlOutline.parseCurrentFile`
+可执行完成；③ 各类对象内嵌套子程序 Ctrl+Click 跳转命中声明行（含触发器匿名块内、内联匿名块内、
+前置声明函数）。跳转判定标准为"静默期 + 一次显式重解析后必须命中"——快速多文件切换下首查
+可能落空（见下方已知问题③），重试兜底模拟用户再次点击。
+
+## 当前验证结果（v1.7.0 解析器 + 显示层）
+
+- **解析层 validate.js：31/33 通过**；**显示层 render-validate.js：31/33 OK + 2 KNOWN**；
+  **真实 VS Code E2E 冒烟：7/7 通过**。
 - ⚠️ **2 个失败：pkg_body_long.pkb / pkg_body_long_complex.pkb**，触发
   “嵌套深度超过限制(15)”——这是语料**发现的真实解析器缺陷**（见下节）。
 - 已知无害行为（非缺陷，README 记录以便比对大纲）：
   `PACKAGE_HEADER / TRIGGER / TYPE / TYPE_BODY / VIEW` 的 `endLine` 保持 open
   （解析器仅对 PACKAGE_BODY 有顶层 END 闭合分支）；无初始化块的包体正常闭合（BUG-B 已修复）。
+- 已知显示层行为（真实 VS Code 大纲即如此，修复需求待定）：
+  ① 触发器仅渲染 `Body` 文件夹与提升的控制结构，其 DECLARE 区（变量/常量/异常）、
+  匿名块内嵌套子程序与 Exception 段**不在大纲显示**（`createGroupedChildren` 对唯一
+  匿名块子节点只提升控制结构）；
+  ② 包规格仅渲染成员声明（FUNCTION/PROCEDURE Declaration），规格级常量/类型/游标/异常
+  **不在大纲显示**（PACKAGE_HEADER 走 createFlatChildren）；
+  ③ 体内内联匿名块（DECLARE..BEGIN..END;）整棵不渲染（v1.6.2 设计决策）。
 
-## 发现的解析器缺陷：内联匿名块 currentLevel 泄漏
+## 已发现的缺陷（均未修复，待另开 Issue→PR）
+
+### ① 解析器：内联匿名块 currentLevel 泄漏（破坏 pkg_body_long*.pkb）
 
 **现象**：包体内多个成员，只要成员体内含内联匿名块（`DECLARE..BEGIN..END;`），
 解析到约第 13 个此类成员时抛 “嵌套深度超过限制(15)”，**整个文件解析失败（0 节点）**。
@@ -123,6 +149,40 @@ END leak_pkg;
 **建议修复方向**（未实施，待另开 Issue→PR）：匿名块闭合分支恢复
 `currentLevel = parentNode.level`（与 PR #12 的 unitStateStack 保存/恢复同模式）。
 修复后 `validate.js` 应 33/33 通过，`pkg_body_long*.pkb` 即现成回归用例。
+
+### ② 显示层：触发器与包规格的部分结构不出现在大纲
+
+真实 VS Code 大纲中的实际行为（render-validate.js 已按现状编码为基线）：
+
+- **触发器**仅渲染 `Body` 文件夹与从匿名块提升的控制结构；其 DECLARE 区
+  （变量/常量/命名异常）、匿名块内嵌套子程序、Exception 段**不显示**。
+  根因：`createGroupedChildren`（treeView.ts ~L583）对触发器唯一的匿名块子节点
+  只提升控制结构；注释写明"保留可见的声明"但实现未做。
+- **包规格**仅渲染成员声明；规格级常量/类型/游标/异常**不显示**
+  （PACKAGE_HEADER 走 createFlatChildren，不查 variableTable）。
+- 体内内联匿名块整棵不渲染（v1.6.2 设计决策，非遗漏）。
+
+若 Emon 认为触发器/包规格的声明应可见，需改 createGroupedChildren/createFlatChildren，
+届时同步收紧 render-validate.js 的期望表。
+
+### ③ 扩展层：共享解析器实例并发竞争（快速多文件切换下解析结果偶发损坏/为空）
+
+真实 VS Code E2E 冒烟（zcodetest_smoke.e2e.js）3 轮观察：连续切换 7 个文件时，
+跳转首次查询随机的多个文件落空（func/proc/pkg_body 均出现过），活动编辑器与
+查询位置均正确；显式再次执行 `plsqlOutline.parseCurrentFile` 后**必然命中**。
+
+根因分析：`PLSQLParser` 是**共享单实例且非可重入**——`parse()` 先在实例上
+`initializeGlobalVariables()`，解析中每 50 行 `await yield()` 让出事件循环；
+而编辑器切换事件触发的静默解析是 fire-and-forget（extension.ts `onDocumentChanged`/
+活动编辑器切换处理器），与用户命令/定义查询触发的解析在**同一实例**上并发交叠，
+互相清空/污染对方的状态数组 → 交叠期间完成的解析结果损坏或为空，直到下一次
+无竞争解析自愈。PR #10 的 (uri,version) 新鲜度跟踪只保证"不重复解析"，
+未保证"不并发解析"。
+
+建议修复方向（未实施）：每次 parse 新建解析器实例，或单实例上按文档串行化
+（全局解析互斥队列），并让 fire-and-forget 的静默解析纳入同一互斥/共享机制。
+E2E 冒烟当前以"静默期 + 一次显式重解析后必须命中"为通过标准（编码用户
+"再点一次就好"的真实体验，同时能捕获真回归）。
 
 ## 新增手工用例需遵守的格式约束（解析器为行驱动）
 
