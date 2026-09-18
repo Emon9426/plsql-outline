@@ -33,3 +33,8 @@ tests/unit/test_report.html
 
 # 内存测试生成的临时报告
 memory_test_report.json
+
+# 构建产物：vsix 不入库（历史版本走 GitHub Releases）
+*.vsix
+release/
+

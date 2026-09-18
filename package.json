@@ -391,7 +391,7 @@
     "test:regression": "node tests/regression/run_all.js",
     "test:corpus": "node tests/corpus/validate.js && node tests/corpus/render-validate.js",
     "test:e2e": "node tests/e2e/anonDefinition.e2e.test.js && node tests/e2e/zcodetest_smoke.e2e.js",
-    "package": "vsce package",
+    "package": "vsce package -o release/plsql-outline-$npm_package_version.vsix",
     "publish": "vsce publish"
   },
   "devDependencies": {
