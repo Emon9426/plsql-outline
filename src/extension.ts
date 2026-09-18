@@ -7,6 +7,7 @@ import { ParseResult, ParseNode, VariableInfo, NodeType, LogLevel } from './type
 import { SettingsPanel } from './settingsPanel';
 import { SymbolIndex, SymbolEntry, PathConfig } from './symbolIndex';
 import { getOutputChannel, disposeOutputChannel } from './logger';
+import { computeFoldRanges } from './folding';
 import { DEFAULT_FILE_EXTENSIONS, isCallableNode } from './shared';
 
 /**
@@ -37,6 +38,10 @@ export class PLSQLOutlineExtension {
     private quietParseInFlight: Promise<void> | null = null;
     // 编辑内容变化的防抖重解析（保持大纲/跳转与未保存编辑一致）
     private changeDebounceTimer: NodeJS.Timeout | null = null;
+    // 折叠范围缓存：uri → 文档版本 + 解析结果（与大纲共用同一次解析，避免重复解析，Issue #23）
+    private foldingCache: Map<string, { version: number; result: ParseResult }> = new Map();
+    // 缓存上限（可见编辑器数量级，超出淘汰最早条目）
+    private static readonly FOLDING_CACHE_MAX = 8;
     // 启动时延迟构建符号索引的定时器（dispose 时取消，防止停用后仍创建 watcher）
     private indexBuildTimer: NodeJS.Timeout | null = null;
 
@@ -131,13 +136,21 @@ export class PLSQLOutlineExtension {
             () => this.rebuildSymbolIndex()
         );
 
+        // 刷新命令：强制重新解析当前活动文件并刷新大纲（带视图内进度提示）。
+        // 旧实现在 TreeViewManager 中仅重绘旧解析结果，文件修改后点击无效（Issue #23）。
+        const refreshCommand = vscode.commands.registerCommand(
+            'plsqlOutline.refresh',
+            () => this.parseCurrentFile()
+        );
+
         context.subscriptions.push(
             parseCurrentFileCommand,
             toggleDebugModeCommand,
             showStatsCommand,
             exportResultCommand,
             expandAllCommand,
-            rebuildIndexCommand
+            rebuildIndexCommand,
+            refreshCommand
         );
     }
 
@@ -200,7 +213,16 @@ export class PLSQLOutlineExtension {
             }
         );
 
-        context.subscriptions.push(hoverProvider, definitionProvider);
+        // 注册折叠范围提供者（块结构折叠：Function→END、IF→END IF、LOOP→END LOOP 等，
+        // 复用解析器节点起止行号，语言选择器与悬停/定义提供者一致，Issue #23）
+        const foldingProvider = vscode.languages.registerFoldingRangeProvider(
+            [{ language: 'sql' }, { language: 'plsql' }],
+            {
+                provideFoldingRanges: (document, _context, _token) => this.provideFoldingRanges(document)
+            }
+        );
+
+        context.subscriptions.push(hoverProvider, definitionProvider, foldingProvider);
     }
 
     /**
@@ -232,9 +254,11 @@ export class PLSQLOutlineExtension {
                 this.parseCount = 0;
             }
 
-            // 显示进度（可取消：大文件解析期间用户可中断，v1.8.0）
+            // 显示进度（可取消：大文件解析期间用户可中断，v1.8.0）。
+            // 进度显示在大纲视图内（面板顶部进度条 + 提示），替代右上角通知——
+            // 解析期间视图不再空白，且完成（大纲数据已更新）后进度才消失（Issue #23）。
             await vscode.window.withProgress({
-                location: vscode.ProgressLocation.Notification,
+                location: { viewId: 'plsqlOutline' },
                 title: '正在解析PL/SQL文件...',
                 cancellable: true
             }, async (progress, token) => {
@@ -270,6 +294,7 @@ export class PLSQLOutlineExtension {
                 this.currentParseResult = parseResult;
                 this.debugManager.logParseResult(parseResult, sourceFile);
                 this.lastParsedKey = { uri: document.uri.toString(), version: document.version };
+                this.updateFoldingCache(document.uri.toString(), document.version, parseResult);
                 
                 progress.report({ increment: 80, message: '更新视图...' });
                 
@@ -352,6 +377,7 @@ export class PLSQLOutlineExtension {
             this.currentParseResult = parseResult;
             this.debugManager.logParseResult(parseResult, document.fileName);
             this.lastParsedKey = { uri: document.uri.toString(), version: document.version };
+            this.updateFoldingCache(document.uri.toString(), document.version, parseResult);
 
             // 同步大纲视图（树与未保存编辑保持一致）
             this.treeViewManager.updateDataProvider(new MemoryDataProvider(this.currentParseResult));
@@ -362,6 +388,56 @@ export class PLSQLOutlineExtension {
         } finally {
             this.quietParseInFlight = null;
         }
+    }
+
+    /**
+     * 提供折叠范围（FoldingRangeProvider 回调）
+     * 优先复用大纲解析缓存（同文档同版本）；未命中时兜底独立解析
+     * （PLSQLParser 每次解析必须独立实例），保证任意可见编辑器（分屏/diff）可折叠。
+     */
+    private async provideFoldingRanges(document: vscode.TextDocument): Promise<vscode.FoldingRange[]> {
+        const uri = document.uri.toString();
+        const cached = this.foldingCache.get(uri);
+        if (cached && cached.version === document.version) {
+            return this.toFoldingRanges(cached.result);
+        }
+
+        // 与大纲解析一致的 10MB 上限
+        if (document.getText().length > 10 * 1024 * 1024) {
+            return [];
+        }
+
+        try {
+            const parseResult = await new PLSQLParser().parse(document.getText(), document.fileName, {
+                maxNestingDepth: vscode.workspace.getConfiguration('plsql-outline')
+                    .get('parsing.maxNestingDepth', 15)
+            });
+            this.updateFoldingCache(uri, document.version, parseResult);
+            return this.toFoldingRanges(parseResult);
+        } catch {
+            // 折叠是辅助功能：解析失败时静默返回空，不干扰编辑器
+            return [];
+        }
+    }
+
+    /**
+     * 折叠范围缓存更新（解析成功后调用，超出上限淘汰最早条目）
+     */
+    private updateFoldingCache(uri: string, version: number, result: ParseResult): void {
+        if (this.foldingCache.size >= PLSQLOutlineExtension.FOLDING_CACHE_MAX && !this.foldingCache.has(uri)) {
+            const first = this.foldingCache.keys().next();
+            if (!first.done) {
+                this.foldingCache.delete(first.value);
+            }
+        }
+        this.foldingCache.set(uri, { version, result });
+    }
+
+    /**
+     * 解析结果 → VS Code 折叠范围（FoldRange 为 1-based 闭区间，FoldingRange 为 0-based）
+     */
+    private toFoldingRanges(result: ParseResult): vscode.FoldingRange[] {
+        return computeFoldRanges(result).map(r => new vscode.FoldingRange(r.startLine - 1, r.endLine - 1));
     }
 
     /**
@@ -1240,6 +1316,9 @@ export class PLSQLOutlineExtension {
             
             // 清理解析结果
             this.currentParseResult = null;
+
+            // 清理折叠范围缓存（避免大文件解析结果滞留内存）
+            this.foldingCache.clear();
             
             // 清理树视图缓存
             if (this.treeViewManager && this.treeViewManager.getProvider()) {
