@@ -26,7 +26,8 @@ const suites = [
     require('./inline_anon_level_test'),
     require('./concurrent_parse_isolation_test'),
     require('./cancellation_test'),
-    require('./settings_schema_test')
+    require('./settings_schema_test'),
+    require('./quoted_identifier_test')
 ];
 
 function escapeHtml(s) {

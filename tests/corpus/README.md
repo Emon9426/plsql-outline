@@ -14,6 +14,7 @@ tests/corpus/
   procedure/         过程（.prc）
   package_spec/      包规格（.pks）
   package_body/      包体（.pkb）
+  package_complete/  完整包（.pck，spec+body 二合一，实机文件）
   trigger/           触发器（.trg）
   anonymous/         匿名块（.sql）
   other_objects/     补充对象：TYPE / TYPE BODY / VIEW（.sql）
@@ -35,8 +36,9 @@ tests/corpus/
 | 匿名块 DECLARE 形 | anon_declare_simple_{exc,noexc}.sql (24/22) | anon_declare_complex.sql (136) | anon_declare_long.sql (10102) | anon_declare_long_complex.sql (10102) |
 | 匿名块裸 BEGIN 形 | anon_begin_simple_{exc,noexc}.sql (22/20) | anon_begin_complex.sql (106) | anon_begin_long.sql (10107) | anon_begin_long_complex.sql (10125) |
 | TYPE / TYPE BODY / VIEW（补充） | type_object_simple.sql / type_body_simple.sql / view_simple.sql | — | — | — |
+| 完整包（.pck，Issue #18） | package_complete/XXCUST_TEST_PKG.pck（202 行，APPS 实机文件） | — | — | — |
 
-括号内为文件行数。总计 33 个文件，约 14.3 万行，其中 14 个长文件由
+括号内为文件行数。总计 34 个文件，约 14.3 万行，其中 14 个长文件由
 `generate-long.js` 生成（勿手工编辑，改生成器后重新运行即可再生）。
 
 ## 形态定义（与需求对应）

@@ -2,6 +2,7 @@ import {
     ParseResult,
     ParseNode,
     NodeType,
+    ParseError,
     VariableInfo,
     DeclarationCategory
 } from './types';
@@ -126,6 +127,20 @@ export class PLSQLParser {
             await this.parseLines(cleanLines, lineMapping);
             
             const parseTime = Date.now() - startTime;
+
+            // Issue #18：内容含 CREATE 却解析出 0 节点 = 静默失败场景
+            // （如带引号标识符等暂不支持的语法），此前大纲空白且无任何提示。
+            // 产生 warning 供扩展层"解析完成，但发现问题"提示；基于剥离
+            // 注释后的 cleanLines 判定，避免被注释掉的 CREATE 误报。
+            const warnings: ParseError[] = [];
+            if (this.rootNodes.length === 0 && cleanLines.some(l => /^\s*CREATE\b/i.test(l))) {
+                warnings.push({
+                    line: 0,
+                    severity: 'warning',
+                    message: '未识别出可解析的 PL/SQL 程序单元，大纲为空。若文件应包含包/过程/函数，可能使用了暂不支持的语法（如带引号的标识符）。'
+                });
+            }
+
             const result: ParseResult = {
                 nodes: this.rootNodes,
                 metadata: {
@@ -133,7 +148,7 @@ export class PLSQLParser {
                     parseTime,
                     version: this.version,
                     errors: [],
-                    warnings: [],
+                    warnings,
                     totalLines: cleanLines.length,
                     maxNestingDepth: this.calculateMaxNestingDepth(this.rootNodes)
                 }
@@ -555,53 +570,39 @@ export class PLSQLParser {
     }
 
     /**
-     * 匹配CREATE语句（支持schema前缀）
+     * CREATE 语句对象标识符模式（Issue #18，承接 PR #2 的场景）：
+     * 可选 schema 前缀（带/不带引号）+ 对象名（带/不带引号）。
+     * 支持: PKG / "PKG" / APPS.PKG / APPS."PKG" / "APPS".PKG / "APPS"."PKG"
+     * 组 1 = 引号内对象名，组 2 = 不带引号对象名；提取时去除引号。
+     * 无引号标识符允许 $/#（Oracle 合法字符，\w 覆盖不到）。
+     * 注意：此表为模块级预编译（热路径；勿在函数体内 new RegExp）。
+     */
+    private static readonly CREATE_ID = String.raw`(?:(?:"[^"]+"|[\w$#]+)\.)*(?:"([^"]+)"|([\w][\w$#]*))`;
+
+    private static readonly CREATE_PATTERNS: ReadonlyArray<{ re: RegExp; type: NodeType }> = [
+        // 顺序敏感：BODY 必须先于裸 PACKAGE/TYPE 匹配（包含关系）
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+BODY\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.PACKAGE_BODY },
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+(?!BODY\s)` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.PACKAGE_HEADER },
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.FUNCTION },
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.PROCEDURE },
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.TRIGGER },
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TYPE\s+BODY\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.TYPE_BODY },
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TYPE\s+(?!BODY\s)` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.TYPE },
+        // 视图非 PL/SQL 程序单元，但识别以免被丢弃
+        { re: new RegExp(String.raw`^\s*CREATE\s+(?:OR\s+REPLACE\s+)?(?:MATERIALIZED\s+)?VIEW\s+` + PLSQLParser.CREATE_ID, 'i'), type: NodeType.VIEW }
+    ];
+
+    /**
+     * 匹配CREATE语句（支持 schema 前缀与带引号标识符）
      */
     private matchCreateStatement(line: string): { type: NodeType; name: string } | null {
-        // 必须先匹配PACKAGE BODY（因为包含PACKAGE关键字）
-        let match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+BODY\s+(?:\w+\.)?(\w+)/i);
-        if (match) {
-            return { type: NodeType.PACKAGE_BODY, name: match[1] };
+        for (const p of PLSQLParser.CREATE_PATTERNS) {
+            const match = line.match(p.re);
+            if (match) {
+                // 去除引号：大纲显示的是逻辑对象名（"APPS"."XX_PKG" → XX_PKG）
+                return { type: p.type, name: (match[1] || match[2] || '').replace(/"/g, '') };
+            }
         }
-
-        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+(?!BODY\s)(?:\w+\.)?(\w+)/i);
-        if (match) {
-            return { type: NodeType.PACKAGE_HEADER, name: match[1] };
-        }
-
-        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:\w+\.)?(\w+)/i);
-        if (match) {
-            return { type: NodeType.FUNCTION, name: match[1] };
-        }
-
-        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(?:\w+\.)?(\w+)/i);
-        if (match) {
-            return { type: NodeType.PROCEDURE, name: match[1] };
-        }
-
-        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\s+(?:\w+\.)?(\w+)/i);
-        if (match) {
-            return { type: NodeType.TRIGGER, name: match[1] };
-        }
-
-        // CREATE TYPE BODY（先匹配，因含 TYPE 关键字）
-        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TYPE\s+BODY\s+(?:\w+\.)?(\w+)/i);
-        if (match) {
-            return { type: NodeType.TYPE_BODY, name: match[1] };
-        }
-
-        // CREATE TYPE（对象类型/集合类型）
-        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?TYPE\s+(?!BODY\s)(?:\w+\.)?(\w+)/i);
-        if (match) {
-            return { type: NodeType.TYPE, name: match[1] };
-        }
-
-        // CREATE VIEW / MATERIALIZED VIEW（视图非 PL/SQL 程序单元，但识别以免被丢弃）
-        match = line.match(/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?(?:MATERIALIZED\s+)?VIEW\s+(?:\w+\.)?(\w+)/i);
-        if (match) {
-            return { type: NodeType.VIEW, name: match[1] };
-        }
-
         return null;
     }
 
@@ -1053,8 +1054,8 @@ export class PLSQLParser {
         if (/^\s*END\s+(IF|LOOP|CASE|WHILE)(\s+\w+)?\s*;?\s*$/i.test(line)) {
             return false;
         }
-        // 匹配函数/过程/包/类型的END语句（分号/斜杠可选）
-        return /^\s*END(\s+\w+)?\s*[;/]?\s*$/i.test(line);
+        // 匹配函数/过程/包/类型的END语句（分号/斜杠可选；别名支持带引号形态 END "PKG"，Issue #18）
+        return /^\s*END(\s+(?:"[^"]+"|\w+))?\s*[;/]?\s*$/i.test(line);
     }
 
     /**

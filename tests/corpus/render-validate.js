@@ -67,6 +67,10 @@ const EXPECT = {
     'package_body/pkg_body_complex.pkb':              { root: /pkg_order_api_complex/i, must: ['impl_score', 'impl_format', 'impl_check', 'fwd_validate_order', 'fwd_cache_get', 'anonymous block'] },
     'package_body/pkg_body_long.pkb':                 { root: /pkg_long_api/i, must: ['pr_impl_0001'] },
     'package_body/pkg_body_long_complex.pkb':         { root: /pkg_long_api_cx/i, must: ['pr_impl_0001', 'pr_cx_'] },
+    // .pck = spec+body 二合一（Issue #18，PR #2 实机文件）：
+    // CREATE "APPS"."XXCUST_TEST_PKG" 带引号标识符需被识别（名称去引号），
+    // 两个根（spec open + body closed）依次渲染，包体成员直接挂包名下
+    'package_complete/XXCUST_TEST_PKG.pck':           { root: /xxcust_test_pkg/i, must: ['main', 'output', 'log', 'get_msg', 'set_msg', 'process_request'] },
     // 触发器主体(唯一匿名块子节点)由显示层代理渲染: DECLARE 区/嵌套子程序/
     // Exception/End 直接挂在触发器下(此前为已知显示缺口, v1.7.2 起可见)。
     // 体内内联匿名块(非唯一子节点)作为 Body 内可见分组渲染("anonymous block")。
