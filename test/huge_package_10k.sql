@@ -13,18 +13,18 @@ IS
     e_pkg_error_08 EXCEPTION;
     PRAGMA EXCEPTION_INIT(e_pkg_error_01, -20001);
 
-    c_const_01 NUMBER CONSTANT := 100;
-    c_const_02 NUMBER CONSTANT := 200;
-    c_const_03 NUMBER CONSTANT := 300;
-    c_const_04 NUMBER CONSTANT := 400;
-    c_const_05 NUMBER CONSTANT := 500;
-    c_const_06 NUMBER CONSTANT := 600;
-    c_const_07 NUMBER CONSTANT := 700;
-    c_const_08 NUMBER CONSTANT := 800;
-    c_const_09 NUMBER CONSTANT := 900;
-    c_const_10 NUMBER CONSTANT := 1000;
-    c_const_11 NUMBER CONSTANT := 1100;
-    c_const_12 NUMBER CONSTANT := 1200;
+    c_const_01 CONSTANT NUMBER := 100;
+    c_const_02 CONSTANT NUMBER := 200;
+    c_const_03 CONSTANT NUMBER := 300;
+    c_const_04 CONSTANT NUMBER := 400;
+    c_const_05 CONSTANT NUMBER := 500;
+    c_const_06 CONSTANT NUMBER := 600;
+    c_const_07 CONSTANT NUMBER := 700;
+    c_const_08 CONSTANT NUMBER := 800;
+    c_const_09 CONSTANT NUMBER := 900;
+    c_const_10 CONSTANT NUMBER := 1000;
+    c_const_11 CONSTANT NUMBER := 1100;
+    c_const_12 CONSTANT NUMBER := 1200;
 
     v_pkg_var_01 NUMBER := 1;
     v_pkg_var_02 NUMBER := 2;
@@ -130,7 +130,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_001_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1001;
+        c_local_max CONSTANT NUMBER := 1001;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -217,7 +217,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_001_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1002;
+        c_local_max CONSTANT NUMBER := 1002;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -305,7 +305,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_002_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1003;
+        c_local_max CONSTANT NUMBER := 1003;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -392,7 +392,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_002_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1004;
+        c_local_max CONSTANT NUMBER := 1004;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -480,7 +480,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_003_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1005;
+        c_local_max CONSTANT NUMBER := 1005;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -567,7 +567,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_003_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1006;
+        c_local_max CONSTANT NUMBER := 1006;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -655,7 +655,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_004_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1007;
+        c_local_max CONSTANT NUMBER := 1007;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -742,7 +742,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_004_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1008;
+        c_local_max CONSTANT NUMBER := 1008;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -830,7 +830,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_005_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1009;
+        c_local_max CONSTANT NUMBER := 1009;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -917,7 +917,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_005_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1010;
+        c_local_max CONSTANT NUMBER := 1010;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -1005,7 +1005,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_006_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1011;
+        c_local_max CONSTANT NUMBER := 1011;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -1092,7 +1092,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_006_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1012;
+        c_local_max CONSTANT NUMBER := 1012;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -1180,7 +1180,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_007_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1013;
+        c_local_max CONSTANT NUMBER := 1013;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -1267,7 +1267,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_007_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1014;
+        c_local_max CONSTANT NUMBER := 1014;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -1355,7 +1355,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_008_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1015;
+        c_local_max CONSTANT NUMBER := 1015;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -1442,7 +1442,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_008_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1016;
+        c_local_max CONSTANT NUMBER := 1016;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -1530,7 +1530,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_009_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1017;
+        c_local_max CONSTANT NUMBER := 1017;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -1617,7 +1617,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_009_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1018;
+        c_local_max CONSTANT NUMBER := 1018;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -1705,7 +1705,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_010_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1019;
+        c_local_max CONSTANT NUMBER := 1019;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -1792,7 +1792,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_010_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1020;
+        c_local_max CONSTANT NUMBER := 1020;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -1880,7 +1880,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_011_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1021;
+        c_local_max CONSTANT NUMBER := 1021;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -1967,7 +1967,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_011_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1022;
+        c_local_max CONSTANT NUMBER := 1022;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -2055,7 +2055,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_012_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1023;
+        c_local_max CONSTANT NUMBER := 1023;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -2142,7 +2142,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_012_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1024;
+        c_local_max CONSTANT NUMBER := 1024;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -2230,7 +2230,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_013_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1025;
+        c_local_max CONSTANT NUMBER := 1025;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -2317,7 +2317,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_013_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1026;
+        c_local_max CONSTANT NUMBER := 1026;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -2405,7 +2405,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_014_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1027;
+        c_local_max CONSTANT NUMBER := 1027;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -2492,7 +2492,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_014_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1028;
+        c_local_max CONSTANT NUMBER := 1028;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -2580,7 +2580,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_015_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1029;
+        c_local_max CONSTANT NUMBER := 1029;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -2667,7 +2667,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_015_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1030;
+        c_local_max CONSTANT NUMBER := 1030;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -2755,7 +2755,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_016_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1031;
+        c_local_max CONSTANT NUMBER := 1031;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -2842,7 +2842,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_016_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1032;
+        c_local_max CONSTANT NUMBER := 1032;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -2930,7 +2930,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_017_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1033;
+        c_local_max CONSTANT NUMBER := 1033;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -3017,7 +3017,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_017_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1034;
+        c_local_max CONSTANT NUMBER := 1034;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -3105,7 +3105,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_018_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1035;
+        c_local_max CONSTANT NUMBER := 1035;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -3192,7 +3192,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_018_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1036;
+        c_local_max CONSTANT NUMBER := 1036;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -3280,7 +3280,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_019_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1037;
+        c_local_max CONSTANT NUMBER := 1037;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -3367,7 +3367,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_019_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1038;
+        c_local_max CONSTANT NUMBER := 1038;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -3455,7 +3455,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_020_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1039;
+        c_local_max CONSTANT NUMBER := 1039;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -3542,7 +3542,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_020_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1040;
+        c_local_max CONSTANT NUMBER := 1040;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -3630,7 +3630,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_021_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1041;
+        c_local_max CONSTANT NUMBER := 1041;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -3717,7 +3717,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_021_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1042;
+        c_local_max CONSTANT NUMBER := 1042;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -3805,7 +3805,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_022_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1043;
+        c_local_max CONSTANT NUMBER := 1043;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -3892,7 +3892,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_022_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1044;
+        c_local_max CONSTANT NUMBER := 1044;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -3980,7 +3980,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_023_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1045;
+        c_local_max CONSTANT NUMBER := 1045;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -4067,7 +4067,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_023_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1046;
+        c_local_max CONSTANT NUMBER := 1046;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -4155,7 +4155,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_024_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1047;
+        c_local_max CONSTANT NUMBER := 1047;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -4242,7 +4242,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_024_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1048;
+        c_local_max CONSTANT NUMBER := 1048;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -4330,7 +4330,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_025_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1049;
+        c_local_max CONSTANT NUMBER := 1049;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -4417,7 +4417,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_025_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1050;
+        c_local_max CONSTANT NUMBER := 1050;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -4505,7 +4505,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_026_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1051;
+        c_local_max CONSTANT NUMBER := 1051;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -4592,7 +4592,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_026_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1052;
+        c_local_max CONSTANT NUMBER := 1052;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -4680,7 +4680,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_027_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1053;
+        c_local_max CONSTANT NUMBER := 1053;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -4767,7 +4767,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_027_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1054;
+        c_local_max CONSTANT NUMBER := 1054;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -4855,7 +4855,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_028_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1055;
+        c_local_max CONSTANT NUMBER := 1055;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -4942,7 +4942,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_028_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1056;
+        c_local_max CONSTANT NUMBER := 1056;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -5030,7 +5030,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_029_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1057;
+        c_local_max CONSTANT NUMBER := 1057;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -5117,7 +5117,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_029_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1058;
+        c_local_max CONSTANT NUMBER := 1058;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -5205,7 +5205,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_030_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1059;
+        c_local_max CONSTANT NUMBER := 1059;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -5292,7 +5292,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_030_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1060;
+        c_local_max CONSTANT NUMBER := 1060;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -5380,7 +5380,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_031_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1061;
+        c_local_max CONSTANT NUMBER := 1061;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -5467,7 +5467,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_031_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1062;
+        c_local_max CONSTANT NUMBER := 1062;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -5555,7 +5555,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_032_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1063;
+        c_local_max CONSTANT NUMBER := 1063;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -5642,7 +5642,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_032_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1064;
+        c_local_max CONSTANT NUMBER := 1064;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -5730,7 +5730,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_033_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1065;
+        c_local_max CONSTANT NUMBER := 1065;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -5817,7 +5817,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_033_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1066;
+        c_local_max CONSTANT NUMBER := 1066;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -5905,7 +5905,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_034_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1067;
+        c_local_max CONSTANT NUMBER := 1067;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -5992,7 +5992,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_034_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1068;
+        c_local_max CONSTANT NUMBER := 1068;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -6080,7 +6080,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_035_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1069;
+        c_local_max CONSTANT NUMBER := 1069;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -6167,7 +6167,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_035_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1070;
+        c_local_max CONSTANT NUMBER := 1070;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -6255,7 +6255,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_036_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1071;
+        c_local_max CONSTANT NUMBER := 1071;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -6342,7 +6342,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_036_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1072;
+        c_local_max CONSTANT NUMBER := 1072;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -6430,7 +6430,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_037_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1073;
+        c_local_max CONSTANT NUMBER := 1073;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -6517,7 +6517,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_037_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1074;
+        c_local_max CONSTANT NUMBER := 1074;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -6605,7 +6605,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_038_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1075;
+        c_local_max CONSTANT NUMBER := 1075;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -6692,7 +6692,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_038_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1076;
+        c_local_max CONSTANT NUMBER := 1076;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -6780,7 +6780,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_039_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1077;
+        c_local_max CONSTANT NUMBER := 1077;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -6867,7 +6867,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_039_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1078;
+        c_local_max CONSTANT NUMBER := 1078;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -6955,7 +6955,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_040_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1079;
+        c_local_max CONSTANT NUMBER := 1079;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -7042,7 +7042,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_040_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1080;
+        c_local_max CONSTANT NUMBER := 1080;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -7130,7 +7130,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_041_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1081;
+        c_local_max CONSTANT NUMBER := 1081;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -7217,7 +7217,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_041_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1082;
+        c_local_max CONSTANT NUMBER := 1082;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -7305,7 +7305,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_042_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1083;
+        c_local_max CONSTANT NUMBER := 1083;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -7392,7 +7392,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_042_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1084;
+        c_local_max CONSTANT NUMBER := 1084;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -7480,7 +7480,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_043_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1085;
+        c_local_max CONSTANT NUMBER := 1085;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -7567,7 +7567,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_043_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1086;
+        c_local_max CONSTANT NUMBER := 1086;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -7655,7 +7655,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_044_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1087;
+        c_local_max CONSTANT NUMBER := 1087;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -7742,7 +7742,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_044_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1088;
+        c_local_max CONSTANT NUMBER := 1088;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -7830,7 +7830,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_045_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1089;
+        c_local_max CONSTANT NUMBER := 1089;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -7917,7 +7917,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_045_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1090;
+        c_local_max CONSTANT NUMBER := 1090;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -8005,7 +8005,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_046_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1091;
+        c_local_max CONSTANT NUMBER := 1091;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -8092,7 +8092,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_046_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1092;
+        c_local_max CONSTANT NUMBER := 1092;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -8180,7 +8180,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_047_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1093;
+        c_local_max CONSTANT NUMBER := 1093;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -8267,7 +8267,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_047_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1094;
+        c_local_max CONSTANT NUMBER := 1094;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -8355,7 +8355,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_048_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1095;
+        c_local_max CONSTANT NUMBER := 1095;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -8442,7 +8442,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_048_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1096;
+        c_local_max CONSTANT NUMBER := 1096;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -8530,7 +8530,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_049_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1097;
+        c_local_max CONSTANT NUMBER := 1097;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -8617,7 +8617,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_049_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1098;
+        c_local_max CONSTANT NUMBER := 1098;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -8705,7 +8705,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_050_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1099;
+        c_local_max CONSTANT NUMBER := 1099;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -8792,7 +8792,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_050_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1100;
+        c_local_max CONSTANT NUMBER := 1100;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -8880,7 +8880,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_051_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1101;
+        c_local_max CONSTANT NUMBER := 1101;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -8967,7 +8967,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_051_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1102;
+        c_local_max CONSTANT NUMBER := 1102;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -9055,7 +9055,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_052_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1103;
+        c_local_max CONSTANT NUMBER := 1103;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -9142,7 +9142,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_052_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1104;
+        c_local_max CONSTANT NUMBER := 1104;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -9230,7 +9230,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_053_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1105;
+        c_local_max CONSTANT NUMBER := 1105;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -9317,7 +9317,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_053_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1106;
+        c_local_max CONSTANT NUMBER := 1106;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -9405,7 +9405,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_054_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1107;
+        c_local_max CONSTANT NUMBER := 1107;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -9492,7 +9492,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_054_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1108;
+        c_local_max CONSTANT NUMBER := 1108;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -9580,7 +9580,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_055_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1109;
+        c_local_max CONSTANT NUMBER := 1109;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -9667,7 +9667,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_055_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1110;
+        c_local_max CONSTANT NUMBER := 1110;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -9755,7 +9755,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_056_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1111;
+        c_local_max CONSTANT NUMBER := 1111;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -9842,7 +9842,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_056_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1112;
+        c_local_max CONSTANT NUMBER := 1112;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -9930,7 +9930,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_057_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1113;
+        c_local_max CONSTANT NUMBER := 1113;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -10017,7 +10017,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_057_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1114;
+        c_local_max CONSTANT NUMBER := 1114;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -10105,7 +10105,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_058_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1115;
+        c_local_max CONSTANT NUMBER := 1115;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -10192,7 +10192,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_058_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1116;
+        c_local_max CONSTANT NUMBER := 1116;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -10280,7 +10280,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_059_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1117;
+        c_local_max CONSTANT NUMBER := 1117;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -10367,7 +10367,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_059_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1118;
+        c_local_max CONSTANT NUMBER := 1118;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -10455,7 +10455,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_060_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1119;
+        c_local_max CONSTANT NUMBER := 1119;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -10542,7 +10542,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_060_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1120;
+        c_local_max CONSTANT NUMBER := 1120;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -10630,7 +10630,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_061_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1121;
+        c_local_max CONSTANT NUMBER := 1121;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -10717,7 +10717,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_061_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1122;
+        c_local_max CONSTANT NUMBER := 1122;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -10805,7 +10805,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_062_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1123;
+        c_local_max CONSTANT NUMBER := 1123;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -10892,7 +10892,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_062_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1124;
+        c_local_max CONSTANT NUMBER := 1124;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -10980,7 +10980,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_063_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1125;
+        c_local_max CONSTANT NUMBER := 1125;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -11067,7 +11067,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_063_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1126;
+        c_local_max CONSTANT NUMBER := 1126;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -11155,7 +11155,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_064_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1127;
+        c_local_max CONSTANT NUMBER := 1127;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -11242,7 +11242,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_064_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1128;
+        c_local_max CONSTANT NUMBER := 1128;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -11330,7 +11330,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_065_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1129;
+        c_local_max CONSTANT NUMBER := 1129;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -11417,7 +11417,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_065_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1130;
+        c_local_max CONSTANT NUMBER := 1130;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -11505,7 +11505,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_066_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1131;
+        c_local_max CONSTANT NUMBER := 1131;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -11592,7 +11592,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_066_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1132;
+        c_local_max CONSTANT NUMBER := 1132;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -11680,7 +11680,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_067_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1133;
+        c_local_max CONSTANT NUMBER := 1133;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -11767,7 +11767,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_067_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1134;
+        c_local_max CONSTANT NUMBER := 1134;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -11855,7 +11855,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_068_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1135;
+        c_local_max CONSTANT NUMBER := 1135;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -11942,7 +11942,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_068_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1136;
+        c_local_max CONSTANT NUMBER := 1136;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -12030,7 +12030,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_069_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1137;
+        c_local_max CONSTANT NUMBER := 1137;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -12117,7 +12117,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_069_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1138;
+        c_local_max CONSTANT NUMBER := 1138;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -12205,7 +12205,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_070_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1139;
+        c_local_max CONSTANT NUMBER := 1139;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -12292,7 +12292,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_070_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1140;
+        c_local_max CONSTANT NUMBER := 1140;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -12380,7 +12380,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_071_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1141;
+        c_local_max CONSTANT NUMBER := 1141;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -12467,7 +12467,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_071_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1142;
+        c_local_max CONSTANT NUMBER := 1142;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -12555,7 +12555,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_072_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1143;
+        c_local_max CONSTANT NUMBER := 1143;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -12642,7 +12642,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_072_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1144;
+        c_local_max CONSTANT NUMBER := 1144;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -12730,7 +12730,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_073_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1145;
+        c_local_max CONSTANT NUMBER := 1145;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -12817,7 +12817,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_073_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1146;
+        c_local_max CONSTANT NUMBER := 1146;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -12905,7 +12905,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_074_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1147;
+        c_local_max CONSTANT NUMBER := 1147;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -12992,7 +12992,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_074_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1148;
+        c_local_max CONSTANT NUMBER := 1148;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -13080,7 +13080,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'proc_075_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1149;
+        c_local_max CONSTANT NUMBER := 1149;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;
@@ -13167,7 +13167,7 @@ IS
         v_local_1 NUMBER := 0;
         v_local_2 VARCHAR2(100) := 'func_075_init';
         v_local_3 DATE := SYSDATE;
-        c_local_max NUMBER CONSTANT := 1150;
+        c_local_max CONSTANT NUMBER := 1150;
         TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));
         CURSOR c_local (p_id NUMBER) IS
             SELECT level AS lvl FROM dual CONNECT BY level <= p_id;

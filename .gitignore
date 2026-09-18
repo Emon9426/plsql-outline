@@ -19,3 +19,12 @@ out/
 # ZCode session artifacts
 .zcode/
 
+# VS Code E2E 测试下载的 VS Code 实例（test/integration）
+.vscode-test/
+
+# Mimosa 安全扫描工作目录
+.mimosa/
+
+# 内存测试生成的临时报告
+memory_test_report.json
+

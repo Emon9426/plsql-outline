@@ -137,10 +137,12 @@ export class KeywordPatterns {
     static readonly VARIABLE_DECLARATION = /^\s*(\w+)\s+([\w\.%]+(?:\([^)]*\))?)\s*(?::=\s*.+?|DEFAULT\s+.+?)?;\s*$/i;
 
     /**
-     * 常量声明模式：`name type CONSTANT [:= expr | DEFAULT expr];`
+     * 常量声明模式（Oracle 标准语序）：`name CONSTANT type [NOT NULL] [:= expr | DEFAULT expr];`
+     * CONSTANT 紧跟标识符、位于数据类型之前（如 `c_max CONSTANT NUMBER := 50000;`），
+     * 类型支持 %TYPE / %ROWTYPE 锚定与带精度的形式（VARCHAR2(30) 等）。
      * 必须出现在 VARIABLE_DECLARATION 之前匹配，以区分常量与变量。
      */
-    static readonly CONSTANT_DECLARATION = /^\s*(\w+)\s+([\w\.%]+(?:\([^)]*\))?)\s+CONSTANT\b\s*(?::=\s*(.+?)|DEFAULT\s+(.+?))?;\s*$/i;
+    static readonly CONSTANT_DECLARATION = /^\s*(\w+)\s+CONSTANT\s+([\w\.%]+(?:\([^)]*\))?(?:\s+NOT\s+NULL)?)\s*(?::=\s*(.+?)|DEFAULT\s+(.+?))?;\s*$/i;
 
     /**
      * 自定义类型声明模式：

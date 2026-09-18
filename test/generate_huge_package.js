@@ -31,9 +31,9 @@ for (let i = 1; i <= 8; i++) {
 push('    PRAGMA EXCEPTION_INIT(e_pkg_error_01, -20001);');
 push('');
 
-// 常量（合法 PL/SQL: name type CONSTANT := value）
+// 常量（Oracle 标准语序: name CONSTANT type := value）
 for (let i = 1; i <= 12; i++) {
-    push(`    c_const_${String(i).padStart(2, '0')} NUMBER CONSTANT := ${i * 100};`);
+    push(`    c_const_${String(i).padStart(2, '0')} CONSTANT NUMBER := ${i * 100};`);
 }
 push('');
 
@@ -92,7 +92,7 @@ for (let n = 1; n <= TOTAL; n++) {
     push(`${indent}    v_local_2 VARCHAR2(100) := '${name}_init';`);
     push(`${indent}    v_local_3 DATE := SYSDATE;`);
     // 局部常量
-    push(`${indent}    c_local_max NUMBER CONSTANT := ${1000 + n};`);
+    push(`${indent}    c_local_max CONSTANT NUMBER := ${1000 + n};`);
     // 局部 TYPE
     push(`${indent}    TYPE t_local_rec IS RECORD (val NUMBER, flag VARCHAR2(1));`);
     // 局部游标
