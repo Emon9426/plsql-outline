@@ -22,6 +22,9 @@ out/
 # VS Code E2E 测试下载的 VS Code 实例（test/integration）
 .vscode-test/
 
+// E2E 运行时生成的工作区副本
+test/integration/ws/
+
 # Mimosa 安全扫描工作目录
 .mimosa/
 

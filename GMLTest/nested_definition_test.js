@@ -117,15 +117,18 @@ async function run() {
     ['provideDefinition', 'parseCallAtPosition', 'findVariableInParseResult', 'findNodeInCurrentFile',
      'findProcFuncInChildren', 'isCallableNode', 'isNodeScopeContainsLine', 'isLineInNodeRange',
      'getStructureBlockTypeForRange', 'getLastChildNode', 'showSymbolQuickPick'].forEach(m => stub[m] = proto[m]);
+    // 桩自带新鲜解析结果：跳过按需重解析路径（真实链路由 E2E 覆盖）
+    stub.parseDocumentQuiet = async () => {};
+    stub.isParseResultFresh = () => true;
 
     // 模拟 Ctrl+Click：给定调用名，返回跳转目标行号（1-based）或 null
-    function ctrlClick(callName) {
+    async function ctrlClick(callName) {
         const declLine = findDeclLine(result.nodes, callName);
         const callLine = findCallLine(lines, callName, declLine);
         if (callLine === 0) return { skipped: true, declLine, callLine };
         const lt = lines[callLine - 1];
         const char = lt.indexOf(callName);
-        const loc = stub.provideDefinition.call(stub, doc, { line: callLine - 1, character: char }, {});
+        const loc = await stub.provideDefinition.call(stub, doc, { line: callLine - 1, character: char }, {});
         if (!loc) return { jumped: false, declLine, callLine };
         const targetLine = loc.range.line !== undefined ? loc.range.line + 1 : (loc.range.start ? loc.range.start.line + 1 : null);
         return { jumped: true, targetLine, declLine, callLine };
@@ -133,21 +136,21 @@ async function run() {
 
     // ---- Case 1: 2 级嵌套子程序 compute_line_total（calculate_total 内）----
     console.log('--- 嵌套子程序跳转 ---');
-    let r = ctrlClick('compute_line_total');
+    let r = await ctrlClick('compute_line_total');
     rec.assert('nested2_compute_line_total_jumps', 'compute_line_total（2级嵌套）Ctrl+Click 跳转成功',
         r.jumped === true, r.jumped === false ? 'NULL（未跳转，Bug A 未修复）' : 'skipped=' + r.skipped);
     rec.assert('nested2_compute_line_total_line', 'compute_line_total 跳转到声明行',
         r.jumped && r.targetLine === r.declLine, `target=${r.targetLine} decl=${r.declLine}`);
 
     // ---- Case 2: 2 级嵌套子程序 accumulate（calculate_total 内）----
-    r = ctrlClick('accumulate');
+    r = await ctrlClick('accumulate');
     rec.assert('nested2_accumulate_jumps', 'accumulate（2级嵌套）Ctrl+Click 跳转成功',
         r.jumped === true, r.jumped === false ? 'NULL' : 'skipped=' + r.skipped);
     rec.assert('nested2_accumulate_line', 'accumulate 跳转到声明行',
         r.jumped && r.targetLine === r.declLine, `target=${r.targetLine} decl=${r.declLine}`);
 
     // ---- Case 3: 3 级嵌套子程序 apply_rounding（compute_line_total 内）----
-    r = ctrlClick('apply_rounding');
+    r = await ctrlClick('apply_rounding');
     rec.assert('nested3_apply_rounding_jumps', 'apply_rounding（3级嵌套）Ctrl+Click 跳转成功',
         r.jumped === true, r.jumped === false ? 'NULL（Bug A 未修复）' : 'skipped=' + r.skipped);
     rec.assert('nested3_apply_rounding_line', 'apply_rounding 跳转到声明行',
@@ -167,8 +170,8 @@ async function run() {
             const lt = lines[cl - 1];
             const ch = lt.indexOf('compute_line_total');
             const pos = { line: cl - 1, character: ch };
-            const loc1 = stub.provideDefinition.call(stub, doc, pos, {});
-            const loc2 = stub.provideDefinition.call(stub, doc, pos, {});
+            const loc1 = await stub.provideDefinition.call(stub, doc, pos, {});
+            const loc2 = await stub.provideDefinition.call(stub, doc, pos, {});
             rec.assert('dedup_removed_twice_jump', '连续两次 Ctrl+Click 都返回跳转（去重守卫已移除）',
                 loc1 !== null && loc2 !== null, `loc1=${!!loc1} loc2=${!!loc2}`);
         }
