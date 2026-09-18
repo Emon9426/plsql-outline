@@ -3,6 +3,14 @@
 本文件记录 PL/SQL Outline 各版本的变化。完整的版本发布信息也可在
 [GitHub Releases](https://github.com/Emon9426/plsql-outline/releases) 查看。
 
+## v1.9.0 (2026-09-18)
+
+- 🟢 **`.pck`（Package Complete）文件支持（#18，承接 PR #2）**：`.pck` 注册进 plsql 语言、默认扩展名、菜单条件与符号索引扫描；支持 spec+body 二合一的实机完整包文件
+- 🟢 **带引号标识符解析（#18）**：CREATE 语句（包/函数/过程/触发器/TYPE/VIEW 全分支）支持 `"SCHEMA"."PKG_NAME"`、`"PKG"`、`SCHEMA.PKG` 等全部引号组合，大纲名称去引号显示；`END "名称"` 引号别名可正常闭合单元——此前引号形态匹配不到导致**大纲静默为空**（正则升级为模块级预编译模式表，不在热路径构造）
+- 🟡 **静默失败提示（#18）**：内容含 CREATE 却解析出 0 节点时产生 warning，解析摘要会显示具体原因（如"未识别出可解析的 PL/SQL 程序单元……可能使用了暂不支持的语法"）——不再无声空白；基于剥离注释后的文本判定，纯 SQL 脚本与正常文件不误报
+- 🧪 语料新增 `package_complete/XXCUST_TEST_PKG.pck`（PR #2 实机 APPS 文件，spec+body 双根 202 行），基线 **34/34**；新增 quoted_identifier_test（18 断言：四种 CREATE 形态、引号 END 闭合、双根语料、warning 三场景），单元基线 **351/351**
+- 设置 schema 无漂移测试同步扩展名默认值（fileExtensions / codeRepository.fileExtensions）
+
 ## v1.8.0 (2026-09-18)
 
 稳定性、效率与工程质量的整体重构轮。

@@ -16,8 +16,8 @@ const fs = require('fs');
 const path = require('path');
 const { PLSQLParser } = require('../../out/parser');
 
-const DIRS = ['function', 'procedure', 'package_spec', 'package_body', 'trigger', 'anonymous', 'other_objects'];
-const EXT = /\.(sql|fnc|prc|pks|pkb|trg|tps|tpb|vw)$/i;
+const DIRS = ['function', 'procedure', 'package_spec', 'package_body', 'package_complete', 'trigger', 'anonymous', 'other_objects'];
+const EXT = /\.(sql|fnc|prc|pks|pkb|trg|tps|tpb|vw|pck)$/i;
 
 function countNodes(nodes) {
     let total = 0;

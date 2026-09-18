@@ -90,7 +90,7 @@ hr_salary_pkg (Package Body)
 ### ⚡ 性能
 
 - 万行文件毫秒级解析（10,000 行约 20–65ms，13,000+ 行复杂嵌套 ~60ms）
-- 字符级状态机剥离器，正确处理 `q'[...]'`（Q-quote）字符串、跨行字符串、字符串内的注释标记——动态 SQL 再也不会把大纲"炸塌"
+- 字符级状态机剥离器，正确处理 `q'[...]'`（Q-quote）字符串、跨行字符串、字符串内的注释标记；支持带引号的标识符（`"SCHEMA"."PKG"`）与 `.pck` 完整包文件
 - 按需让出主线程 + 解析可取消：大文件解析期间界面保持响应，随时可以中断
 - 33 文件 / 14 万行结构化测试语料保障解析正确性
 
@@ -181,14 +181,14 @@ code --install-extension plsql-outline-<版本>.vsix
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
-| `fileExtensions` | `.sql .fnc .fcn .prc .pks .pkb .typ` | 参与解析的文件扩展名（用户级，跨工作区生效） |
+| `fileExtensions` | `.sql .fnc .fcn .prc .pks .pkb .pck .typ` | 参与解析的文件扩展名（用户级，跨工作区生效） |
 
 **代码仓库（跨文件跳转）**
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
 | `codeRepository.paths` | `[]` | 代码仓库路径，最多 2 个；数字越小优先级越高，高优先级找到后不再搜索低优先级 |
-| `codeRepository.fileExtensions` | `.sql .fnc .fcn .prc .pks .pkb .typ` | 符号索引扫描的扩展名 |
+| `codeRepository.fileExtensions` | `.sql .fnc .fcn .prc .pks .pkb .pck .typ` | 符号索引扫描的扩展名 |
 | `codeRepository.autoIndex` | `true` | 启动时自动构建符号索引 |
 | `codeRepository.maxFiles` | `5000` | 索引最大扫描文件数（100–20000） |
 
@@ -201,9 +201,9 @@ code --install-extension plsql-outline-<版本>.vsix
 
 ## 📁 支持的文件类型
 
-默认支持：`.sql`、`.fnc`、`.fcn`、`.prc`、`.pks`、`.pkb`、`.typ`。
+默认支持：`.sql`、`.fnc`、`.fcn`、`.prc`、`.pks`、`.pkb`、`.pck`（spec+body 二合一的完整包文件）、`.typ`。
 
-扩展同时注册了 `plsql` 语言（`.pks` / `.pkb` / `.prc` / `.fnc` / `.trg`），提供 PL/SQL 的括号匹配、注释等基础语言支持。
+扩展同时注册了 `plsql` 语言（`.pks` / `.pkb` / `.pck` / `.prc` / `.fnc` / `.trg`），提供 PL/SQL 的括号匹配、注释等基础语言支持。
 
 其他类型（如 `.tbl`、`.vw`、`.trg`）用 **PL/SQL Outline: 管理文件扩展名** 命令随时添加。
 

@@ -102,7 +102,7 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
         key: 'fileExtensions', group: 'files', type: 'extensions', scope: 'user',
         label: '支持的文件扩展名',
         description: '这些扩展名的文件会被解析并在大纲中展示。此设置跨工作区生效（用户级）。',
-        default: ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.typ']
+        default: ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.pck', '.typ']
     },
     // ===== 代码仓库 =====
     {
@@ -115,7 +115,7 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
         key: 'codeRepository.fileExtensions', group: 'repository', type: 'extensions', scope: 'user',
         label: '索引扫描扩展名',
         description: '构建符号索引时扫描哪些扩展名的文件。',
-        default: ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.typ']
+        default: ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.pck', '.typ']
     },
     {
         key: 'codeRepository.autoIndex', group: 'repository', type: 'boolean', scope: 'user',

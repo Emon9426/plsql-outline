@@ -1110,9 +1110,11 @@ export class PLSQLOutlineExtension {
         const errorCount = result.metadata.errors.length;
         const warningCount = result.metadata.warnings.length;
 
-        // 只在有错误或警告时显示通知
+        // 只在有错误或警告时显示通知（附第一条信息，否则用户无从知晓原因）
         if (errorCount > 0 || warningCount > 0) {
-            const message = `解析完成，但发现问题: ${errorCount} 个错误, ${warningCount} 个警告`;
+            const first = result.metadata.errors[0] ?? result.metadata.warnings[0];
+            const detail = first?.message ? `：${first.message}` : '';
+            const message = `解析完成，但发现问题（${errorCount} 个错误 / ${warningCount} 个警告）${detail}`;
             vscode.window.showWarningMessage(message);
         }
         // 正常情况下不显示通知
