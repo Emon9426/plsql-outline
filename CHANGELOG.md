@@ -3,6 +3,14 @@
 本文件记录 PL/SQL Outline 各版本的变化。完整的版本发布信息也可在
 [GitHub Releases](https://github.com/Emon9426/plsql-outline/releases) 查看。
 
+## v1.10.0 (2026-09-18)
+
+- 🟢 **dbms_metadata.get_ddl 导出源码支持（#19，源自 #1）**：CREATE 语句容忍 `FORCE` / `EDITIONABLE` / `NONEDITIONABLE` 前导修饰词（三者独立可选）——此前 get_ddl 默认输出（如 `CREATE OR REPLACE FORCE EDITIONABLE PACKAGE BODY "APPS"."PKG" AS`）会把包体误判为顶层匿名块（结构错乱）、规格解析为 0 节点
+- 🟢 **TYPE 名称后置 FORCE** 兼容（get_ddl 的 TYPE 输出特有形态 `TYPE "T1" FORCE AS OBJECT(...)`）
+- 🧹 **CRLF 行尾加固**：预处理按 `\r?\n` 拆分（Windows/实机导出文件行尾不再残留 `\r`，此前依赖各正则 `\s*$` 隐式容忍）
+- 🧪 语料新增 `package_body/pkg_body_get_ddl.pkb`（FORCE EDITIONABLE + 引号 schema 形态），基线 **35/35**；新增 get_ddl_test（13 断言：各对象类型 × 修饰词组合、名称后置 FORCE、CRLF、旧形态回归），单元基线 **364/364**
+- 🙏 致谢 [@fddc](https://github.com/fddc)：其 [Issue #1](https://github.com/Emon9426/plsql-outline/issues/1) 及实机 `.pck` 样本（已收入语料）推动了 .pck 支持与本项改进
+
 ## v1.9.0 (2026-09-18)
 
 - 🟢 **`.pck`（Package Complete）文件支持（#18，承接 PR #2）**：`.pck` 注册进 plsql 语言、默认扩展名、菜单条件与符号索引扫描；支持 spec+body 二合一的实机完整包文件

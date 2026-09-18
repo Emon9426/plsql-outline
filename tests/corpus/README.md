@@ -37,8 +37,9 @@ tests/corpus/
 | 匿名块裸 BEGIN 形 | anon_begin_simple_{exc,noexc}.sql (22/20) | anon_begin_complex.sql (106) | anon_begin_long.sql (10107) | anon_begin_long_complex.sql (10125) |
 | TYPE / TYPE BODY / VIEW（补充） | type_object_simple.sql / type_body_simple.sql / view_simple.sql | — | — | — |
 | 完整包（.pck，Issue #18） | package_complete/XXCUST_TEST_PKG.pck（202 行，APPS 实机文件） | — | — | — |
+| get_ddl 输出形态（Issue #1/#19） | package_body/pkg_body_get_ddl.pkb（38 行，FORCE EDITIONABLE + 引号 schema） | — | — | — |
 
-括号内为文件行数。总计 34 个文件，约 14.3 万行，其中 14 个长文件由
+括号内为文件行数。总计 35 个文件，约 14.3 万行，其中 14 个长文件由
 `generate-long.js` 生成（勿手工编辑，改生成器后重新运行即可再生）。
 
 ## 形态定义（与需求对应）
