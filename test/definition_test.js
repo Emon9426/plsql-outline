@@ -120,6 +120,9 @@ async function main() {
      'findNodeInCurrentFile', 'findProcFuncInChildren', 'isCallableNode',
      'isNodeScopeContainsLine', 'isLineInNodeRange', 'getStructureBlockTypeForRange',
      'getLastChildNode', 'showSymbolQuickPick'].forEach(m => { stub[m] = proto[m]; });
+    // 桩自带新鲜解析结果：跳过按需重解析路径（真实链路由 E2E 覆盖）
+    stub.parseDocumentQuiet = async () => {};
+    stub.isParseResultFresh = () => true;
     const doc = makeDocument(SOURCE);
 
     // 定位关键行号
@@ -148,8 +151,8 @@ async function main() {
         const charOfDoCalc = findCharOf(callLineText, 'do_calc');
         const pos1 = { line: doCalcCallLine1Based - 1, character: charOfDoCalc };
         const pos2 = { line: doCalcCallLine1Based - 1, character: charOfDoCalc };
-        const loc1 = stub.provideDefinition.call(stub, doc, pos1, {});
-        const loc2 = stub.provideDefinition.call(stub, doc, pos2, {});
+        const loc1 = await stub.provideDefinition.call(stub, doc, pos1, {});
+        const loc2 = await stub.provideDefinition.call(stub, doc, pos2, {});
         assert(loc1 !== null, '第一次 Ctrl+Click 调用返回 Location（跳转 do_calc）');
         assert(loc2 !== null, '【关键】第二次同一位置调用仍返回 Location（去重守卫已移除，不再误杀导航）');
         if (loc1 && loc2) {
@@ -162,7 +165,7 @@ async function main() {
     if (gCountUseLine1Based > 0) {
         const useLineText = srcLines[gCountUseLine1Based - 1] || '';
         const charOfGCount = findCharOf(useLineText, 'g_count');
-        const varLoc = stub.provideDefinition.call(stub, doc, { line: gCountUseLine1Based - 1, character: charOfGCount }, {});
+        const varLoc = await stub.provideDefinition.call(stub, doc, { line: gCountUseLine1Based - 1, character: charOfGCount }, {});
         assert(varLoc !== null, '点击 g_count 使用处返回 Location');
         if (varLoc) {
             // mock 中 Location.range 可能是 Position（含 .line）或 Range（含 .start.line），两者都有 .line
@@ -179,7 +182,7 @@ async function main() {
         const declLineText = SOURCE.split('\n')[doWorkLine - 1] || '';
         const char = findCharOf(declLineText, 'do_work');
         // 点击 do_work 的声明行名（应仍能定位）
-        const loc = stub.provideDefinition.call(stub, doc, { line: doWorkLine - 1, character: char }, {});
+        const loc = await stub.provideDefinition.call(stub, doc, { line: doWorkLine - 1, character: char }, {});
         // 声明行点击自身——可能返回 null（无定义可跳，已在声明处），这里仅验证不抛错
         assert(true, '点击 do_work 声明行不抛异常');
     }
@@ -187,7 +190,7 @@ async function main() {
     // ---- 4. 无定义的符号返回 null（不抛错）----
     console.log('\n--- 未定义符号 ---');
     const someLine = SOURCE.split('\n').findIndex(l => l.includes('BEGIN'));
-    const unknownLoc = stub.provideDefinition.call(stub, doc, { line: someLine, character: 5 }, {});
+    const unknownLoc = await stub.provideDefinition.call(stub, doc, { line: someLine, character: 5 }, {});
     assert(true, '未定义符号查询不抛异常');
 
     console.log('\n================================');

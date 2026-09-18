@@ -30,6 +30,14 @@ export class PLSQLOutlineExtension {
     // 调试开关缓存：避免每次光标移动/每行解析都读取配置（性能修复）
     private debugEnabledCache: boolean = false;
 
+    // 解析结果新鲜度跟踪：(uri, version) 与 currentParseResult 对应的文档快照。
+    // 编辑未保存（version 递增）时标记为陈旧，供 Definition/Hover/光标同步按需重解析。
+    private lastParsedKey: { uri: string; version: number } | null = null;
+    // 静默解析去重：并发触发时共享同一次解析
+    private quietParseInFlight: Promise<void> | null = null;
+    // 编辑内容变化的防抖重解析（保持大纲/跳转与未保存编辑一致）
+    private changeDebounceTimer: NodeJS.Timeout | null = null;
+
     private refreshDebugCache(): void {
         this.debugEnabledCache = vscode.workspace.getConfiguration('plsql-outline')
             .get('debug.enabled', false);
@@ -160,11 +168,18 @@ export class PLSQLOutlineExtension {
             (event) => this.onCursorPositionChanged(event)
         );
 
+        // 监听文档内容变化（编辑未保存场景）：防抖后静默重解析，
+        // 保证匿名块等临时代码在边写边 Ctrl+Click 时跳转/大纲不落后于编辑
+        const documentChangeListener = vscode.workspace.onDidChangeTextDocument(
+            (event) => this.onDocumentChanged(event)
+        );
+
         context.subscriptions.push(
             activeEditorListener,
             documentSaveListener,
             configurationListener,
-            cursorPositionListener
+            cursorPositionListener,
+            documentChangeListener
         );
     }
 
@@ -253,6 +268,7 @@ export class PLSQLOutlineExtension {
                 
                 // 通过数据桥接器处理结果
                 this.currentParseResult = await this.dataBridge.processParseResult(parseResult, sourceFile);
+                this.lastParsedKey = { uri: document.uri.toString(), version: document.version };
                 
                 progress.report({ increment: 80, message: '更新视图...' });
                 
@@ -283,9 +299,89 @@ export class PLSQLOutlineExtension {
     }
 
     /**
+     * 解析结果是否与文档当前快照一致（同文档且同版本）
+     */
+    private isParseResultFresh(document: vscode.TextDocument): boolean {
+        return this.currentParseResult !== null &&
+            this.lastParsedKey !== null &&
+            this.lastParsedKey.uri === document.uri.toString() &&
+            this.lastParsedKey.version === document.version;
+    }
+
+    /**
+     * 静默解析（无进度 UI / 无通知）：供 Definition/Hover/光标同步/编辑防抖按需刷新。
+     * 结果与大纲树同步更新；仅当解析结果陈旧（文档或版本不一致）时才真正解析。
+     */
+    private async parseDocumentQuiet(document: vscode.TextDocument): Promise<void> {
+        // 并发触发时共享同一次解析
+        if (this.quietParseInFlight) {
+            await this.quietParseInFlight;
+        }
+        if (this.isParseResultFresh(document)) {
+            return;
+        }
+
+        const task = (async () => {
+            // 非 PL/SQL 文档不解析（保持现有结果不被清空）
+            if (!this.isPLSQLFile(document)) {
+                return;
+            }
+            const content = document.getText();
+            if (content.length > 10 * 1024 * 1024) {
+                return; // 与 parseCurrentFile 的 10MB 上限一致
+            }
+
+            // 与 parseCurrentFile 共享的内存维护策略
+            this.parseCount++;
+            if (this.parseCount >= this.maxParseCount) {
+                await this.performMemoryCleanup();
+                this.parseCount = 0;
+            }
+
+            const parseResult = await this.parser.parse(content, document.fileName, {
+                maxNestingDepth: vscode.workspace.getConfiguration('plsql-outline')
+                    .get('parsing.maxNestingDepth', 15)
+            });
+
+            this.currentParseResult = await this.dataBridge.processParseResult(parseResult, document.fileName);
+            this.lastParsedKey = { uri: document.uri.toString(), version: document.version };
+
+            // 同步大纲视图（树与未保存编辑保持一致）
+            const dataProvider = this.dataProviderFactory.createDataProvider(this.currentParseResult);
+            this.treeViewManager.updateDataProvider(dataProvider);
+        })();
+        this.quietParseInFlight = task;
+        try {
+            await task;
+        } finally {
+            this.quietParseInFlight = null;
+        }
+    }
+
+    /**
+     * 文档内容变化处理：防抖 500ms 后静默重解析（仅活动编辑器的文档）
+     */
+    private onDocumentChanged(event: vscode.TextDocumentChangeEvent): void {
+        if (this.changeDebounceTimer) {
+            clearTimeout(this.changeDebounceTimer);
+        }
+        this.changeDebounceTimer = setTimeout(() => {
+            this.changeDebounceTimer = null;
+            const editor = vscode.window.activeTextEditor;
+            // 只刷新当前活动文档：非活动文档在切换/使用时由按需刷新兜底
+            if (editor && event.document.uri.toString() === editor.document.uri.toString()) {
+                this.parseDocumentQuiet(editor.document).catch(() => { /* 解析失败保持现状 */ });
+            }
+        }, 500);
+    }
+
+    /**
      * 提供悬停信息
      */
-    private provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover> {
+    private async provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover | null> {
+        // 按需刷新：文档编辑未保存时解析结果已陈旧（匿名块等临时代码场景）
+        await this.parseDocumentQuiet(document);
+
         // 获取当前单词
         const wordRange = document.getWordRangeAtPosition(position);
         if (!wordRange) {
@@ -315,7 +411,10 @@ export class PLSQLOutlineExtension {
     /**
      * 提供定义位置 - 支持跨文件导航
      */
-    private provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Definition | vscode.LocationLink[]> {
+    private async provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Definition | vscode.LocationLink[] | null> {
+        // 按需刷新：文档编辑未保存时解析结果已陈旧，Ctrl+Click 前 先拿到最新树
+        await this.parseDocumentQuiet(document);
+
         // 解析光标处的调用格式 (支持 pkg.proc_name 或 proc_name)
         const callInfo = this.parseCallAtPosition(document, position);
         if (!callInfo) {
@@ -721,6 +820,14 @@ export class PLSQLOutlineExtension {
         }
 
         // 检查是否有解析结果
+        if (!this.currentParseResult) {
+            // 无结果（如新建未保存的 PL/SQL 文档）：立即补一次解析
+            await this.parseDocumentQuiet(editor.document);
+        } else if (!this.isParseResultFresh(editor.document)) {
+            // 结果陈旧（编辑未保存）：后台刷新，本次先用现有结果保证响应速度
+            this.parseDocumentQuiet(editor.document).catch(() => { /* 保持现状 */ });
+        }
+
         if (!this.currentParseResult) {
             this.debugLog('光标同步: 没有解析结果');
             return;
@@ -1167,6 +1274,10 @@ export class PLSQLOutlineExtension {
         if (this.memoryCheckInterval) {
             clearInterval(this.memoryCheckInterval);
             this.memoryCheckInterval = null;
+        }
+        if (this.changeDebounceTimer) {
+            clearTimeout(this.changeDebounceTimer);
+            this.changeDebounceTimer = null;
         }
     }
 
