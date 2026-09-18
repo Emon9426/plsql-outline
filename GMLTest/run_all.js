@@ -20,7 +20,8 @@ const suites = [
     require('./constant_declaration_test'),
     require('./case_else_nesting_test'),
     require('./top_level_anon_test'),
-    require('./anon_subfunc_definition_test')
+    require('./anon_subfunc_definition_test'),
+    require('./inline_anon_subprogram_test')
 ];
 
 function escapeHtml(s) {
