@@ -36,17 +36,17 @@
 </head>
 <body>
     <h1>PL/SQL Outline — GMLTest 测试报告</h1>
-    <div class="meta">生成时间：2026/9/18 16:04:34 ｜ 版本：v1.7.1 ｜ 测试框架：Node.js + 自研断言</div>
+    <div class="meta">生成时间：2026/9/18 17:22:17 ｜ 版本：v1.7.1 ｜ 测试框架：Node.js + 自研断言</div>
 
     <div class="banner ok">
         ✓ 全部测试通过
     </div>
 
     <div class="summary">
-        <div class="card total"><div class="num">283</div><div class="lbl">用例总数</div></div>
-        <div class="card pass"><div class="num">283</div><div class="lbl">通过</div></div>
+        <div class="card total"><div class="num">306</div><div class="lbl">用例总数</div></div>
+        <div class="card pass"><div class="num">306</div><div class="lbl">通过</div></div>
         <div class="card fail"><div class="num">0</div><div class="lbl">失败</div></div>
-        <div class="card time"><div class="num">171 ms</div><div class="lbl">解析总耗时</div></div>
+        <div class="card time"><div class="num">122 ms</div><div class="lbl">解析总耗时</div></div>
     </div>
 
     <h2>测试套件汇总</h2>
@@ -60,7 +60,7 @@
             <td>32</td>
             <td class="pass">32</td>
             <td class="">0</td>
-            <td>15 ms</td>
+            <td>9 ms</td>
             <td class="status-pass">通过</td>
         </tr>
 <tr>
@@ -76,7 +76,7 @@
             <td>26</td>
             <td class="pass">26</td>
             <td class="">0</td>
-            <td>2 ms</td>
+            <td>1 ms</td>
             <td class="status-pass">通过</td>
         </tr>
 <tr>
@@ -84,7 +84,7 @@
             <td>23</td>
             <td class="pass">23</td>
             <td class="">0</td>
-            <td>146 ms</td>
+            <td>103 ms</td>
             <td class="status-pass">通过</td>
         </tr>
 <tr>
@@ -92,7 +92,7 @@
             <td>11</td>
             <td class="pass">11</td>
             <td class="">0</td>
-            <td>3 ms</td>
+            <td>4 ms</td>
             <td class="status-pass">通过</td>
         </tr>
 <tr>
@@ -163,6 +163,14 @@
             <td>inline_anon_subprogram_test</td>
             <td>28</td>
             <td class="pass">28</td>
+            <td class="">0</td>
+            <td>- ms</td>
+            <td class="status-pass">通过</td>
+        </tr>
+<tr>
+            <td>inline_anon_visible_test</td>
+            <td>23</td>
+            <td class="pass">23</td>
             <td class="">0</td>
             <td>- ms</td>
             <td class="status-pass">通过</td>
@@ -2154,6 +2162,167 @@
                 <td>inline_anon_subprogram_test</td>
                 <td><code>e_after_unit</code></td>
                 <td>后随 after_anon decl=10/begin=11/end=13</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c1_parse_clean</code></td>
+                <td>Case1 解析零错误</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c1_body_exists</code></td>
+                <td>外层块有 Body 文件夹</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c1_body_count</code></td>
+                <td>Body 含 3 项: 匿名块分组 + IF + IF</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c1_anon_group_visible</code></td>
+                <td>内联匿名块作为可见分组渲染</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c1_anon_expandable</code></td>
+                <td>匿名块分组可展开</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c1_anon_declaration</code></td>
+                <td>分组内含 Declaration（v_local/err_ind）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c1_anon_body_if</code></td>
+                <td>分组 Body 含内联块的全部 IF（含嵌套 IF）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c1_anon_body_for</code></td>
+                <td>分组 Body 含 FOR 循环</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c1_parent_chain</code></td>
+                <td>块内 IF 的显示父级为匿名块的 Body 文件夹</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c2_parse_clean</code></td>
+                <td>Case2 解析零错误</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c2_no_subprogram_folder</code></td>
+                <td>无 Sub Program 文件夹（匿名块不在其中）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c2_body_has_anon</code></td>
+                <td>过程 Body 含匿名块分组</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c3_parse_clean</code></td>
+                <td>Case3 解析零错误</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c3_no_anon_level</code></td>
+                <td>触发器下无额外 Anonymous Block 层</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c3_declaration</code></td>
+                <td>触发器 DECLARE 区可见（代理渲染）</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c3_decl_vars</code></td>
+                <td>触发器变量 v_user/c_max 可见</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c3_nested_func</code></td>
+                <td>触发器嵌套子程序 fmt_user 可见</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c3_exception</code></td>
+                <td>触发器 EXCEPTION 叶子可见</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c3_body_if</code></td>
+                <td>触发器 Body 含 IF</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c3_parent_chain</code></td>
+                <td>代理渲染的 Body 文件夹显示父级 = 触发器</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c4_parse_clean</code></td>
+                <td>Case4 解析零错误</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c4_host_leaves_kept</code></td>
+                <td>代理渲染保留宿主自身 EXCEPTION/END 叶子</td>
+                <td class="status-pass">✓ 通过</td>
+                <td>-</td>
+            </tr>
+<tr>
+                <td>inline_anon_visible_test</td>
+                <td><code>c4_anon_content</code></td>
+                <td>代理渲染内联块内容（v_tmp/IF 可见）</td>
                 <td class="status-pass">✓ 通过</td>
                 <td>-</td>
             </tr>

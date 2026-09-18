@@ -3,6 +3,14 @@
 本文件记录 PL/SQL Outline 各版本的变化。完整的版本发布信息也可在
 [GitHub Releases](https://github.com/Emon9426/plsql-outline/releases) 查看。
 
+## v1.7.2 (2026-09-18)
+
+- 🔴 **内联匿名块不再整棵隐藏（#13，真实脚本 01_NB_MT110 场景）**：过程/函数/匿名块体内的内联 `DECLARE..BEGIN..END;` 块此前在显示层被整体跳过，其内部全部控制结构从大纲消失（Body 只剩块结束后的 IF）；现在作为宿主 Body 内**可展开的 `Anonymous Block` 分组**渲染，展开可见其 Declaration（局部变量/游标/异常）、Sub Program（块内嵌套子程序）、Body（控制结构）、Exception、End
+- 🔴 **触发器主体改为代理渲染（补齐 ZCodeTest 缺口①）**：触发器唯一的匿名块子节点不再仅提升控制结构，其 DECLARE 区（变量/常量/异常）、嵌套子程序、Exception/End 直接挂在触发器下，无多余嵌套层；宿主自带异常区/END 时块内同类叶子不重复渲染
+- 🔗 **getParent 显示父链同步修正**：块内控制结构的显示父级为匿名块自身的 Body 文件夹；代理渲染匿名块的分组/叶子父级为宿主单元——reveal 光标同步的可见性判断不再依赖跳过逻辑
+- 🧹 **删除不可达的旧分区渲染路径**（isSection/createSectionTreeItem/createSectionChildItems/getSectionIcon，无任何创建点）
+- 🧪 GMLTest 新增 inline_anon_visible_test（23 断言：真实脚本形态复现、过程内联块、触发器代理、显示父链、宿主叶子边界）；ZCodeTest render-validate 期望表收紧（触发器声明区/异常、内联块分组、块内子程序必现）；全套 306/306、render-validate 0 失败、双 E2E 通过
+
 ## v1.7.1 (2026-09-18)
 
 - 🧪 **ZCodeTest 结构化测试语料库**：33 个文件 / 14.3 万行，覆盖 Function、Procedure、Package Spec+Body、Trigger、匿名块（DECLARE 形与顶层裸 BEGIN 形，各有/无 Exception）及 TYPE/TYPE BODY/VIEW，每种对象 × 简单/复杂/长代码(≥1万行)/长代码+复杂 四形态；复杂结构覆盖注释（单行/多行/注释掉的代码）、3 层嵌套子程序、全部循环种类、嵌套 3 层循环、多 WHEN 异常，另含 Q-quote/前置声明/内联匿名块/CASE ELSE/包初始化块/多行签名等解析器压力点；14 个万行文件由 `generate-long.js` 确定性生成
