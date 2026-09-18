@@ -987,9 +987,17 @@ export class PLSQLParser {
             return true;
         }
 
-        // ELSE（仅在IF上下文中）
+        // ELSE：按栈顶上下文区分 IF 的 ELSE 与 CASE 的 ELSE
+        // Issue #3 修复：CASE 的 ELSE 原先误走 IF 分支被压入 controlStack，
+        // 而 popControlStack('CASE') 不接受 ELSE_BRANCH，END CASE 弹不出栈，
+        // 残留栈帧会把后续同级控制结构（WHILE、异常区 IF 等）挂到 ELSE 分支下。
         if (KeywordPatterns.ELSE_START.test(line)) {
-            this.handleElseBranch(lineNumber);
+            const top = this.controlStack[this.controlStack.length - 1];
+            if (top && top.type === NodeType.CASE_STATEMENT) {
+                this.handleCaseElseBranch(lineNumber);
+            } else {
+                this.handleElseBranch(lineNumber);
+            }
             return true;
         }
 
@@ -1088,9 +1096,11 @@ export class PLSQLParser {
         const top = this.controlStack[this.controlStack.length - 1];
         
         // 验证栈顶类型匹配
+        // Issue #3：CASE 分支补充 ELSE_BRANCH —— 仅作防御（CASE 的 ELSE 已不再压栈），
+        // 避免历史遗留的 ELSE 栈顶让 END CASE 静默失败
         const isMatch = (expectedType === 'IF' && (top.type === NodeType.IF_STATEMENT || top.type === NodeType.ELSIF_BRANCH || top.type === NodeType.ELSE_BRANCH)) ||
                        (expectedType === 'LOOP' && (top.type === NodeType.LOOP_STATEMENT || top.type === NodeType.WHILE_LOOP || top.type === NodeType.FOR_LOOP)) ||
-                       (expectedType === 'CASE' && (top.type === NodeType.CASE_STATEMENT || top.type === NodeType.WHEN_BRANCH));
+                       (expectedType === 'CASE' && (top.type === NodeType.CASE_STATEMENT || top.type === NodeType.WHEN_BRANCH || top.type === NodeType.ELSE_BRANCH));
 
         if (isMatch) {
             const popped = this.controlStack.pop()!;
@@ -1165,6 +1175,29 @@ export class PLSQLParser {
         };
 
         // WHEN作为CASE的子节点
+        if (this.controlStack.length > 0) {
+            const caseNode = this.controlStack[this.controlStack.length - 1];
+            if (caseNode.type === NodeType.CASE_STATEMENT) {
+                caseNode.children.push(node);
+            }
+        }
+    }
+
+    /**
+     * 处理CASE的ELSE分支（Issue #3）
+     * 与 WHEN 分支保持一致：仅作为 CASE 的子节点，不压入 controlStack。
+     * CASE 的 BEGIN/END 配对由 CASE 节点自身承担（END CASE 弹出 CASE），
+     * ELSE 分支不参与栈平衡。
+     */
+    private handleCaseElseBranch(lineNumber: number): void {
+        const node: ParseNode = {
+            type: NodeType.ELSE_BRANCH,
+            name: 'ELSE',
+            declarationLine: lineNumber,
+            level: this.getControlNodeLevel() + 1,
+            children: []
+        };
+
         if (this.controlStack.length > 0) {
             const caseNode = this.controlStack[this.controlStack.length - 1];
             if (caseNode.type === NodeType.CASE_STATEMENT) {

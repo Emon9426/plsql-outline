@@ -17,7 +17,8 @@ const suites = [
     require('./qquote_edge_test'),
     require('./anonymous_block_render_test'),
     require('./forward_declaration_cursor_test'),
-    require('./constant_declaration_test')
+    require('./constant_declaration_test'),
+    require('./case_else_nesting_test')
 ];
 
 function escapeHtml(s) {
