@@ -1,5 +1,5 @@
 /**
- * ZCodeTest 显示层渲染校验: 用真实 treeView 显示层(out/treeView.js)全量渲染大纲树
+ * 语料显示层渲染校验: 用真实 treeView 显示层(out/treeView.js)全量渲染大纲树
  *
  * 与 validate.js(仅解析层)互补, 本脚本验证"VS Code 大纲中真实显示"的部分:
  *   1. 每个文件 解析 → PLSQLOutlineProvider(真实显示层, vscode mock) →
@@ -14,14 +14,14 @@
  * 本脚本将其标记为 KNOWN-FAIL, 不计入新增失败。
  *
  * 运行前先编译: npm run compile
- * 运行: node ZCodeTest/render-validate.js
+ * 运行: node tests/corpus/render-validate.js
  */
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
 
-// ---------- mock vscode(与 GMLTest 渲染测试同款) ----------
+// ---------- mock vscode(与 tests/unit 渲染测试同款) ----------
 const Module = require('module');
 const mockVscode = {
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },

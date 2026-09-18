@@ -37,6 +37,8 @@ export class PLSQLOutlineExtension {
     private quietParseInFlight: Promise<void> | null = null;
     // 编辑内容变化的防抖重解析（保持大纲/跳转与未保存编辑一致）
     private changeDebounceTimer: NodeJS.Timeout | null = null;
+    // 启动时延迟构建符号索引的定时器（dispose 时取消，防止停用后仍创建 watcher）
+    private indexBuildTimer: NodeJS.Timeout | null = null;
 
     private refreshDebugCache(): void {
         this.debugEnabledCache = vscode.workspace.getConfiguration('plsql-outline')
@@ -663,7 +665,8 @@ export class PLSQLOutlineExtension {
             [...DEFAULT_FILE_EXTENSIONS]);
         const maxFiles = config.get<number>('codeRepository.maxFiles', 5000);
 
-        setTimeout(async () => {
+        this.indexBuildTimer = setTimeout(async () => {
+            this.indexBuildTimer = null;
             await this.symbolIndex.buildIndex(pathConfigs, fileExtensions, maxFiles);
             this.symbolIndex.setupWatchers(pathConfigs, fileExtensions);
 
@@ -1279,6 +1282,10 @@ export class PLSQLOutlineExtension {
         this.performMemoryCleanup();
         
         // 销毁符号索引
+        if (this.indexBuildTimer) {
+            clearTimeout(this.indexBuildTimer);
+            this.indexBuildTimer = null;
+        }
         this.symbolIndex.dispose();
         disposeOutputChannel();
         
@@ -1333,8 +1340,8 @@ export function activate(context: vscode.ExtensionContext): void {
             const languageId = document.languageId;
             const fileName = document.fileName.toLowerCase();
             
-            if (languageId === 'plsql' || languageId === 'sql' || 
-                ['.sql', '.pks', '.pkb', '.prc', '.fnc', '.trg'].some(ext => fileName.endsWith(ext))) {
+            if (languageId === 'plsql' || languageId === 'sql' ||
+                DEFAULT_FILE_EXTENSIONS.some(ext => fileName.endsWith(ext))) {
                 
                 // 延迟执行，确保扩展完全激活
                 setTimeout(() => {

@@ -126,8 +126,11 @@ export class SettingsPanel {
         this._panel.webview.postMessage({ type: 'configData', config: snapshot });
     }
 
-    /** 按定义逐项写入（值经 schema 裁剪校验），完成后回发最新快照 */
-    private async _updateConfig(newConfig: ExtensionConfig) {
+    /**
+     * 按定义逐项写入（值经 schema 裁剪校验），完成后回发最新快照。
+     * @returns 是否全部写入成功（导入流程据此决定提示成败）
+     */
+    private async _updateConfig(newConfig: ExtensionConfig): Promise<boolean> {
         const config = vscode.workspace.getConfiguration('plsql-outline');
 
         try {
@@ -149,15 +152,21 @@ export class SettingsPanel {
 
             await this._sendConfig();
             this._panel.webview.postMessage({ type: 'updateSuccess', message: '设置已保存' });
+            return true;
         } catch (error) {
             this._panel.webview.postMessage({
                 type: 'updateError',
                 message: `保存设置失败: ${error}`
             });
+            return false;
         }
     }
 
-    /** 将一组（或全部）设置恢复为默认值 */
+    /**
+     * 将一组（或全部）设置恢复为默认值。
+     * 工作区级与用户级都清除：仅清工作区会让隐藏的用户级覆盖继续生效，
+     * 造成"已恢复默认"的假象。
+     */
     private async _resetConfig(group?: string) {
         const config = vscode.workspace.getConfiguration('plsql-outline');
 
@@ -166,7 +175,8 @@ export class SettingsPanel {
                 if (group && def.group !== group) {
                     continue;
                 }
-                await config.update(def.key, undefined, this._resolveTarget(def));
+                await config.update(def.key, undefined, vscode.ConfigurationTarget.Workspace);
+                await config.update(def.key, undefined, vscode.ConfigurationTarget.Global);
             }
 
             await this._sendConfig();
@@ -233,11 +243,15 @@ export class SettingsPanel {
                     ? (parsed as { config: ExtensionConfig }).config
                     : parsed as ExtensionConfig;
 
-                await this._updateConfig(configData);
-                this._panel.webview.postMessage({
-                    type: 'importSuccess',
-                    message: `配置已从 ${uri[0].fsPath} 导入`
-                });
+                // _updateConfig 内部吞错并回发 updateError（toast 会被下一条消息覆盖），
+                // 因此这里按返回值决定是否提示导入成功
+                const ok = await this._updateConfig(configData);
+                if (ok) {
+                    this._panel.webview.postMessage({
+                        type: 'importSuccess',
+                        message: `配置已从 ${uri[0].fsPath} 导入`
+                    });
+                }
             }
         } catch (error) {
             this._panel.webview.postMessage({ type: 'importError', message: `导入配置失败: ${error}` });
@@ -665,7 +679,9 @@ export class SettingsPanel {
                 const rows = Array.from(holder.querySelectorAll('.path-row'));
                 configSet(def.key, rows.map(r => ({
                     path: r.querySelector('.path').value.trim(),
-                    priority: parseFloat(r.querySelector('.prio').value) || 1
+                    // 允许 0（数字越小优先级越高），仅非法输入回落 1
+                    priority: Number.isFinite(parseFloat(r.querySelector('.prio').value))
+                        ? parseFloat(r.querySelector('.prio').value) : 1
                 })).filter(p => p.path));
                 markDirty();
             };

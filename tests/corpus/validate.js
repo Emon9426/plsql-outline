@@ -1,5 +1,5 @@
 /**
- * ZCodeTest 全量验证: 用真实解析器(out/parser)逐个解析全部测试文件
+ * 语料全量验证: 用真实解析器(out/parser)逐个解析全部测试文件
  *
  * 检查项:
  *   1. 解析无错误(不触发 50000 行 / 嵌套深度 / 解析卡住等安全限制)
@@ -8,7 +8,7 @@
  *   4. 输出每个文件的顶层节点形态(声明行-结束行, 是否含异常段)供人工比对大纲
  *
  * 运行前先编译: npm run compile
- * 运行: node ZCodeTest/validate.js
+ * 运行: node tests/corpus/validate.js
  */
 'use strict';
 

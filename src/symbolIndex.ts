@@ -35,12 +35,10 @@ export class SymbolIndex {
     private watchers: vscode.FileSystemWatcher[] = [];
     // 尚未触发的防抖更新定时器（dispose 时统一清理）
     private debounceTimers: Set<NodeJS.Timeout> | null = null;
-    private parser: PLSQLParser;
     private building: boolean = false;
     private outputChannel: vscode.OutputChannel;
 
     constructor(outputChannel: vscode.OutputChannel) {
-        this.parser = new PLSQLParser();
         this.outputChannel = outputChannel;
     }
 
@@ -319,7 +317,9 @@ export class SymbolIndex {
     private async indexFile(filePath: string): Promise<void> {
         try {
             const content = fs.readFileSync(filePath, 'utf8');
-            const result = await this.parser.parse(content, filePath);
+            // 每次解析使用独立实例（Issue #15 同源教训）：buildIndex 与
+            // watcher 驱动的 updateFile 可能交错，共享实例会在 await 点互相污染
+            const result = await new PLSQLParser().parse(content, filePath);
 
             if (result.metadata.errors.length > 0) return;
 

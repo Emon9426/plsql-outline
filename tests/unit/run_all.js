@@ -1,7 +1,7 @@
 /**
- * GMLTest 运行器：运行 GMLTest 文件夹下所有测试，生成 HTML 测试报告。
+ * 单元测试运行器：运行 tests/unit 下所有测试套件，生成 HTML 测试报告。
  *
- * 运行：node GMLTest/run_all.js
+ * 运行：node tests/unit/run_all.js
  * 输出：tests/unit/test_report.html（浏览器打开查看）
  */
 const fs = require('fs');
@@ -77,7 +77,7 @@ function generateHtml(results) {
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>GMLTest 测试报告 — PL/SQL Outline</title>
+<title>单元测试报告 — PL/SQL Outline</title>
 <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; margin: 0; padding: 24px; background: #f6f8fa; color: #24292e; }
@@ -110,7 +110,7 @@ function generateHtml(results) {
 </style>
 </head>
 <body>
-    <h1>PL/SQL Outline — GMLTest 测试报告</h1>
+    <h1>PL/SQL Outline — 单元测试报告</h1>
     <div class="meta">生成时间：${now} ｜ 版本：v${require('../../package.json').version} ｜ 测试框架：Node.js + 自研断言</div>
 
     <div class="banner ${allPassed ? 'ok' : 'bad'}">
@@ -148,7 +148,7 @@ function generateHtml(results) {
 }
 
 async function main() {
-    console.log('运行 GMLTest 全部测试套件...\n');
+    console.log('运行单元测试全部套件...\n');
     const results = [];
     for (const suite of suites) {
         try {
