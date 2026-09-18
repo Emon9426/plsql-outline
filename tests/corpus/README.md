@@ -91,7 +91,7 @@ node tests/corpus/generate-long.js
 
 `render-validate.js` 检查"VS Code 大纲真实显示"：每文件经 PLSQLOutlineProvider 全树渲染
 不得抛异常、根标签正确、必现标签（嵌套子程序名/Sub Program/Declaration/Exception）存在、
-被注释掉的代码（legacy_*）不得出现；当前基线 **31/33 OK + 2 KNOWN-FAIL**（同解析缺陷）。
+被注释掉的代码（legacy_*）不得出现；当前基线 **33/33 全通过**。
 
 `zcodetest_smoke.e2e.js` 在真实 VS Code 宿主内验证（@vscode/test-electron，--disable-extensions）：
 ① 语言关联（.fnc/.prc/.pks/.pkb/.trg → plsql，.sql → sql）；② `plsqlOutline.parseCurrentFile`
@@ -99,12 +99,10 @@ node tests/corpus/generate-long.js
 前置声明函数）。跳转判定标准为"静默期 + 一次显式重解析后必须命中"——快速多文件切换下首查
 可能落空（见下方已知问题③），重试兜底模拟用户再次点击。
 
-## 当前验证结果（v1.7.0 解析器 + 显示层）
+## 当前验证结果（v1.8.0 解析器 + 显示层）
 
-- **解析层 validate.js：31/33 通过**；**显示层 render-validate.js：31/33 OK + 2 KNOWN**；
+- **解析层 validate.js：33/33 通过**；**显示层 render-validate.js：33/33 OK**；
   **真实 VS Code E2E 冒烟：7/7 通过**。
-- ⚠️ **2 个失败：pkg_body_long.pkb / pkg_body_long_complex.pkb**，触发
-  “嵌套深度超过限制(15)”——这是语料**发现的真实解析器缺陷**（见下节）。
 - 已知无害行为（非缺陷，README 记录以便比对大纲）：
   `PACKAGE_HEADER / TRIGGER / TYPE / TYPE_BODY / VIEW` 的 `endLine` 保持 open
   （解析器仅对 PACKAGE_BODY 有顶层 END 闭合分支）；无初始化块的包体正常闭合（BUG-B 已修复）。
@@ -118,39 +116,23 @@ node tests/corpus/generate-long.js
   匿名块在宿主 `Body` 内渲染为可展开的 `Anonymous Block` 分组（含其
   Declaration/Sub Program/Body/Exception/End）。
 
-## 已发现的缺陷（均未修复，待另开 Issue→PR）
+## 已发现的缺陷（历史记录）
 
-### ① 解析器：内联匿名块 currentLevel 泄漏（破坏 pkg_body_long*.pkb）
+### ① 解析器：内联匿名块 currentLevel 泄漏 —— **v1.8.0 已修复**
 
 **现象**：包体内多个成员，只要成员体内含内联匿名块（`DECLARE..BEGIN..END;`），
 解析到约第 13 个此类成员时抛 “嵌套深度超过限制(15)”，**整个文件解析失败（0 节点）**。
 
-**最小复现**（18 个成员各含 1 个内联匿名块即失败）：
-
-```
-CREATE OR REPLACE PACKAGE BODY leak_pkg IS
-    PROCEDURE m_1 IS l_a NUMBER := 0; BEGIN
-        DECLARE l_local NUMBER := 0; BEGIN ... EXCEPTION WHEN OTHERS THEN NULL; END;
-        ...
-    EXCEPTION WHEN OTHERS THEN NULL; END m_1;
-    ...（重复 18 次）
-END leak_pkg;
-```
-
 **根因**（`src/parser.ts`）：
-- `startAnonymousBlock()`（~L944）把 `currentLevel` 抬到匿名块层级；
-- `handleEndStatement()` 的匿名块闭合分支（~L882-896）恢复了 `currentActiveNode`
-  但**从不回退 `currentLevel`**（`unitStateStack` 保存/恢复的也只有
+- `startAnonymousBlock()` 把 `currentLevel` 抬到匿名块层级；
+- `handleEndStatement()` 的匿名块闭合分支恢复了 `currentActiveNode`
+  但从不回退 `currentLevel`（`unitStateStack` 保存/恢复的也只有
   `beginEndCounter` 与 `anonBlockCounters`，不含 `currentLevel`）。
 
-于是包体内每个含内联匿名块的成员让 `currentLevel` 永久 +1：后续兄弟成员节点
-`.level` 逐个漂移（大纲层级失真），累计到 15 触发 `handleSubFunctionProcedure`
-的深度保护抛错。单单元文件（函数/过程/匿名块内）不创建后续兄弟子程序，故不触发，
-只有“包体 + 多个含内联匿名块的成员”暴露此问题。
-
-**建议修复方向**（未实施，待另开 Issue→PR）：匿名块闭合分支恢复
-`currentLevel = parentNode.level`（与 PR #12 的 unitStateStack 保存/恢复同模式）。
-修复后 `validate.js` 应 33/33 通过，`pkg_body_long*.pkb` 即现成回归用例。
+**修复**（v1.8.0）：匿名块闭合分支恢复 `currentLevel = parentNode.level`；
+`unitStateStack` 帧补存/恢复 `currentLevel`（帧值优先，自愈体内漂移）。
+回归：`pkg_body_long*.pkb` 即现成用例，validate.js 已 33/33；
+单元层新增 `tests/unit/inline_anon_level_test.js`（18 成员×内联块层级一致 + 块内嵌套子程序）。
 
 ### ② 显示层：触发器与包规格的部分结构不出现在大纲（触发器/内联块部分 v1.7.2 已修复）
 
