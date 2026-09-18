@@ -205,38 +205,12 @@
           "default": true,
           "description": "切换到PL/SQL文件时自动解析"
         },
-        "plsql-outline.parsing.maxLines": {
-          "type": "number",
-          "default": 10000,
-          "minimum": 1000,
-          "maximum": 50000,
-          "description": "最大解析行数限制（降低以减少内存占用）"
-        },
         "plsql-outline.parsing.maxNestingDepth": {
           "type": "number",
           "default": 15,
           "minimum": 5,
           "maximum": 30,
           "description": "最大嵌套深度限制（降低以减少内存占用）"
-        },
-        "plsql-outline.parsing.maxParseTime": {
-          "type": "number",
-          "default": 15000,
-          "minimum": 5000,
-          "maximum": 60000,
-          "description": "最大解析时间限制（毫秒，降低以避免长时间占用）"
-        },
-        "plsql-outline.parsing.enableMemoryOptimization": {
-          "type": "boolean",
-          "default": true,
-          "description": "启用内存优化模式"
-        },
-        "plsql-outline.parsing.maxFileSize": {
-          "type": "number",
-          "default": 10,
-          "minimum": 1,
-          "maximum": 20,
-          "description": "最大文件大小限制（MB）"
         },
         "plsql-outline.view.showStructureBlocks": {
           "type": "boolean",
@@ -268,11 +242,6 @@
           "default": false,
           "description": "启用调试模式"
         },
-        "plsql-outline.debug.outputPath": {
-          "type": "string",
-          "default": "${workspaceFolder}/.plsql-debug",
-          "description": "调试文件输出路径"
-        },
         "plsql-outline.debug.logLevel": {
           "type": "string",
           "enum": [
@@ -283,18 +252,6 @@
           ],
           "default": "INFO",
           "description": "日志级别"
-        },
-        "plsql-outline.debug.keepFiles": {
-          "type": "boolean",
-          "default": true,
-          "description": "保留调试文件"
-        },
-        "plsql-outline.debug.maxFiles": {
-          "type": "number",
-          "default": 50,
-          "minimum": 10,
-          "maximum": 200,
-          "description": "最大保留调试文件数量"
         },
         "plsql-outline.fileExtensions": {
           "type": "array",
