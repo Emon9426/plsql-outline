@@ -109,12 +109,14 @@ node ZCodeTest/generate-long.js
   `PACKAGE_HEADER / TRIGGER / TYPE / TYPE_BODY / VIEW` 的 `endLine` 保持 open
   （解析器仅对 PACKAGE_BODY 有顶层 END 闭合分支）；无初始化块的包体正常闭合（BUG-B 已修复）。
 - 已知显示层行为（真实 VS Code 大纲即如此，修复需求待定）：
-  ① 触发器仅渲染 `Body` 文件夹与提升的控制结构，其 DECLARE 区（变量/常量/异常）、
-  匿名块内嵌套子程序与 Exception 段**不在大纲显示**（`createGroupedChildren` 对唯一
-  匿名块子节点只提升控制结构）；
+  ① ~~触发器仅渲染 `Body` 文件夹与提升的控制结构~~ **v1.7.2 已修复**：触发器主体
+  （唯一匿名块子节点）代理渲染，DECLARE 区（变量/常量/异常）、匿名块内嵌套子程序、
+  Exception 段均可见；
   ② 包规格仅渲染成员声明（FUNCTION/PROCEDURE Declaration），规格级常量/类型/游标/异常
   **不在大纲显示**（PACKAGE_HEADER 走 createFlatChildren）；
-  ③ 体内内联匿名块（DECLARE..BEGIN..END;）整棵不渲染（v1.6.2 设计决策）。
+  ③ ~~体内内联匿名块（DECLARE..BEGIN..END;）整棵不渲染~~ **v1.7.2 已修复**：内联
+  匿名块在宿主 `Body` 内渲染为可展开的 `Anonymous Block` 分组（含其
+  Declaration/Sub Program/Body/Exception/End）。
 
 ## 已发现的缺陷（均未修复，待另开 Issue→PR）
 
@@ -150,19 +152,20 @@ END leak_pkg;
 `currentLevel = parentNode.level`（与 PR #12 的 unitStateStack 保存/恢复同模式）。
 修复后 `validate.js` 应 33/33 通过，`pkg_body_long*.pkb` 即现成回归用例。
 
-### ② 显示层：触发器与包规格的部分结构不出现在大纲
+### ② 显示层：触发器与包规格的部分结构不出现在大纲（触发器/内联块部分 v1.7.2 已修复）
 
 真实 VS Code 大纲中的实际行为（render-validate.js 已按现状编码为基线）：
 
-- **触发器**仅渲染 `Body` 文件夹与从匿名块提升的控制结构；其 DECLARE 区
-  （变量/常量/命名异常）、匿名块内嵌套子程序、Exception 段**不显示**。
-  根因：`createGroupedChildren`（treeView.ts ~L583）对触发器唯一的匿名块子节点
-  只提升控制结构；注释写明"保留可见的声明"但实现未做。
+- ~~**触发器**仅渲染 `Body` 文件夹与从匿名块提升的控制结构~~ **v1.7.2 已修复**
+  （Issue #13）：唯一匿名块子节点改为**代理渲染**，触发器下直接显示其
+  Declaration/Sub Program/Body/Exception/End，无多余嵌套层。
+- ~~体内内联匿名块整棵不渲染~~ **v1.7.2 已修复**（Issue #13，真实脚本
+  01_NB_MT110 场景）：非唯一子节点的内联匿名块在宿主 Body 内渲染为可见的
+  `Anonymous Block` 分组；`getParent` 显示父链同步修正（reveal 可见性依赖）。
 - **包规格**仅渲染成员声明；规格级常量/类型/游标/异常**不显示**
   （PACKAGE_HEADER 走 createFlatChildren，不查 variableTable）。
-- 体内内联匿名块整棵不渲染（v1.6.2 设计决策，非遗漏）。
 
-若 Emon 认为触发器/包规格的声明应可见，需改 createGroupedChildren/createFlatChildren，
+若 Emon 认为包规格的声明应可见，需改 createFlatChildren，
 届时同步收紧 render-validate.js 的期望表。
 
 ### ③ 扩展层：共享解析器实例并发竞争（快速多文件切换下解析结果偶发损坏/为空）

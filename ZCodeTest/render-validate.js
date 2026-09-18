@@ -52,28 +52,28 @@ const GLOBAL_NOT = [
 
 const EXPECT = {
     'function/func_simple.fnc':                       { root: /calc_simple_tax/i, must: ['declaration', 'exception', 'c_tax_rate'] },
-    'function/func_complex.fnc':                      { root: /func_order_stats/i, must: ['sub program', 'sub_calc_score', 'sub_format_line', 'sub_inner_check', 'exception', 'c_items'] },
-    'function/func_long.fnc':                         { root: /fn_long_serial_calc/i, must: ['declaration', 'exception', 'v_pool_0001'] },
-    'function/func_long_complex.fnc':                 { root: /fn_long_complex_calc/i, must: ['sub_calc_fn', 'sub_format_fn', 'sub_check_fn', 'exception'] },
+    'function/func_complex.fnc':                      { root: /func_order_stats/i, must: ['sub program', 'sub_calc_score', 'sub_format_line', 'sub_inner_check', 'exception', 'c_items', 'anonymous block'] },
+    'function/func_long.fnc':                         { root: /fn_long_serial_calc/i, must: ['declaration', 'exception', 'v_pool_0001', 'anonymous block'] },
+    'function/func_long_complex.fnc':                 { root: /fn_long_complex_calc/i, must: ['sub_calc_fn', 'sub_format_fn', 'sub_check_fn', 'exception', 'anonymous block'] },
     'procedure/proc_simple.prc':                      { root: /proc_sync_customer/i, must: ['declaration', 'exception'] },
-    'procedure/proc_complex.prc':                     { root: /proc_migrate_batch/i, must: ['sub program', 'sub_next_id', 'sub_flush', 'sub_verify', 'fwd_write_log', 'exception'] },
-    'procedure/proc_long.prc':                        { root: /pr_long_batch_migrate/i, must: ['declaration', 'exception'] },
-    'procedure/proc_long_complex.prc':                { root: /pr_long_complex_migrate/i, must: ['sub_calc_pr', 'fwd_prepare', 'exception'] },
+    'procedure/proc_complex.prc':                     { root: /proc_migrate_batch/i, must: ['sub program', 'sub_next_id', 'sub_flush', 'sub_verify', 'fwd_write_log', 'exception', 'anonymous block', 'sub_local_mark'] },
+    'procedure/proc_long.prc':                        { root: /pr_long_batch_migrate/i, must: ['declaration', 'exception', 'anonymous block'] },
+    'procedure/proc_long_complex.prc':                { root: /pr_long_complex_migrate/i, must: ['sub_calc_pr', 'fwd_prepare', 'exception', 'anonymous block'] },
     'package_spec/pkg_spec_simple.pks':               { root: /pkg_order_api/i, must: ['declaration', 'get_order_total', 'close_order'] },
     'package_spec/pkg_spec_complex.pks':              { root: /pkg_order_api_complex/i, must: ['get_order_total', 'close_order', 'list_orders', 'validate_and_migrate'] },
     'package_spec/pkg_spec_long.pks':                 { root: /pkg_long_api/i, must: ['get_metric_0001', 'set_metric_0001'] },
     'package_spec/pkg_spec_long_complex.pks':         { root: /pkg_long_api_cx/i, must: ['get_metric_0001'] },
     'package_body/pkg_body_simple.pkb':               { root: /pkg_order_api/i, must: ['get_order_total', 'close_order'] },
-    'package_body/pkg_body_complex.pkb':              { root: /pkg_order_api_complex/i, must: ['impl_score', 'impl_format', 'impl_check', 'fwd_validate_order', 'fwd_cache_get'] },
+    'package_body/pkg_body_complex.pkb':              { root: /pkg_order_api_complex/i, must: ['impl_score', 'impl_format', 'impl_check', 'fwd_validate_order', 'fwd_cache_get', 'anonymous block'] },
     'package_body/pkg_body_long.pkb':                 { root: /pkg_long_api/i, must: ['pr_impl_0001'] },
     'package_body/pkg_body_long_complex.pkb':         { root: /pkg_long_api_cx/i, must: ['pr_impl_0001', 'pr_cx_'] },
-    // 注: 显示层 createGroupedChildren 对触发器唯一的匿名块子节点只提升控制结构,
-    // 触发器 DECLARE 区(变量/常量/异常)与匿名块内的嵌套子程序、Exception 叶节点
-    // 当前均不在大纲渲染(实际 VS Code 行为, 见 ZCodeTest/README.md 已知显示缺口)。
-    'trigger/trg_simple.trg':                         { root: /trg_orders_bi/i, must: ['body'] },
-    'trigger/trg_complex.trg':                        { root: /trg_orders_audit/i, must: ['body'] },
-    'trigger/trg_long.trg':                           { root: /trg_long_guard/i, must: ['body'] },
-    'trigger/trg_long_complex.trg':                   { root: /trg_long_complex_guard/i, must: ['body'] },
+    // 触发器主体(唯一匿名块子节点)由显示层代理渲染: DECLARE 区/嵌套子程序/
+    // Exception/End 直接挂在触发器下(此前为已知显示缺口, v1.7.2 起可见)。
+    // 体内内联匿名块(非唯一子节点)作为 Body 内可见分组渲染("anonymous block")。
+    'trigger/trg_simple.trg':                         { root: /trg_orders_bi/i, must: ['body', 'declaration', 'v_user', 'c_max_len', 'exception'] },
+    'trigger/trg_complex.trg':                        { root: /trg_orders_audit/i, must: ['body', 'declaration', 'sub program', 'build_audit_text', 'append_tag', 'e_too_big', 'exception', 'anonymous block'] },
+    'trigger/trg_long.trg':                           { root: /trg_long_guard/i, must: ['body', 'declaration', 'exception'] },
+    'trigger/trg_long_complex.trg':                   { root: /trg_long_complex_guard/i, must: ['body', 'declaration', 'exception', 'anonymous block'] },
     'anonymous/anon_declare_simple_exc.sql':          { root: /anonymous/i, must: ['exception', 'c_step'] },
     'anonymous/anon_declare_simple_noexc.sql':        { root: /anonymous/i, must: [], not: ['exception'] },
     'anonymous/anon_begin_simple_exc.sql':            { root: /anonymous/i, must: ['exception'] },

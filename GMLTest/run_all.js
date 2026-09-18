@@ -21,7 +21,8 @@ const suites = [
     require('./case_else_nesting_test'),
     require('./top_level_anon_test'),
     require('./anon_subfunc_definition_test'),
-    require('./inline_anon_subprogram_test')
+    require('./inline_anon_subprogram_test'),
+    require('./inline_anon_visible_test')
 ];
 
 function escapeHtml(s) {

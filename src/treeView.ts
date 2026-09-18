@@ -7,7 +7,6 @@ import {
     StructureBlock,
     StructureBlockType,
     TreeItemData,
-    SectionType,
     VariableInfo,
     DeclarationCategory
 } from './types';
@@ -124,8 +123,6 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             treeItem = this.createDeclarationSectionTreeItem(element);
         } else if (element.isProgramGroup) {
             treeItem = this.createProgramGroupTreeItem(element);
-        } else if (element.isSection) {
-            treeItem = this.createSectionTreeItem(element);
         } else if (element.isStructureBlock) {
             treeItem = this.createStructureBlockTreeItem(element);
         } else if (element.isDeclarationGroup) {
@@ -167,8 +164,6 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             return `${prefix}declsection_${element.parentNode.name}_${element.parentNode.declarationLine}`;
         } else if (element.isProgramGroup && element.parentNode) {
             return `${prefix}proggroup_${element.programGroupKind}_${element.parentNode.name}_${element.parentNode.declarationLine}`;
-        } else if (element.isSection && element.sectionType) {
-            return `${prefix}section_${element.sectionType}_${element.parentNode?.name}_${element.parentNode?.declarationLine}`;
         } else if (element.isStructureBlock && element.structureBlock) {
             return `${prefix}block_${element.structureBlock.type}_${element.structureBlock.line}_${element.structureBlock.parentNode.name}`;
         } else if (element.isDeclarationGroup && element.declarationCategory) {
@@ -221,28 +216,28 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
                             line: child.declarationLine
                         }));
                 }
-                // body：控制结构，合并 IF 组，简化标签
+                // body：控制结构与内联匿名块分组，合并 IF 组，简化标签
                 const merged = this.mergeIfGroups(element.programGroupChildren);
                 return merged.map(item => {
+                    const label = item.node!.type === NodeType.ANONYMOUS_BLOCK
+                        ? 'Anonymous Block'
+                        : this.getSimplifiedControlLabel(item.node!.type);
                     if (item.mergedChildren) {
                         return {
                             node: item.node,
                             isStructureBlock: false,
                             mergedChildren: item.mergedChildren,
-                            label: this.getSimplifiedControlLabel(item.node!.type),
+                            label,
                             line: item.node!.declarationLine
                         } as TreeItemData;
                     }
                     return {
                         node: item.node,
                         isStructureBlock: false,
-                        label: this.getSimplifiedControlLabel(item.node!.type),
+                        label,
                         line: item.node!.declarationLine
                     } as TreeItemData;
                 });
-            } else if (element.isSection) {
-                // 旧分区级别（兼容）：返回分区内的子项
-                return this.createSectionChildItems(element);
             } else if (element.isDeclarationGroup && element.declarationEntries) {
                 // 声明类别分组：展开其下的声明项
                 return element.declarationEntries.map(e => ({
@@ -308,49 +303,24 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
 
             // 3. Declaration 包裹文件夹 → 父为承载节点
             if (element.isDeclarationSection && element.parentNode) {
-                const owner = element.parentNode;
-                return {
-                    node: owner,
-                    isStructureBlock: false,
-                    label: this.getNodeLabel(owner),
-                    line: owner.declarationLine
-                };
+                return this.toDisplayParentItem(parseResult.nodes, element.parentNode);
             }
 
             // 4. 程序文件夹（Sub Program / Body）→ 父为承载节点
             if (element.isProgramGroup && element.parentNode) {
-                const owner = element.parentNode;
-                return {
-                    node: owner,
-                    isStructureBlock: false,
-                    label: this.getNodeLabel(owner),
-                    line: owner.declarationLine
-                };
+                return this.toDisplayParentItem(parseResult.nodes, element.parentNode);
             }
 
             // 5. 结构块（EXCEPTION/END 叶子）→ 父为承载节点
             if (element.isStructureBlock && element.structureBlock) {
-                const parentNode = element.structureBlock.parentNode;
-                return {
-                    node: parentNode,
-                    isStructureBlock: false,
-                    label: this.getNodeLabel(parentNode),
-                    line: parentNode.declarationLine
-                };
+                return this.toDisplayParentItem(parseResult.nodes, element.structureBlock.parentNode);
             }
 
-            // 6. 普通节点（子程序 / 控制结构）→ 父为 ParseNode 父节点对应的程序文件夹或父控制结构
+            // 6. 普通节点（子程序 / 控制结构 / 内联匿名块）→ 父为 ParseNode 父节点
+            //    对应的程序文件夹或父控制结构。内联匿名块作为 Body 内可见分组，
+            //    其内部控制结构的显示父级即匿名块自身的 Body 文件夹（不作跳过）。
             if (element.node) {
-                let parent = this.findParentNode(parseResult.nodes, element.node);
-                // 内联匿名块（触发器主体等）在展示层被跳过/提升：继续向上找展示父节点。
-                // 顶层匿名块（无更外层父节点）本身是展示单元，保持不变。
-                while (parent && parent.type === NodeType.ANONYMOUS_BLOCK) {
-                    const grandparent = this.findParentNode(parseResult.nodes, parent);
-                    if (!grandparent) {
-                        break;
-                    }
-                    parent = grandparent;
-                }
+                const parent = this.findParentNode(parseResult.nodes, element.node);
                 if (parent) {
                     const childType = element.node.type;
                     if (childType === NodeType.FUNCTION || childType === NodeType.PROCEDURE ||
@@ -398,6 +368,30 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
+     * 构造承载节点的"显示父项"：代理渲染的内联匿名块（触发器主体形态）
+     * 本身不产生显示项，其分组/叶子的显示父级为宿主单元；其余节点即自身。
+     */
+    private toDisplayParentItem(nodes: ParseNode[], owner: ParseNode): TreeItemData {
+        if (owner.type === NodeType.ANONYMOUS_BLOCK) {
+            const host = this.findParentNode(nodes, owner);
+            if (host && this.isDelegatedAnonBlock(host, owner)) {
+                return {
+                    node: host,
+                    isStructureBlock: false,
+                    label: this.getNodeLabel(host),
+                    line: host.declarationLine
+                };
+            }
+        }
+        return {
+            node: owner,
+            isStructureBlock: false,
+            label: this.getNodeLabel(owner),
+            line: owner.declarationLine
+        };
+    }
+
+    /**
      * 构造 Declaration 包裹文件夹 TreeItemData（字段与 createGroupedChildren 产出一致）
      */
     private buildDeclarationSectionItem(owner: ParseNode): TreeItemData {
@@ -422,8 +416,9 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
                 c.type === NodeType.FUNCTION_DECLARATION || c.type === NodeType.PROCEDURE_DECLARATION);
         } else {
             groupChildren = children.filter(c =>
-                this.isControlStructureType(c.type) &&
-                c.type !== NodeType.ELSIF_BRANCH && c.type !== NodeType.ELSE_BRANCH);
+                c.type === NodeType.ANONYMOUS_BLOCK ||
+                (this.isControlStructureType(c.type) &&
+                    c.type !== NodeType.ELSIF_BRANCH && c.type !== NodeType.ELSE_BRANCH));
         }
         const label = kind === 'subprogram'
             ? `Sub Program (${groupChildren.length})`
@@ -541,7 +536,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     /**
      * 判断是否使用分组组织（保留以兼容旧调用）
      * 顶层匿名块（作为独立程序）仍视为可见代码单元；过程体内的内联匿名块
-     * 由 createGroupedChildren 的分类逻辑跳过（不进入 Sub Program 文件夹）。
+     * 作为 Body 内的可见分组渲染（不再隐藏）。
      */
     private shouldUseSectionGrouping(node: ParseNode): boolean {
         const hasBody = node.beginLine !== null && node.beginLine !== undefined;
@@ -550,6 +545,18 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             node.type === NodeType.TRIGGER ||
             node.type === NodeType.ANONYMOUS_BLOCK;
         return hasBody && isCodeUnit;
+    }
+
+    /**
+     * 内联匿名块是否采用"代理渲染"：它是宿主的唯一子节点且宿主无自身声明
+     * （触发器主体形态——匿名块即宿主的全部内容）。此时匿名块本身不产生
+     * 显示项，其 Declaration/Sub Program/Body/Exception/End 直接作为宿主的
+     * 子项渲染。其余内联匿名块在宿主 Body 内渲染为可见分组。
+     * createGroupedChildren 与 getParent 必须共用本判定，保证显示父链一致。
+     */
+    private isDelegatedAnonBlock(host: ParseNode, anon: ParseNode): boolean {
+        return host.children.length === 1 && host.children[0] === anon &&
+            (!host.variableTable || host.variableTable.size === 0);
     }
 
     /**
@@ -577,18 +584,53 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
                     // 吸收到前一个IF中，此处跳过
                 } else if (child.type === NodeType.ANONYMOUS_BLOCK) {
                     // 内联匿名块（DECLARE...BEGIN...END;）的处理：
-                    // - 若它是父节点的唯一子节点（如触发器主体被解析为单一匿名块），
-                    //   则把其子节点提升到当前层级（保留可见的声明/控制结构）。
-                    // - 否则（过程体内有多个子项）跳过，不进入 Sub Program 文件夹。
-                    if (node.children.length === 1) {
-                        for (const grandChild of child.children) {
-                            if (this.isControlStructureType(grandChild.type) &&
-                                grandChild.type !== NodeType.ELSIF_BRANCH && grandChild.type !== NodeType.ELSE_BRANCH) {
-                                bodyChildren.push(grandChild);
+                    // - 若它是父节点的唯一子节点且宿主无自身声明（如触发器主体被解析为
+                    //   单一匿名块），则整体代理渲染匿名块内容（Declaration/Sub Program/
+                    //   Body/Exception/End），宿主下直接可见，不产生多余的嵌套层。
+                    // - 否则（体内还有其他子项）作为 Body 内的可见分组，展开可见其
+                    //   内部结构（声明/控制结构/异常区），不再整体隐藏。
+                    if (this.isDelegatedAnonBlock(node, child)) {
+                        const items = this.createGroupedChildren(child);
+                        if (this.showStructureBlocks) {
+                            // 宿主自带 EXCEPTION/END 叶子时（如过程体=单一内联块但自带异常区），
+                            // 被代理块的同类叶子不再重复渲染，改为补充宿主叶子（保持源码顺序）；
+                            // 宿主无自身叶子（触发器形态）时保留匿名块叶子。
+                            const hostHasExc = node.exceptionLine !== null && node.exceptionLine !== undefined;
+                            const hostHasEnd = node.endLine !== null && node.endLine !== undefined;
+                            const filtered = hostHasExc || hostHasEnd ? items.filter(it => !(
+                                it.isStructureBlock && it.structureBlock &&
+                                it.structureBlock.parentNode === child && (
+                                    (it.structureBlock.type === StructureBlockType.EXCEPTION && hostHasExc) ||
+                                    (it.structureBlock.type === StructureBlockType.END && hostHasEnd)))) : items;
+                            if (hostHasExc && node.exceptionLine !== child.exceptionLine) {
+                                filtered.push({
+                                    structureBlock: {
+                                        type: StructureBlockType.EXCEPTION,
+                                        line: node.exceptionLine!,
+                                        parentNode: node
+                                    },
+                                    isStructureBlock: true,
+                                    label: 'EXCEPTION',
+                                    line: node.exceptionLine!
+                                });
                             }
+                            if (hostHasEnd && node.endLine !== child.endLine) {
+                                filtered.push({
+                                    structureBlock: {
+                                        type: StructureBlockType.END,
+                                        line: node.endLine!,
+                                        parentNode: node
+                                    },
+                                    isStructureBlock: true,
+                                    label: 'END',
+                                    line: node.endLine!
+                                });
+                            }
+                            return filtered;
                         }
+                        return items;
                     }
-                    // 解析层仍保留匿名块节点（承担 BEGIN/END 配对），仅展示层跳过/提升。
+                    bodyChildren.push(child);
                 } else {
                     // 其他类型归入子程序区（排除匿名块，避免误入 Sub Program 文件夹）
                     subprogramChildren.push(child);
@@ -688,62 +730,6 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         }
 
         return items;
-    }
-
-    /**
-     * 创建分区内的子项
-     */
-    private createSectionChildItems(section: TreeItemData): TreeItemData[] {
-        if (section.sectionType === SectionType.DECLARE) {
-            // DECLARE区域：仅渲染声明项分组（变量/游标/常量/类型/异常）
-            if (this.showDeclarations && section.parentNode) {
-                return this.createDeclarationGroupItems(section.parentNode);
-            }
-            return [];
-        }
-
-        if (section.sectionType === SectionType.SUBPROGRAM) {
-            // SUBPROGRAM区域：渲染子函数/过程
-            if (!section.sectionChildren || section.sectionChildren.length === 0) {
-                return [];
-            }
-            return section.sectionChildren.map(child => ({
-                node: child,
-                isStructureBlock: false,
-                label: this.getDeclareNodeLabel(child),
-                line: child.declarationLine
-            }));
-        }
-
-        if (!section.sectionChildren || section.sectionChildren.length === 0) {
-            return [];
-        }
-
-        if (section.sectionType === SectionType.BODY) {
-            // BODY区域: 合并IF组，简化标签
-            const merged = this.mergeIfGroups(section.sectionChildren);
-            return merged.map(item => {
-                if (item.mergedChildren) {
-                    // 合并后的IF节点
-                    return {
-                        node: item.node,
-                        isStructureBlock: false,
-                        mergedChildren: item.mergedChildren,
-                        label: this.getSimplifiedControlLabel(item.node!.type),
-                        line: item.node!.declarationLine
-                    } as TreeItemData;
-                }
-                return {
-                    node: item.node,
-                    isStructureBlock: false,
-                    label: this.getSimplifiedControlLabel(item.node!.type),
-                    line: item.node!.declarationLine
-                } as TreeItemData;
-            });
-        }
-
-        // EXCEPTION/END: 叶节点
-        return [];
     }
 
     /**
@@ -987,41 +973,6 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 创建分区树项
-     */
-    private createSectionTreeItem(element: TreeItemData): vscode.TreeItem {
-        const collapsibleState = this.computeElementCollapsibleState(element);
-
-        const treeItem = new vscode.TreeItem(element.label, collapsibleState);
-        treeItem.iconPath = this.getSectionIcon(element.sectionType!);
-        treeItem.contextValue = 'section';
-
-        if (element.line !== undefined) {
-            treeItem.description = `第${element.line}行`;
-            treeItem.command = {
-                command: 'plsqlOutline.goToLine',
-                title: '跳转到行',
-                arguments: [element.line]
-            };
-        }
-
-        return treeItem;
-    }
-
-    /**
-     * 获取分区图标（旧版兼容）
-     */
-    private getSectionIcon(type: SectionType): { light: vscode.Uri; dark: vscode.Uri } {
-        switch (type) {
-            case SectionType.DECLARE: return this.getCustomIcon('folder-decl');
-            case SectionType.SUBPROGRAM: return this.getCustomIcon('folder-sub');
-            case SectionType.BODY: return this.getCustomIcon('folder-body');
-            case SectionType.EXCEPTION: return this.getCustomIcon('exception-block');
-            case SectionType.END: return this.getCustomIcon('end');
-        }
-    }
-
-    /**
      * 创建声明类别分组树项（Variables/Cursors/Constants/Types/Exceptions）
      */
     private createDeclarationGroupTreeItem(element: TreeItemData): vscode.TreeItem {
@@ -1258,11 +1209,6 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         }
         if (element.isDeclarationEntry || element.isStructureBlock) {
             return vscode.TreeItemCollapsibleState.None;
-        }
-        if (element.isSection) {
-            const hasChildren = (element.sectionType === SectionType.DECLARE || element.sectionType === SectionType.BODY) &&
-                element.sectionChildren && element.sectionChildren.length > 0;
-            return hasChildren ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None;
         }
         if (element.node) {
             if (element.mergedChildren && element.mergedChildren.length > 0) {
@@ -1818,7 +1764,7 @@ export class TreeViewManager {
 
     /**
      * 选中并展开到指定目标（节点/结构块/声明项）
-     * 注意：构造的 TreeItemData 字段必须与 getChildren / createSectionChildItems /
+     * 注意：构造的 TreeItemData 字段必须与 getChildren /
      * createDeclarationGroupItems 的产出逐字段一致，否则 reveal 的元素相等性比较会失败。
      */
     async selectAndRevealTarget(target: { type: 'node' | 'structureBlock' | 'declarationEntry', node?: ParseNode, blockType?: string, entry?: VariableInfo }): Promise<void> {
@@ -1827,7 +1773,7 @@ export class TreeViewManager {
                 // 声明项：reveal 到该声明项（其父链为 node → DECLARE section → declarationGroup → entry）
                 const entry = target.entry;
                 const parentNode = target.node;
-                // declarationEntry 叶节点（字段与 createSectionChildItems 中 getChildren 的产出一致）
+                // declarationEntry 叶节点（字段与 getChildren 声明分组分支的产出一致）
                 const treeItemData: TreeItemData = {
                     isStructureBlock: false,
                     label: this.provider.getDeclarationEntryLabel(entry),
@@ -1888,6 +1834,8 @@ export class TreeViewManager {
                     label = this.provider.getDeclareNodeLabel(n);
                 } else if (this.provider.isControlStructureType(n.type)) {
                     label = this.provider.getSimplifiedControlLabel(n.type);
+                } else if (n.type === NodeType.ANONYMOUS_BLOCK) {
+                    label = 'Anonymous Block'; // 与 Body 内匿名块分组的渲染标签一致
                 } else {
                     label = this.provider.getNodeLabel(n);
                 }
