@@ -34,6 +34,16 @@ const PATTERNS = {
 } as const;
 
 /**
+ * 用户取消解析时抛出（parse 会原样上抛，不并入 metadata.errors）
+ */
+export class ParseCancelledError extends Error {
+    constructor() {
+        super('解析已取消');
+        this.name = 'ParseCancelledError';
+    }
+}
+
+/**
  * PL/SQL解析器 - 基于handler架构的内存优化版本
  * 支持控制结构(IF/LOOP/CASE)识别
  */
@@ -66,11 +76,17 @@ export class PLSQLParser {
 
     // 内存优化相关
     private processedLines: Set<number> = new Set();
-    private stringCache: Map<string, string> = new Map();
-    private maxCacheSize: number = 1000;
+
+    // 让步策略：距上次让步不足该毫秒数时不让出事件循环，
+    // 中小文件单轮同步完成（原先每 50 行强制 setImmediate，使耗时近乎翻倍）
+    private static readonly YIELD_INTERVAL_MS = 8;
+    private lastYieldTime = 0;
 
     // 最大嵌套深度（parsing.maxNestingDepth 配置传入；默认与 package.json 声明一致）
     private maxNestingDepth: number = 15;
+
+    // 取消令牌（v1.8.0：大文件解析可中断）
+    private cancellationToken?: { isCancellationRequested: boolean };
 
     /**
      * 设置控制结构配置
@@ -83,7 +99,11 @@ export class PLSQLParser {
     /**
      * 解析PL/SQL代码
      */
-    async parse(content: string, sourceFile: string = 'unknown', options?: { maxNestingDepth?: number }): Promise<ParseResult> {
+    async parse(content: string, sourceFile: string = 'unknown', options?: {
+        maxNestingDepth?: number;
+        /** 结构化取消令牌（鸭子类型兼容 vscode.CancellationToken，测试无需 vscode 模块） */
+        cancellationToken?: { isCancellationRequested: boolean };
+    }): Promise<ParseResult> {
         const startTime = Date.now();
 
         try {
@@ -92,6 +112,7 @@ export class PLSQLParser {
             if (options && typeof options.maxNestingDepth === 'number' && options.maxNestingDepth > 0) {
                 this.maxNestingDepth = options.maxNestingDepth;
             }
+            this.cancellationToken = options?.cancellationToken;
             
             if (content.length > 10 * 1024 * 1024) {
                 throw new Error('文件过大，超过10MB限制');
@@ -124,7 +145,12 @@ export class PLSQLParser {
 
         } catch (error) {
             this.cleanup();
-            
+
+            // 用户主动取消不吞掉：向上传递由扩展层决定 UI 行为
+            if (error instanceof ParseCancelledError) {
+                throw error;
+            }
+
             const parseTime = Date.now() - startTime;
             const errorMessage = error instanceof Error ? error.message : '未知解析错误';
             
@@ -158,7 +184,7 @@ export class PLSQLParser {
         this.anonBlockCounters = [];
         this.unitStateStack = [];
         this.processedLines.clear();
-        this.stringCache.clear();
+        this.lastYieldTime = Date.now();
     }
 
     /**
@@ -166,33 +192,12 @@ export class PLSQLParser {
      */
     private cleanup(): void {
         this.processedLines.clear();
-        this.stringCache.clear();
         this.nodeStack = [];
         this.controlStack = [];
         this.anonBlockCounters = [];
         this.unitStateStack = [];
         this.currentActiveNode = null;
         this.packageNode = null;
-    }
-
-    /**
-     * 字符串缓存优化
-     */
-    private getCachedString(str: string): string {
-        if (this.stringCache.has(str)) {
-            return this.stringCache.get(str)!;
-        }
-        
-        if (this.stringCache.size >= this.maxCacheSize) {
-            const entries = Array.from(this.stringCache.entries());
-            this.stringCache.clear();
-            for (let i = Math.floor(entries.length / 2); i < entries.length; i++) {
-                this.stringCache.set(entries[i][0], entries[i][1]);
-            }
-        }
-        
-        this.stringCache.set(str, str);
-        return str;
     }
 
     /**
@@ -251,7 +256,7 @@ export class PLSQLParser {
             // 去除首尾空白并检查是否为空行
             line = line.trim();
             if (line.length > 0) {
-                cleanLines.push(this.getCachedString(line));
+                cleanLines.push(line);
                 lineMapping.push(originalLineNumber);
             }
         }
@@ -452,8 +457,8 @@ export class PLSQLParser {
 
             if (i % 50 === 0) {
                 await this.yield();
-                if (i % 500 === 0 && this.stringCache.size > this.maxCacheSize) {
-                    this.stringCache.clear();
+                if (this.cancellationToken?.isCancellationRequested) {
+                    throw new ParseCancelledError();
                 }
             }
         }
@@ -1512,7 +1517,7 @@ export class PLSQLParser {
     private createNode(type: NodeType, name: string, declarationLine: number, level: number): ParseNode {
         return {
             type,
-            name: this.getCachedString(name),
+            name: name,
             declarationLine,
             beginLine: null,
             exceptionLine: null,
@@ -1546,9 +1551,15 @@ export class PLSQLParser {
     }
 
     /**
-     * 让出控制权
+     * 让出控制权：仅在距上次让步超过 YIELD_INTERVAL_MS 时才让出事件循环，
+     * 保证大文件解析期间 UI 仍可响应，同时消除中小文件上的事件循环往返开销
      */
     private async yield(): Promise<void> {
+        const now = Date.now();
+        if (now - this.lastYieldTime < PLSQLParser.YIELD_INTERVAL_MS) {
+            return;
+        }
+        this.lastYieldTime = now;
         return new Promise(resolve => setImmediate(resolve));
     }
 }

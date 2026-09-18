@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { PLSQLParser } from './parser';
+import { PLSQLParser, ParseCancelledError } from './parser';
 import { TreeViewManager, MemoryDataProvider } from './treeView';
 import { DebugManager } from './debug';
 import { ParseResult, ParseNode, VariableInfo, NodeType, LogLevel } from './types';
@@ -230,36 +230,37 @@ export class PLSQLOutlineExtension {
                 this.parseCount = 0;
             }
 
-            // 显示进度
+            // 显示进度（可取消：大文件解析期间用户可中断，v1.8.0）
             await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
                 title: '正在解析PL/SQL文件...',
-                cancellable: false
-            }, async (progress) => {
+                cancellable: true
+            }, async (progress, token) => {
                 progress.report({ increment: 0, message: '开始解析' });
 
                 // 解析文件
                 const content = document.getText();
                 const sourceFile = document.fileName;
-                
+
                 // 文件大小检查（与 parser 内部 10MB 上限对齐）
                 if (content.length > 10 * 1024 * 1024) { // 10MB限制
                     throw new Error('文件过大，建议分割后再解析');
                 }
-                
+
                 progress.report({ increment: 30, message: '解析中...' });
-                
+
                 // 清理之前的解析结果
                 if (this.currentParseResult) {
                     this.currentParseResult = null;
                 }
-                
+
                 // PLSQLParser 持有每次解析的可变状态且不可重入：并发解析（切换文件时
                 // parseCurrentFile 与 parseDocumentQuiet 交叠）共享实例会互相污染状态，
                 // 产生成员丢失/杂交树（Issue #15）。每次解析必须使用独立实例。
                 const parseResult = await new PLSQLParser().parse(content, sourceFile, {
                     maxNestingDepth: vscode.workspace.getConfiguration('plsql-outline')
-                        .get('parsing.maxNestingDepth', 15)
+                        .get('parsing.maxNestingDepth', 15),
+                    cancellationToken: token
                 });
                 
                 progress.report({ increment: 60, message: '处理结果...' });
@@ -284,12 +285,17 @@ export class PLSQLOutlineExtension {
             this.showParseSummary();
 
         } catch (error) {
+            // 用户主动取消：安静地保持现状，不弹错误
+            if (error instanceof ParseCancelledError) {
+                vscode.window.setStatusBarMessage('PL/SQL 大纲解析已取消', 3000);
+                return;
+            }
             const errorMessage = error instanceof Error ? error.message : '未知错误';
             vscode.window.showErrorMessage(`解析失败: ${errorMessage}`);
-            
+
             // 记录错误
             this.debugManager.outputDebug(`解析失败: ${errorMessage}`, LogLevel.ERROR);
-            
+
             // 错误时也要清理内存
             await this.performMemoryCleanup();
         }
