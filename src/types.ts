@@ -61,17 +61,6 @@ export enum StructureBlockType {
 }
 
 /**
- * 分区类型（用于树视图分组）
- */
-export enum SectionType {
-    DECLARE = 'DECLARE',
-    SUBPROGRAM = 'SUBPROGRAM',
-    BODY = 'BODY',
-    EXCEPTION = 'EXCEPTION',
-    END = 'END'
-}
-
-/**
  * 解析节点接口
  */
 export interface ParseNode {
@@ -122,40 +111,11 @@ export interface ParseResult {
 }
 
 /**
- * 文件类型枚举
- */
-export enum FileType {
-    STANDALONE_FUNCTION = 'standalone_function',
-    STANDALONE_PROCEDURE = 'standalone_procedure',
-    PACKAGE_HEADER = 'package_header',
-    PACKAGE_BODY = 'package_body',
-    TRIGGER = 'trigger',
-    ANONYMOUS_BLOCK = 'anonymous_block',
-    UNKNOWN = 'unknown'
-}
-
-/**
- * 安全配置
- */
-export interface SafetyConfig {
-    maxLines: number;
-    maxNestingDepth: number;
-    maxParseTime: number;
-    maxBeginEndCounter: number;
-    maxStackDepth: number;
-    maxIterations: number;
-    progressCheckInterval: number;
-}
-
-/**
  * 调试配置
  */
 export interface DebugConfig {
     enabled: boolean;
-    outputPath: string;
     logLevel: 'ERROR' | 'WARN' | 'INFO' | 'DEBUG';
-    keepFiles: boolean;
-    maxFiles: number;
 }
 
 /**
@@ -169,45 +129,6 @@ export enum LogLevel {
 }
 
 /**
- * 解析状态
- */
-export enum ParseState {
-    INITIAL = 'initial',
-    PACKAGE_START = 'package_start',
-    READING_DECLARATIONS = 'reading_declarations',
-    FUNCTION_PROCEDURE_START = 'function_procedure_start',
-    READING_BODY = 'reading_body',
-    PACKAGE_END = 'package_end',
-    COMPLETED = 'completed'
-}
-
-/**
- * 关键字匹配模式
- */
-export interface KeywordPattern {
-    pattern: RegExp;
-    type: string;
-    captureGroups: string[];
-}
-
-/**
- * 解析上下文
- */
-export interface ParseContext {
-    currentLine: number;
-    totalLines: number;
-    currentLevel: number;
-    beginEndCounter: number;
-    nodeStack: ParseNode[];
-    currentActiveNode: ParseNode | null;
-    packageNode: ParseNode | null;
-    isPackageInitialization: boolean;
-    state: ParseState;
-    errors: ParseError[];
-    warnings: ParseError[];
-}
-
-/**
  * 树视图项数据
  */
 export interface TreeItemData {
@@ -216,12 +137,8 @@ export interface TreeItemData {
     isStructureBlock: boolean;
     label: string;
     line?: number;
-    // 分区分组（旧：DECLARE/SUBPROGRAM/BODY/EXCEPTION/END，保留以兼容）
-    isSection?: boolean;
-    sectionType?: SectionType;
-    sectionChildren?: ParseNode[];
     mergedChildren?: ParseNode[];  // IF合并后的子节点
-    parentNode?: ParseNode;        // 分区/分组节点的父引用
+    parentNode?: ParseNode;        // 分组节点的父引用
     // 声明项分组（Declaration 区域内按类别分组：Variables/Cursors/Constants/Types/Exceptions）
     isDeclarationGroup?: boolean;
     declarationCategory?: DeclarationCategory;

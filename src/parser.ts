@@ -2,15 +2,36 @@ import {
     ParseResult,
     ParseNode,
     NodeType,
-    FileType,
-    ParseContext,
-    ParseState,
     ParseError,
-    SafetyConfig,
     VariableInfo,
     DeclarationCategory
 } from './types';
-import { KeywordPatterns } from './patterns';
+
+/**
+ * 关键字匹配模式（模块级常量，单一事实源；仅保留解析器实际使用的成员）。
+ * 注意：与 parser 的行级判定逻辑强耦合（如 END 语句接受 [;/] 结尾、
+ * 类型声明含 RECORD/TABLE OF 变体），修改前先读 .ai/parser-playbook.md。
+ */
+const PATTERNS = {
+    // ====== 声明判定（顺序敏感：常量先于变量）======
+    VARIABLE_DECLARATION: /^\s*(\w+)\s+([\w\.%]+(?:\([^)]*\))?)\s*(?::=\s*.+?|DEFAULT\s+.+?)?;\s*$/i,
+    CONSTANT_DECLARATION: /^\s*(\w+)\s+CONSTANT\s+([\w\.%]+(?:\([^)]*\))?(?:\s+NOT\s+NULL)?)\s*(?::=\s*(.+?)|DEFAULT\s+(.+?))?;\s*$/i,
+    TYPE_DECLARATION: /^\s*(?:TYPE\s+)?(\w+)\s+IS\s+(RECORD|TABLE\s+OF|VARRAY|REF\s+CURSOR|OBJECT)\b/i,
+    CURSOR_DECLARATION: /^\s*CURSOR\s+(\w+)\s*(?:\((?:[^()]|\([^()]*\))*\))?\s*(?:RETURN\s+[\w$#\.]+(?:\s*%\w+)?)?\s*IS\b/i,
+    EXCEPTION_DECLARATION: /^\s*(\w+)\s+EXCEPTION\s*;\s*$/i,
+    // ====== 控制结构 ======
+    IF_START: /^\s*IF\s+(.+?)\s+THEN\s*$/i,
+    ELSIF_START: /^\s*ELSIF\s+(.+?)\s+THEN\s*$/i,
+    ELSE_START: /^\s*ELSE\s*$/i,
+    BASIC_LOOP_START: /^\s*LOOP\s*$/i,
+    WHILE_LOOP_START: /^\s*WHILE\s+(.+?)\s+LOOP\s*$/i,
+    FOR_LOOP_START: /^\s*FOR\s+(\w+)\s+IN\s+(.+?)\s+LOOP\s*$/i,
+    CASE_START: /^\s*CASE\s*(.*?)\s*$/i,
+    WHEN_START: /^\s*WHEN\s+(.+?)\s+THEN\s*$/i,
+    END_IF: /^\s*END\s+IF\s*;\s*$/i,
+    END_LOOP: /^\s*END\s+LOOP\s*(?:\s+\w+)?\s*;\s*$/i,
+    END_CASE: /^\s*END\s+CASE\s*;\s*$/i
+} as const;
 
 /**
  * PL/SQL解析器 - 基于handler架构的内存优化版本
@@ -505,7 +526,7 @@ export class PLSQLParser {
         if (!/^\s*CURSOR\s+\w+\s*\(/i.test(startLine)) {
             return null;
         }
-        if (KeywordPatterns.CURSOR_DECLARATION.test(startLine)) {
+        if (PATTERNS.CURSOR_DECLARATION.test(startLine)) {
             return null;
         }
 
@@ -518,7 +539,7 @@ export class PLSQLParser {
                 return null;
             }
 
-            if (KeywordPatterns.CURSOR_DECLARATION.test(combinedLine)) {
+            if (PATTERNS.CURSOR_DECLARATION.test(combinedLine)) {
                 return {
                     combinedText: combinedLine,
                     endIndex: startIndex + i
@@ -1046,25 +1067,25 @@ export class PLSQLParser {
      */
     private parseControlStructures(line: string, lineNumber: number): boolean {
         // END IF
-        if (KeywordPatterns.END_IF.test(line)) {
+        if (PATTERNS.END_IF.test(line)) {
             this.popControlStack(lineNumber, 'IF');
             return true;
         }
 
         // END LOOP
-        if (KeywordPatterns.END_LOOP.test(line)) {
+        if (PATTERNS.END_LOOP.test(line)) {
             this.popControlStack(lineNumber, 'LOOP');
             return true;
         }
 
         // END CASE
-        if (KeywordPatterns.END_CASE.test(line)) {
+        if (PATTERNS.END_CASE.test(line)) {
             this.popControlStack(lineNumber, 'CASE');
             return true;
         }
 
         // ELSIF
-        const elsifMatch = line.match(KeywordPatterns.ELSIF_START);
+        const elsifMatch = line.match(PATTERNS.ELSIF_START);
         if (elsifMatch) {
             this.handleElsifBranch(elsifMatch[1], lineNumber);
             return true;
@@ -1074,7 +1095,7 @@ export class PLSQLParser {
         // Issue #3 修复：CASE 的 ELSE 原先误走 IF 分支被压入 controlStack，
         // 而 popControlStack('CASE') 不接受 ELSE_BRANCH，END CASE 弹不出栈，
         // 残留栈帧会把后续同级控制结构（WHILE、异常区 IF 等）挂到 ELSE 分支下。
-        if (KeywordPatterns.ELSE_START.test(line)) {
+        if (PATTERNS.ELSE_START.test(line)) {
             const top = this.controlStack[this.controlStack.length - 1];
             if (top && top.type === NodeType.CASE_STATEMENT) {
                 this.handleCaseElseBranch(lineNumber);
@@ -1085,21 +1106,21 @@ export class PLSQLParser {
         }
 
         // IF START
-        const ifMatch = line.match(KeywordPatterns.IF_START);
+        const ifMatch = line.match(PATTERNS.IF_START);
         if (ifMatch) {
             this.pushControlNode(NodeType.IF_STATEMENT, 'IF', ifMatch[1], lineNumber);
             return true;
         }
 
         // WHILE LOOP
-        const whileMatch = line.match(KeywordPatterns.WHILE_LOOP_START);
+        const whileMatch = line.match(PATTERNS.WHILE_LOOP_START);
         if (whileMatch) {
             this.pushControlNode(NodeType.WHILE_LOOP, 'WHILE', whileMatch[1], lineNumber);
             return true;
         }
 
         // FOR LOOP (单行: FOR x IN ... LOOP)
-        const forMatch = line.match(KeywordPatterns.FOR_LOOP_START);
+        const forMatch = line.match(PATTERNS.FOR_LOOP_START);
         if (forMatch) {
             const conditionText = `${forMatch[1]} IN ${forMatch[2]}`;
             this.pushControlNode(NodeType.FOR_LOOP, 'FOR', conditionText, lineNumber);
@@ -1116,13 +1137,13 @@ export class PLSQLParser {
         }
 
         // BASIC LOOP
-        if (KeywordPatterns.BASIC_LOOP_START.test(line)) {
+        if (PATTERNS.BASIC_LOOP_START.test(line)) {
             this.pushControlNode(NodeType.LOOP_STATEMENT, 'LOOP', '', lineNumber);
             return true;
         }
 
         // CASE
-        const caseMatch = line.match(KeywordPatterns.CASE_START);
+        const caseMatch = line.match(PATTERNS.CASE_START);
         if (caseMatch && caseMatch[0].trim().toUpperCase() !== 'CASE') {
             // CASE with expression
             this.pushControlNode(NodeType.CASE_STATEMENT, 'CASE', caseMatch[1] || '', lineNumber);
@@ -1136,7 +1157,7 @@ export class PLSQLParser {
         }
 
         // WHEN（仅在CASE上下文中）
-        const whenMatch = line.match(KeywordPatterns.WHEN_START);
+        const whenMatch = line.match(PATTERNS.WHEN_START);
         if (whenMatch && this.isInCaseContext()) {
             this.handleWhenBranch(whenMatch[1], lineNumber);
             return true;
@@ -1370,7 +1391,7 @@ export class PLSQLParser {
     }
 
     private checkAndRecordConstantDeclaration(line: string, lineNumber: number): void {
-        const constMatch = line.match(KeywordPatterns.CONSTANT_DECLARATION);
+        const constMatch = line.match(PATTERNS.CONSTANT_DECLARATION);
         if (constMatch && this.currentActiveNode) {
             const table = this.ensureVariableTable();
             if (!table) { return; }
@@ -1393,7 +1414,7 @@ export class PLSQLParser {
         // 注意：VARIABLE_DECLARATION 正则要求行尾以 ';' 结尾，因此此处直接使用原始行（仅去除首尾空白），
         // 不再预先剥离 ';'。
         const cleanLine = line.trim();
-        const varMatch = cleanLine.match(KeywordPatterns.VARIABLE_DECLARATION);
+        const varMatch = cleanLine.match(PATTERNS.VARIABLE_DECLARATION);
         if (varMatch && this.currentActiveNode) {
             // 排除保留关键字：避免 PRAGMA EXCEPTION_INIT(...);、END IF; 等被误判为变量声明
             if (this.isReservedWord(varMatch[1])) {
@@ -1425,7 +1446,7 @@ export class PLSQLParser {
     }
 
     private checkAndRecordTypeDeclaration(line: string, lineNumber: number): void {
-        const typeMatch = line.match(KeywordPatterns.TYPE_DECLARATION);
+        const typeMatch = line.match(PATTERNS.TYPE_DECLARATION);
         if (typeMatch && this.currentActiveNode) {
             const table = this.ensureVariableTable();
             if (!table) { return; }
@@ -1452,7 +1473,7 @@ export class PLSQLParser {
     }
 
     private checkAndRecordCursorDeclaration(line: string, lineNumber: number): void {
-        const cursorMatch = line.match(KeywordPatterns.CURSOR_DECLARATION);
+        const cursorMatch = line.match(PATTERNS.CURSOR_DECLARATION);
         if (cursorMatch && this.currentActiveNode) {
             const table = this.ensureVariableTable();
             if (!table) { return; }
@@ -1468,7 +1489,7 @@ export class PLSQLParser {
     }
 
     private checkAndRecordExceptionDeclaration(line: string, lineNumber: number): void {
-        const exceptionMatch = line.match(KeywordPatterns.EXCEPTION_DECLARATION);
+        const exceptionMatch = line.match(PATTERNS.EXCEPTION_DECLARATION);
         if (exceptionMatch && this.currentActiveNode) {
             const table = this.ensureVariableTable();
             if (!table) { return; }

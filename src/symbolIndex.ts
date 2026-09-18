@@ -33,6 +33,8 @@ export class SymbolIndex {
     private lastBuildTime: number = 0;
     private fileCount: number = 0;
     private watchers: vscode.FileSystemWatcher[] = [];
+    // 尚未触发的防抖更新定时器（dispose 时统一清理）
+    private debounceTimers: Set<NodeJS.Timeout> | null = null;
     private parser: PLSQLParser;
     private building: boolean = false;
     private outputChannel: vscode.OutputChannel;
@@ -239,10 +241,14 @@ export class SymbolIndex {
 
             const watcher = vscode.workspace.createFileSystemWatcher(globPattern);
 
-            let debounceTimer: NodeJS.Timeout | undefined;
+            const timers: Set<NodeJS.Timeout> = this.debounceTimers ?? new Set();
+            this.debounceTimers = timers;
             const debounceUpdate = (uri: vscode.Uri) => {
-                if (debounceTimer) clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => this.updateFile(uri.fsPath), 500);
+                const timer = setTimeout(() => {
+                    timers.delete(timer);
+                    this.updateFile(uri.fsPath);
+                }, 500);
+                timers.add(timer);
             };
 
             watcher.onDidCreate(debounceUpdate);
@@ -265,6 +271,15 @@ export class SymbolIndex {
             watcher.dispose();
         }
         this.watchers = [];
+        this.disposeDebounceTimers();
+    }
+
+    /** 清理尚未触发的防抖更新定时器（dispose 后不应再触发索引更新） */
+    private disposeDebounceTimers(): void {
+        if (this.debounceTimers) {
+            for (const t of this.debounceTimers) clearTimeout(t);
+            this.debounceTimers = null;
+        }
     }
 
     /**

@@ -1,19 +1,20 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { PLSQLParser } from './parser';
-import { TreeViewManager } from './treeView';
-import { DataBridge, DataProviderFactory } from './debug';
-import { ParseResult, ParseNode, VariableInfo, NodeType } from './types';
+import { TreeViewManager, MemoryDataProvider } from './treeView';
+import { DebugManager } from './debug';
+import { ParseResult, ParseNode, VariableInfo, NodeType, LogLevel } from './types';
 import { SettingsPanel } from './settingsPanel';
 import { SymbolIndex, SymbolEntry, PathConfig } from './symbolIndex';
+import { getOutputChannel, disposeOutputChannel } from './logger';
+import { DEFAULT_FILE_EXTENSIONS, isCallableNode } from './shared';
 
 /**
  * PL/SQL大纲扩展主类 - 内存优化版本
  */
 export class PLSQLOutlineExtension {
     private treeViewManager: TreeViewManager;
-    private dataBridge: DataBridge;
-    private dataProviderFactory: DataProviderFactory;
+    private debugManager: DebugManager;
     private currentParseResult: ParseResult | null = null;
 
     // 跨文件符号索引
@@ -71,15 +72,11 @@ export class PLSQLOutlineExtension {
 
     constructor(context: vscode.ExtensionContext) {
         this.treeViewManager = new TreeViewManager(context);
-        this.dataBridge = new DataBridge();
-        this.dataProviderFactory = new DataProviderFactory(
-            this.dataBridge.getDebugManager(),
-            this.dataBridge.getLogger()
-        );
+        this.debugManager = new DebugManager();
         this.refreshDebugCache();
 
-        // 初始化符号索引
-        this.outputChannel = vscode.window.createOutputChannel('PL/SQL Outline');
+        // 初始化符号索引（共享全局唯一输出通道）
+        this.outputChannel = getOutputChannel();
         this.symbolIndex = new SymbolIndex(this.outputChannel);
 
         this.registerCommands(context);
@@ -102,7 +99,7 @@ export class PLSQLOutlineExtension {
         // 切换调试模式命令
         const toggleDebugModeCommand = vscode.commands.registerCommand(
             'plsqlOutline.toggleDebugMode',
-            () => this.dataBridge.getDebugManager().toggleDebugMode()
+            () => this.debugManager.toggleDebugMode()
         );
 
         // 显示解析统计命令
@@ -267,15 +264,14 @@ export class PLSQLOutlineExtension {
                 
                 progress.report({ increment: 60, message: '处理结果...' });
                 
-                // 通过数据桥接器处理结果
-                this.currentParseResult = await this.dataBridge.processParseResult(parseResult, sourceFile);
+                this.currentParseResult = parseResult;
+                this.debugManager.logParseResult(parseResult, sourceFile);
                 this.lastParsedKey = { uri: document.uri.toString(), version: document.version };
                 
                 progress.report({ increment: 80, message: '更新视图...' });
                 
                 // 更新树视图
-                const dataProvider = this.dataProviderFactory.createDataProvider(this.currentParseResult);
-                this.treeViewManager.updateDataProvider(dataProvider);
+                this.treeViewManager.updateDataProvider(new MemoryDataProvider(this.currentParseResult));
                 
                 // 更新树视图标题
                 const fileName = this.getFileName(sourceFile);
@@ -292,7 +288,7 @@ export class PLSQLOutlineExtension {
             vscode.window.showErrorMessage(`解析失败: ${errorMessage}`);
             
             // 记录错误
-            await this.dataBridge.getLogger().error(`解析失败: ${errorMessage}`);
+            this.debugManager.outputDebug(`解析失败: ${errorMessage}`, LogLevel.ERROR);
             
             // 错误时也要清理内存
             await this.performMemoryCleanup();
@@ -345,12 +341,12 @@ export class PLSQLOutlineExtension {
                     .get('parsing.maxNestingDepth', 15)
             });
 
-            this.currentParseResult = await this.dataBridge.processParseResult(parseResult, document.fileName);
+            this.currentParseResult = parseResult;
+            this.debugManager.logParseResult(parseResult, document.fileName);
             this.lastParsedKey = { uri: document.uri.toString(), version: document.version };
 
             // 同步大纲视图（树与未保存编辑保持一致）
-            const dataProvider = this.dataProviderFactory.createDataProvider(this.currentParseResult);
-            this.treeViewManager.updateDataProvider(dataProvider);
+            this.treeViewManager.updateDataProvider(new MemoryDataProvider(this.currentParseResult));
         })();
         this.quietParseInFlight = task;
         try {
@@ -554,7 +550,7 @@ export class PLSQLOutlineExtension {
                 }
             } else if (!packageName) {
                 // 检查当前节点
-                if (this.isCallableNode(node) && node.name.toUpperCase() === upperName) {
+                if (isCallableNode(node) && node.name.toUpperCase() === upperName) {
                     return node;
                 }
                 // 搜索 Package Body/Header 内的子方法（同包内不带前缀调用）
@@ -578,7 +574,7 @@ export class PLSQLOutlineExtension {
     private findProcFuncInChildren(children: ParseNode[], upperName: string): ParseNode | null {
         for (const child of children) {
             // 当前子节点匹配
-            if (this.isCallableNode(child) && child.name.toUpperCase() === upperName) {
+            if (isCallableNode(child) && child.name.toUpperCase() === upperName) {
                 return child;
             }
             // 递归进入下一层（嵌套子程序）
@@ -588,16 +584,6 @@ export class PLSQLOutlineExtension {
             }
         }
         return null;
-    }
-
-    /**
-     * 判断节点是否为可调用类型
-     */
-    private isCallableNode(node: ParseNode): boolean {
-        return node.type === NodeType.FUNCTION ||
-            node.type === NodeType.PROCEDURE ||
-            node.type === NodeType.FUNCTION_DECLARATION ||
-            node.type === NodeType.PROCEDURE_DECLARATION;
     }
 
     /**
@@ -668,7 +654,7 @@ export class PLSQLOutlineExtension {
 
         // 后台构建/刷新索引
         const fileExtensions = config.get<string[]>('codeRepository.fileExtensions',
-            ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.typ']);
+            [...DEFAULT_FILE_EXTENSIONS]);
         const maxFiles = config.get<number>('codeRepository.maxFiles', 5000);
 
         setTimeout(async () => {
@@ -697,7 +683,7 @@ export class PLSQLOutlineExtension {
         }
 
         const fileExtensions = config.get<string[]>('codeRepository.fileExtensions',
-            ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.typ']);
+            [...DEFAULT_FILE_EXTENSIONS]);
         const maxFiles = config.get<number>('codeRepository.maxFiles', 5000);
 
         await vscode.window.withProgress({
@@ -798,7 +784,7 @@ export class PLSQLOutlineExtension {
             this.refreshDebugCache();
 
             // 刷新数据桥接器配置
-            this.dataBridge.refreshConfig();
+            this.debugManager.refreshConfig();
             
             // 刷新树视图
             this.treeViewManager.refresh();
@@ -1089,7 +1075,7 @@ export class PLSQLOutlineExtension {
         
         // 从配置中获取支持的文件扩展名
         const config = vscode.workspace.getConfiguration('plsql-outline');
-        const configuredExtensions = config.get<string[]>('fileExtensions', ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.typ']);
+        const configuredExtensions = config.get<string[]>('fileExtensions', [...DEFAULT_FILE_EXTENSIONS]);
         
         // 检查文件扩展名
         return configuredExtensions.some(ext => fileName.endsWith(ext.toLowerCase()));
@@ -1193,13 +1179,6 @@ export class PLSQLOutlineExtension {
     }
 
     /**
-     * 获取数据桥接器
-     */
-    getDataBridge(): DataBridge {
-        return this.dataBridge;
-    }
-
-    /**
      * 开始内存监控
      */
     private startMemoryMonitoring(): void {
@@ -1295,7 +1274,7 @@ export class PLSQLOutlineExtension {
         
         // 销毁符号索引
         this.symbolIndex.dispose();
-        this.outputChannel.dispose();
+        disposeOutputChannel();
         
         // 销毁树视图
         this.treeViewManager.dispose();
