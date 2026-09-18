@@ -22,7 +22,8 @@ const suites = [
     require('./top_level_anon_test'),
     require('./anon_subfunc_definition_test'),
     require('./inline_anon_subprogram_test'),
-    require('./inline_anon_visible_test')
+    require('./inline_anon_visible_test'),
+    require('./concurrent_parse_isolation_test')
 ];
 
 function escapeHtml(s) {

@@ -11,7 +11,6 @@ import { SymbolIndex, SymbolEntry, PathConfig } from './symbolIndex';
  * PL/SQL大纲扩展主类 - 内存优化版本
  */
 export class PLSQLOutlineExtension {
-    private parser: PLSQLParser;
     private treeViewManager: TreeViewManager;
     private dataBridge: DataBridge;
     private dataProviderFactory: DataProviderFactory;
@@ -71,7 +70,6 @@ export class PLSQLOutlineExtension {
     }
 
     constructor(context: vscode.ExtensionContext) {
-        this.parser = new PLSQLParser();
         this.treeViewManager = new TreeViewManager(context);
         this.dataBridge = new DataBridge();
         this.dataProviderFactory = new DataProviderFactory(
@@ -259,7 +257,10 @@ export class PLSQLOutlineExtension {
                     this.currentParseResult = null;
                 }
                 
-                const parseResult = await this.parser.parse(content, sourceFile, {
+                // PLSQLParser 持有每次解析的可变状态且不可重入：并发解析（切换文件时
+                // parseCurrentFile 与 parseDocumentQuiet 交叠）共享实例会互相污染状态，
+                // 产生成员丢失/杂交树（Issue #15）。每次解析必须使用独立实例。
+                const parseResult = await new PLSQLParser().parse(content, sourceFile, {
                     maxNestingDepth: vscode.workspace.getConfiguration('plsql-outline')
                         .get('parsing.maxNestingDepth', 15)
                 });
@@ -338,7 +339,8 @@ export class PLSQLOutlineExtension {
                 this.parseCount = 0;
             }
 
-            const parseResult = await this.parser.parse(content, document.fileName, {
+            // 同上：每次解析独立实例，避免与 parseCurrentFile 并发时互相污染（Issue #15）
+            const parseResult = await new PLSQLParser().parse(content, document.fileName, {
                 maxNestingDepth: vscode.workspace.getConfiguration('plsql-outline')
                     .get('parsing.maxNestingDepth', 15)
             });
