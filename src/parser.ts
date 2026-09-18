@@ -618,6 +618,17 @@ export class PLSQLParser {
             return;
         }
 
+        // 顶层裸 BEGIN 匿名块（无 DECLARE，Issue #5）：脚本文件中常见的块形式。
+        // 仅在无"未闭合"活动节点时创建节点——单元（包体/过程）END 之后
+        // currentActiveNode 仍指向已关闭单元，此时顶层 BEGIN 属于新匿名块；
+        // 方法体内的内联裸 BEGIN 仍走原计数路径，不产生匿名块节点。
+        const hasOpenUnit = this.currentActiveNode != null && this.currentActiveNode.endLine == null;
+        if (!hasOpenUnit && this.isBeginStatement(line)) {
+            this.startAnonymousBlock(lineNumber);
+            await this.handleBeginStatement(lineNumber);
+            return;
+        }
+
         // 如果没有当前活动节点，跳过后续处理
         if (!this.currentActiveNode) {
             return;
@@ -778,7 +789,11 @@ export class PLSQLParser {
      */
     private async handleBeginStatement(lineNumber: number): Promise<void> {
         // 检查是否为包体初始化段
-        if (this.currentLevel === 1 && this.packageNode && !this.packageInitFlag) {
+        // Issue #5：包体已 END（endLine 已置位）后跟随的顶层裸 BEGIN 属于
+        // 新的匿名块，不能误判为包初始化段
+        if (this.currentLevel === 1 && this.packageNode && !this.packageInitFlag
+            && this.packageNode.endLine == null
+            && this.currentActiveNode && this.currentActiveNode.type !== NodeType.ANONYMOUS_BLOCK) {
             this.packageInitFlag = true;
             this.packageNode.beginLine = lineNumber;
             this.beginEndCounter = 1;
@@ -818,7 +833,10 @@ export class PLSQLParser {
         // Package 顶层 END: currentLevel===1 表示在 Package 节点本身，
         // nodeStack 为空表示没有未闭合的子程序。
         // 此分支覆盖无初始化块的 Package Body 场景。
-        if (this.currentLevel === 1 && this.nodeStack.length === 0 && this.packageNode) {
+        // Issue #5：包体已闭合后（其后跟随顶层匿名块时），匿名块的 END
+        // 不能再次进入此分支覆盖包体 endLine。
+        if (this.currentLevel === 1 && this.nodeStack.length === 0 && this.packageNode
+            && this.packageNode.endLine == null) {
             this.packageNode.endLine = lineNumber;
             this.beginEndCounter = 0;
             this.currentActiveNode = this.packageNode;
@@ -872,6 +890,20 @@ export class PLSQLParser {
      * 供 handleEndStatement 精确识别匿名块的 END。
      */
     private handleDeclareStatement(lineNumber: number): void {
+        this.startAnonymousBlock(lineNumber);
+    }
+
+    /**
+     * 创建并激活一个匿名块节点（DECLARE 引导与顶层裸 BEGIN 共用，Issue #5）
+     *
+     * 宿主规则：当前活动节点"未闭合"（endLine 为空）时才作为其子节点——
+     * 覆盖方法体内联 DECLARE 块（v1.6.2 场景）；单元（包体/过程）已 END
+     * 之后跟随的匿名块作为根节点，不再误挂为已关闭单元的子节点。
+     *
+     * 水位机制（BUG-D）：记录创建时的 beginEndCounter，匿名块的 BEGIN 使
+     * bec+1，其 END 使 bec 回到水位即闭合。
+     */
+    private startAnonymousBlock(lineNumber: number): void {
         const anonBlockNode: ParseNode = {
             type: NodeType.ANONYMOUS_BLOCK,
             name: 'Anonymous Block',
@@ -882,7 +914,7 @@ export class PLSQLParser {
 
         anonBlockNode.variableTable = new Map<string, VariableInfo>();
 
-        if (this.currentActiveNode) {
+        if (this.currentActiveNode && this.currentActiveNode.endLine == null) {
             anonBlockNode.level = this.currentActiveNode.level + 1;
             this.currentActiveNode.children.push(anonBlockNode);
             this.nodeStack.push(this.currentActiveNode);
