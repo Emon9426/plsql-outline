@@ -4,6 +4,11 @@
   <img src="res/Icon.png" width="90" align="right" alt="PL/SQL Outline 图标">
 </p>
 
+[![Version](https://img.shields.io/visual-studio-marketplace/v/EmonZhang3438.plsql-outline)](https://marketplace.visualstudio.com/items?itemName=EmonZhang3438.plsql-outline)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/EmonZhang3438.plsql-outline)](https://marketplace.visualstudio.com/items?itemName=EmonZhang3438.plsql-outline)
+[![Rating](https://img.shields.io/visual-studio-marketplace/r/EmonZhang3438.plsql-outline)](https://marketplace.visualstudio.com/items?itemName=EmonZhang3438.plsql-outline)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **让 VS Code 拥有像 PL/SQL Developer 一样专业的大纲视图。**
 
 打开任意 PL/SQL 文件，扩展会把代码结构解析成一棵可点击的树：包、子程序、变量、游标、IF/LOOP/CASE 控制结构一目了然。点击节点跳转、Ctrl+点击跨文件跳转声明、万行大文件毫秒级解析。
@@ -22,6 +27,7 @@
 - [支持的文件类型](#-支持的文件类型)
 - [常见问题](#-常见问题)
 - [参与开发](#-参与开发)
+- [反馈与联系](#-反馈与联系)
 - [English](#english)
 
 ## ✨ 功能特性
@@ -73,7 +79,7 @@ hr_salary_pkg (Package Body)
 
   ![解析统计](res/screenshots/parse-stats.png)
 
-- **可视化设置面板**：不用翻 settings.json，页面上直接改解析、视图选项
+- **可视化设置面板**：不用翻 settings.json，页面上直接改解析、视图、代码仓库选项，支持搜索、分组重置与配置导入/导出
 
   ![设置面板](res/screenshots/settings-panel.png)
 
@@ -83,9 +89,10 @@ hr_salary_pkg (Package Body)
 
 ### ⚡ 性能
 
-- 13,000+ 行复杂多层嵌套代码在 ~60ms 内解析完成
+- 万行文件毫秒级解析（10,000 行约 20–65ms，13,000+ 行复杂嵌套 ~60ms）
 - 字符级状态机剥离器，正确处理 `q'[...]'`（Q-quote）字符串、跨行字符串、字符串内的注释标记——动态 SQL 再也不会把大纲"炸塌"
-- 内存优化模式 + LRU 缓存，万行文件不卡顿
+- 按需让出主线程 + 解析可取消：大文件解析期间界面保持响应，随时可以中断
+- 33 文件 / 14 万行结构化测试语料保障解析正确性
 
 ## 📦 安装
 
@@ -95,13 +102,15 @@ hr_salary_pkg (Package Body)
 2. 搜索 **PL/SQL Outline**（发布者 EmonZhang3438）
 3. 点击"安装"
 
+或直接访问 [VS Code Marketplace 页面](https://marketplace.visualstudio.com/items?itemName=EmonZhang3438.plsql-outline)。
+
 **方式二：VSIX 文件**
 
 ```bash
 code --install-extension plsql-outline-<版本>.vsix
 ```
 
-或在 VS Code 里：命令面板（`Ctrl+Shift+P`）→ `Extensions: Install from VSIX...` → 选择仓库根目录下的 vsix 文件。
+或在 VS Code 里：命令面板（`Ctrl+Shift+P`）→ `Extensions: Install from VSIX...` → 选择 vsix 文件。
 
 **方式三：从源码运行**（见[参与开发](#-参与开发)）
 
@@ -148,7 +157,7 @@ code --install-extension plsql-outline-<版本>.vsix
 
 ## ⚙️ 配置项
 
-在 VS Code 设置中搜索 `plsql-outline` 即可修改，或用扩展自带的[设置面板](res/screenshots/settings-panel.png)。
+在 VS Code 设置中搜索 `plsql-outline` 即可修改，推荐用扩展自带的可视化[设置面板](res/screenshots/settings-panel.png)（大纲工具栏 ⚙️ 按钮）。
 
 **解析**
 
@@ -156,11 +165,7 @@ code --install-extension plsql-outline-<版本>.vsix
 |--------|--------|------|
 | `parsing.autoParseOnSave` | `true` | 保存文件时自动重新解析 |
 | `parsing.autoParseOnSwitch` | `true` | 切换到 PL/SQL 文件时自动解析 |
-| `parsing.maxLines` | `10000` | 最大解析行数（1000–50000） |
-| `parsing.maxNestingDepth` | `15` | 最大嵌套深度（5–30） |
-| `parsing.maxParseTime` | `15000` | 最大解析时间，毫秒（5000–60000） |
-| `parsing.enableMemoryOptimization` | `true` | 内存优化模式 |
-| `parsing.maxFileSize` | `10` | 最大文件大小，MB（1–20） |
+| `parsing.maxNestingDepth` | `15` | 最大嵌套深度（5–30），深度保护防止异常嵌套 |
 
 **视图**
 
@@ -171,6 +176,12 @@ code --install-extension plsql-outline-<版本>.vsix
 | `view.autoSelectOnCursor` | `true` | 光标移动时自动选中对应大纲节点 |
 | `view.showDeclarations` | `true` | DECLARE 区显示声明项 |
 | `view.groupDeclarations` | `true` | 声明项按类别分组（关闭则平铺） |
+
+**文件类型**
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `fileExtensions` | `.sql .fnc .fcn .prc .pks .pkb .typ` | 参与解析的文件扩展名（用户级，跨工作区生效） |
 
 **代码仓库（跨文件跳转）**
 
@@ -185,7 +196,7 @@ code --install-extension plsql-outline-<版本>.vsix
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
-| `debug.enabled` | `false` | 启用调试模式（输出面板查看 `PL/SQL Outline Debug` 通道） |
+| `debug.enabled` | `false` | 启用调试日志（输出面板 `PL/SQL Outline` 通道） |
 | `debug.logLevel` | `INFO` | 日志级别：ERROR / WARN / INFO / DEBUG |
 
 ## 📁 支持的文件类型
@@ -207,11 +218,11 @@ code --install-extension plsql-outline-<版本>.vsix
 **Q：Ctrl+点击不能跨文件跳转？**
 跨文件跳转需要在设置中配置 `codeRepository.paths`（指向你的代码仓库根目录），扩展会自动建立符号索引。
 
-**Q：大文件解析慢或占用高？**
-调小 `parsing.maxLines` / `parsing.maxNestingDepth`，保持 `parsing.enableMemoryOptimization` 开启。
+**Q：超大文件解析慢？**
+解析过程可随时取消（进度通知上的"取消"按钮）；也可以调小 `parsing.maxNestingDepth` 减少深层解析。扩展对超过 10MB / 5 万行的文件有内置保护。
 
 **Q：怎么报告解析错误？**
-开启调试模式（`debug.enabled`），在输出面板选择 `PL/SQL Outline Debug` 通道查看详细日志，然后到 [GitHub Issues](https://github.com/Emon9426/plsql-outline/issues) 提交。
+开启调试日志（`debug.enabled`），在输出面板选择 `PL/SQL Outline` 通道查看详细日志，然后到 [GitHub Issues](https://github.com/Emon9426/plsql-outline/issues) 提交（见[反馈与联系](#-反馈与联系)）。
 
 ## 🛠️ 参与开发
 
@@ -219,11 +230,37 @@ code --install-extension plsql-outline-<版本>.vsix
 git clone https://github.com/Emon9426/plsql-outline.git
 cd plsql-outline
 npm install
-npm run compile    # 编译 TypeScript
+npm run compile         # 编译 TypeScript（所有测试依赖 out/ 产物）
+npm test                # 单元套件（tests/unit，333+ 断言）
+npm run test:corpus     # 33 文件 / 14 万行语料回归（解析层 + 显示层）
+npm run test:regression # 回归套件（tests/regression，11 个）
+npm run test:e2e        # 真实 VS Code 端到端测试
+npm run bench           # 解析性能基准
 # 在 VS Code 中按 F5 启动 Extension Development Host 调试
-npm test           # 运行 GMLTest 测试套件（HTML 报告输出到 GMLTest/）
-npm run package    # 打包 vsix
+npm run package         # 打包 vsix 到 release/ 目录
 ```
+
+测试体系与基线说明见 [`tests/`](tests/) 各子目录与 [`.ai/testing.md`](.ai/testing.md)。
+
+## 💬 反馈与联系
+
+欢迎提交问题与建议，两种方式任选：
+
+**1. GitHub Issues（推荐）**
+
+→ [github.com/Emon9426/plsql-outline/issues](https://github.com/Emon9426/plsql-outline/issues)
+
+解析错误、功能建议、文档问题都可以提。为保证快速定位，建议附上：
+
+- VS Code 版本与扩展版本
+- 能触发问题的**最小代码片段**（请去除业务敏感信息）
+- 期望的大纲结构 vs 实际显示
+
+**2. 邮件联系开发者**
+
+→ [emonzhang3438@outlook.com](mailto:emonzhang3438@outlook.com)
+
+适合：不方便公开的代码片段、使用咨询、合作交流。一般在 1–3 个工作日内回复。
 
 ## 📜 更新日志
 
@@ -242,9 +279,16 @@ npm run package    # 打包 vsix
 - Structure tree for packages (spec/body), procedures, functions, triggers and anonymous blocks, with nested sub-programs and control structures (IF/LOOP/CASE) indented by nesting level
 - Declaration items (variables, cursors, constants, types, named exceptions) grouped by category under `Declaration`
 - Click a node to jump to its line; `Ctrl+Click` an identifier in code to jump to its declaration — across files via configurable repository paths and a symbol index
-- Cursor ↔ outline two-way sync, expand-all, parse statistics, JSON export, visual settings panel, and manageable file-extension list
-- Fast: 13,000+ line files parse in ~60 ms; Q-quote strings handled by a character-level state machine
+- Cursor ↔ outline two-way sync, expand-all, parse statistics, JSON export, a visual settings panel, and a manageable file-extension list
+- Fast: 10,000-line files parse in ~20–65 ms; Q-quote strings handled by a character-level state machine; parsing is cancellable
 
-**Install**: search "PL/SQL Outline" in the VS Code marketplace, or `code --install-extension plsql-outline-<version>.vsix`.
+**Install**: search "PL/SQL Outline" in the VS Code marketplace, or from the [marketplace page](https://marketplace.visualstudio.com/items?itemName=EmonZhang3438.plsql-outline).
 
-**Quick start**: open a PL/SQL file, click the database icon in the activity bar, and the outline appears. See `docs/demo/` for sample code, [CHANGELOG.md](CHANGELOG.md) for release history, and the Chinese sections above for full documentation.
+**Quick start**: open a PL/SQL file, click the database icon in the activity bar, and the outline appears. See `docs/demo/` for sample code and [CHANGELOG.md](CHANGELOG.md) for release history.
+
+**Feedback & Contact**
+
+- GitHub Issues: [github.com/Emon9426/plsql-outline/issues](https://github.com/Emon9426/plsql-outline/issues) — please include your VS Code / extension versions, a minimal code snippet, and the expected vs. actual outline
+- Email the developer: [emonzhang3438@outlook.com](mailto:emonzhang3438@outlook.com)
+
+License: [MIT](LICENSE).

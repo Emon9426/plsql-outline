@@ -3,6 +3,21 @@
 本文件记录 PL/SQL Outline 各版本的变化。完整的版本发布信息也可在
 [GitHub Releases](https://github.com/Emon9426/plsql-outline/releases) 查看。
 
+## v1.8.0 (2026-09-18)
+
+稳定性、效率与工程质量的整体重构轮。
+
+- 🔴 **内联匿名块 currentLevel 泄漏修复（ZCodeTest 语料发现缺陷①）**：`startAnonymousBlock` 抬升的层级在匿名块闭合时不恢复、`unitStateStack` 帧也不保存层级——包体内每个含内联 `DECLARE..END;` 的成员永久泄漏 +1 层级，累积约 13 个成员即触发"嵌套深度超过限制"使整文件解析为 0 节点。现在匿名块闭合按宿主层级恢复、帧补存/恢复 `currentLevel`；**ZCodeTest 基线 31/33 → 33/33**
+- ⚡ **解析性能与可取消**：让步策略从"每 50 行强制 setImmediate"改为按耗时（≥8ms）——中小文件单轮完成、大文件保持 UI 响应；删除恒等 stringCache（纯开销）；解析支持取消令牌，进度通知可随时中断（`ParseCancelledError` 不再误报为解析错误）；新增 `tests/bench.js` 基准
+- ⚙️ **设置体系重构**：删除 7 个从未被程序读取的无效设置（`parsing.maxLines/maxParseTime/maxFileSize/enableMemoryOptimization`、`debug.outputPath/keepFiles/maxFiles`）；新增 `src/settingsSchema.ts` 单一事实源，设置页由 schema 生成，新增一致性测试锁定与 package.json 无漂移（修复旧页范围文案矛盾、缺漏新设置、暴露废弃设置三项问题）；写入作用域统一（解析/视图/调试→工作区优先，文件类型/代码仓库→用户级）
+- 🎨 **设置页商务化重设计**：卡片分组（解析/视图/文件类型/代码仓库/调试）、搜索过滤、开关/标签编辑器/仓库路径行、范围与默认值提示、未保存指示与吸底操作栏、分组重置、配置导入/导出、内联 SVG 图标与 CSP nonce，纯 VS Code CSS 变量适配深浅色；补齐 `autoSelectOnCursor`/`showDeclarations`/`groupDeclarations`/`codeRepository.*` 全部缺失项
+- 🎨 **封面图标重绘**：数据库 + 大纲层级线商务渐变风格（`res/Icon.svg` 设计源 + 1024×1024 PNG）
+- 🧹 **架构清理**：删除 patterns.ts（25/40 成员死代码，16 个在用正则并入 parser 模块常量）、debug 层 DataBridge/工厂仪式层、types.ts 6 个死类型、重复 `getNodeTypeDisplayName`；4 个重复输出通道收敛为 `logger.ts` 单通道；新增 `shared.ts` 收敛 8 处重复判定/常量；修复设置变更双重刷新与 symbolIndex 防抖定时器泄漏
+- 🗂️ **目录重构**：测试统一到 `tests/{unit,regression,corpus,e2e}`（原 GMLTest/ZCodeTest/test 三棵树）；删除 14 篇历史调查报告等临时文件；41 个 vsix（约 46MB）停止 git 跟踪（历史版本走 GitHub Releases，`npm run package` 输出到 `release/`）；Design/ 并入 docs/design/
+- 📦 **打包泄漏修复**：`.vscodeignore` 重写，排除 tests/ 语料与生成报告（v1.7.3 曾把调查截图打进安装包），并加 `tmp*/temp*` 防护；README 截图保留在包内（marketplace 渲染需要）
+- 📖 **AI 知识库统一**：新增 `.ai/`（项目/解析器手册/测试/工作流/产品说明），AGENTS.md 为入口、CLAUDE.md 与 copilot-instructions 同源；README 重写（badges、marketplace 直链、反馈与联系：GitHub Issues + emonzhang3438@outlook.com）
+- 🧪 单元 333/333（新增 inline_anon_level 9 断言、cancellation 3 断言、settings_schema 8 断言）；corpus validate 33/33、render-validate 33 OK；回归 11/11；双 E2E 通过
+
 ## v1.7.3 (2026-09-18)
 
 - 🔴 **并发解析互相污染修复（#15，实机 APPLY_PREMIUM.pkb 1.19MiB 场景）**：扩展层此前全局共享一个 PLSQLParser 实例，`parseCurrentFile` 与 `parseDocumentQuiet`（光标同步/悬停/跳转触发）并发时在同一实例上交错推进——`initializeGlobalVariables()` 重置共享状态、共享 `processedLines` 按行号使不同文档的解析互相"吞行"，产生成员丢失/嵌套错乱/杂交树（A 文件的解析结果里出现 B 文件的包名）。**每次解析改用独立 PLSQLParser 实例**，并发行为不变、彻底消除共享状态；`quietParseInFlight` 去重保留

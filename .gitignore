@@ -38,3 +38,6 @@ memory_test_report.json
 *.vsix
 release/
 
+
+# Playwright MCP 浏览器产物
+.playwright-mcp/
