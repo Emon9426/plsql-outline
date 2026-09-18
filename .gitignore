@@ -19,11 +19,14 @@ out/
 # ZCode session artifacts
 .zcode/
 
-# VS Code E2E 测试下载的 VS Code 实例（test/integration）
+# VS Code E2E 测试下载的 VS Code 实例（tests/e2e）
 .vscode-test/
 
-// E2E 运行时生成的工作区副本
-test/integration/ws/
+# E2E 运行时生成的工作区副本
+tests/e2e/ws/
+
+# 单元测试生成的 HTML 报告
+tests/unit/test_report.html
 
 # Mimosa 安全扫描工作目录
 .mimosa/
@@ -31,3 +34,10 @@ test/integration/ws/
 # 内存测试生成的临时报告
 memory_test_report.json
 
+# 构建产物：vsix 不入库（历史版本走 GitHub Releases）
+*.vsix
+release/
+
+
+# Playwright MCP 浏览器产物
+.playwright-mcp/

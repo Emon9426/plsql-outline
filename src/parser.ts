@@ -2,15 +2,45 @@ import {
     ParseResult,
     ParseNode,
     NodeType,
-    FileType,
-    ParseContext,
-    ParseState,
-    ParseError,
-    SafetyConfig,
     VariableInfo,
     DeclarationCategory
 } from './types';
-import { KeywordPatterns } from './patterns';
+
+/**
+ * 关键字匹配模式（模块级常量，单一事实源；仅保留解析器实际使用的成员）。
+ * 注意：与 parser 的行级判定逻辑强耦合（如 END 语句接受 [;/] 结尾、
+ * 类型声明含 RECORD/TABLE OF 变体），修改前先读 .ai/parser-playbook.md。
+ */
+const PATTERNS = {
+    // ====== 声明判定（顺序敏感：常量先于变量）======
+    VARIABLE_DECLARATION: /^\s*(\w+)\s+([\w\.%]+(?:\([^)]*\))?)\s*(?::=\s*.+?|DEFAULT\s+.+?)?;\s*$/i,
+    CONSTANT_DECLARATION: /^\s*(\w+)\s+CONSTANT\s+([\w\.%]+(?:\([^)]*\))?(?:\s+NOT\s+NULL)?)\s*(?::=\s*(.+?)|DEFAULT\s+(.+?))?;\s*$/i,
+    TYPE_DECLARATION: /^\s*(?:TYPE\s+)?(\w+)\s+IS\s+(RECORD|TABLE\s+OF|VARRAY|REF\s+CURSOR|OBJECT)\b/i,
+    CURSOR_DECLARATION: /^\s*CURSOR\s+(\w+)\s*(?:\((?:[^()]|\([^()]*\))*\))?\s*(?:RETURN\s+[\w$#\.]+(?:\s*%\w+)?)?\s*IS\b/i,
+    EXCEPTION_DECLARATION: /^\s*(\w+)\s+EXCEPTION\s*;\s*$/i,
+    // ====== 控制结构 ======
+    IF_START: /^\s*IF\s+(.+?)\s+THEN\s*$/i,
+    ELSIF_START: /^\s*ELSIF\s+(.+?)\s+THEN\s*$/i,
+    ELSE_START: /^\s*ELSE\s*$/i,
+    BASIC_LOOP_START: /^\s*LOOP\s*$/i,
+    WHILE_LOOP_START: /^\s*WHILE\s+(.+?)\s+LOOP\s*$/i,
+    FOR_LOOP_START: /^\s*FOR\s+(\w+)\s+IN\s+(.+?)\s+LOOP\s*$/i,
+    CASE_START: /^\s*CASE\s*(.*?)\s*$/i,
+    WHEN_START: /^\s*WHEN\s+(.+?)\s+THEN\s*$/i,
+    END_IF: /^\s*END\s+IF\s*;\s*$/i,
+    END_LOOP: /^\s*END\s+LOOP\s*(?:\s+\w+)?\s*;\s*$/i,
+    END_CASE: /^\s*END\s+CASE\s*;\s*$/i
+} as const;
+
+/**
+ * 用户取消解析时抛出（parse 会原样上抛，不并入 metadata.errors）
+ */
+export class ParseCancelledError extends Error {
+    constructor() {
+        super('解析已取消');
+        this.name = 'ParseCancelledError';
+    }
+}
 
 /**
  * PL/SQL解析器 - 基于handler架构的内存优化版本
@@ -39,17 +69,23 @@ export class PLSQLParser {
     // 子程序 END 闭合时恢复。此前进入子程序直接清零/清空且从不恢复，导致
     // "单元内联匿名块内含子程序"时宿主单元的 BEGIN 计数永久丢失，父单元永不闭合
     // （endLine=null，其后的 END 计数漂移为负）。
-    private unitStateStack: Array<{ beginEndCounter: number; anonBlockCounters: number[] }> = [];
+    private unitStateStack: Array<{ beginEndCounter: number; anonBlockCounters: number[]; currentLevel: number }> = [];
 
     private version: string = '2.1.0';
 
     // 内存优化相关
     private processedLines: Set<number> = new Set();
-    private stringCache: Map<string, string> = new Map();
-    private maxCacheSize: number = 1000;
+
+    // 让步策略：距上次让步不足该毫秒数时不让出事件循环，
+    // 中小文件单轮同步完成（原先每 50 行强制 setImmediate，使耗时近乎翻倍）
+    private static readonly YIELD_INTERVAL_MS = 8;
+    private lastYieldTime = 0;
 
     // 最大嵌套深度（parsing.maxNestingDepth 配置传入；默认与 package.json 声明一致）
     private maxNestingDepth: number = 15;
+
+    // 取消令牌（v1.8.0：大文件解析可中断）
+    private cancellationToken?: { isCancellationRequested: boolean };
 
     /**
      * 设置控制结构配置
@@ -62,7 +98,11 @@ export class PLSQLParser {
     /**
      * 解析PL/SQL代码
      */
-    async parse(content: string, sourceFile: string = 'unknown', options?: { maxNestingDepth?: number }): Promise<ParseResult> {
+    async parse(content: string, sourceFile: string = 'unknown', options?: {
+        maxNestingDepth?: number;
+        /** 结构化取消令牌（鸭子类型兼容 vscode.CancellationToken，测试无需 vscode 模块） */
+        cancellationToken?: { isCancellationRequested: boolean };
+    }): Promise<ParseResult> {
         const startTime = Date.now();
 
         try {
@@ -71,6 +111,7 @@ export class PLSQLParser {
             if (options && typeof options.maxNestingDepth === 'number' && options.maxNestingDepth > 0) {
                 this.maxNestingDepth = options.maxNestingDepth;
             }
+            this.cancellationToken = options?.cancellationToken;
             
             if (content.length > 10 * 1024 * 1024) {
                 throw new Error('文件过大，超过10MB限制');
@@ -103,7 +144,12 @@ export class PLSQLParser {
 
         } catch (error) {
             this.cleanup();
-            
+
+            // 用户主动取消不吞掉：向上传递由扩展层决定 UI 行为
+            if (error instanceof ParseCancelledError) {
+                throw error;
+            }
+
             const parseTime = Date.now() - startTime;
             const errorMessage = error instanceof Error ? error.message : '未知解析错误';
             
@@ -137,7 +183,7 @@ export class PLSQLParser {
         this.anonBlockCounters = [];
         this.unitStateStack = [];
         this.processedLines.clear();
-        this.stringCache.clear();
+        this.lastYieldTime = Date.now();
     }
 
     /**
@@ -145,33 +191,12 @@ export class PLSQLParser {
      */
     private cleanup(): void {
         this.processedLines.clear();
-        this.stringCache.clear();
         this.nodeStack = [];
         this.controlStack = [];
         this.anonBlockCounters = [];
         this.unitStateStack = [];
         this.currentActiveNode = null;
         this.packageNode = null;
-    }
-
-    /**
-     * 字符串缓存优化
-     */
-    private getCachedString(str: string): string {
-        if (this.stringCache.has(str)) {
-            return this.stringCache.get(str)!;
-        }
-        
-        if (this.stringCache.size >= this.maxCacheSize) {
-            const entries = Array.from(this.stringCache.entries());
-            this.stringCache.clear();
-            for (let i = Math.floor(entries.length / 2); i < entries.length; i++) {
-                this.stringCache.set(entries[i][0], entries[i][1]);
-            }
-        }
-        
-        this.stringCache.set(str, str);
-        return str;
     }
 
     /**
@@ -230,7 +255,7 @@ export class PLSQLParser {
             // 去除首尾空白并检查是否为空行
             line = line.trim();
             if (line.length > 0) {
-                cleanLines.push(this.getCachedString(line));
+                cleanLines.push(line);
                 lineMapping.push(originalLineNumber);
             }
         }
@@ -349,7 +374,7 @@ export class PLSQLParser {
      */
     private scanQStringEnd(line: string, start: number, delim: { prefixLen: number; open: string; close: string }): number {
         // 内容起始 = start + prefixLen + 1(q') + 1(open)
-        let j = start + delim.prefixLen + 1 + 1;
+        const j = start + delim.prefixLen + 1 + 1;
         const closeSeq = delim.close + '\'';
         const idx = line.indexOf(closeSeq, j);
         return idx !== -1 ? idx + 1 : -1; // 返回闭合 ' 的索引
@@ -431,8 +456,8 @@ export class PLSQLParser {
 
             if (i % 50 === 0) {
                 await this.yield();
-                if (i % 500 === 0 && this.stringCache.size > this.maxCacheSize) {
-                    this.stringCache.clear();
+                if (this.cancellationToken?.isCancellationRequested) {
+                    throw new ParseCancelledError();
                 }
             }
         }
@@ -442,7 +467,7 @@ export class PLSQLParser {
      * 检查跨行CREATE语句
      * BUG-5修复：最大5行前瞻，遇到关键字终止，总长度限制
      */
-    private checkMultiLineCreate(lines: string[], startIndex: number, lineMapping: number[]): { match: { type: NodeType; name: string }, startIndex: number, endIndex: number } | null {
+    private checkMultiLineCreate(lines: string[], startIndex: number, _lineMapping: number[]): { match: { type: NodeType; name: string }, startIndex: number, endIndex: number } | null {
         const startLine = lines[startIndex];
         
         if (!/^\s*CREATE\s+(?:OR\s+REPLACE\s+)?/i.test(startLine)) {
@@ -505,7 +530,7 @@ export class PLSQLParser {
         if (!/^\s*CURSOR\s+\w+\s*\(/i.test(startLine)) {
             return null;
         }
-        if (KeywordPatterns.CURSOR_DECLARATION.test(startLine)) {
+        if (PATTERNS.CURSOR_DECLARATION.test(startLine)) {
             return null;
         }
 
@@ -518,7 +543,7 @@ export class PLSQLParser {
                 return null;
             }
 
-            if (KeywordPatterns.CURSOR_DECLARATION.test(combinedLine)) {
+            if (PATTERNS.CURSOR_DECLARATION.test(combinedLine)) {
                 return {
                     combinedText: combinedLine,
                     endIndex: startIndex + i
@@ -753,12 +778,16 @@ export class PLSQLParser {
         }
 
         this.currentActiveNode = newNode;
-        this.currentLevel = this.currentLevel + 1;
-        // 保存外层上下文（计数器+匿名块水位），子程序 END 闭合时恢复；
+        // 保存宿主层级（进入前），子程序 END 闭合时按帧恢复，
+        // 防止方法体内的任何层级漂移带出宿主边界
+        const hostLevel = this.currentLevel;
+        this.currentLevel = hostLevel + 1;
+        // 保存外层上下文（计数器+匿名块水位+层级），子程序 END 闭合时恢复；
         // 直接清零会丢弃宿主单元的 BEGIN 计数与外层内联匿名块的水位
         this.unitStateStack.push({
             beginEndCounter: this.beginEndCounter,
-            anonBlockCounters: this.anonBlockCounters
+            anonBlockCounters: this.anonBlockCounters,
+            currentLevel: hostLevel
         });
         this.beginEndCounter = 0;
         // 子程序拥有独立的控制结构与匿名块水位刻度
@@ -792,7 +821,7 @@ export class PLSQLParser {
     /**
      * 处理IS/AS语句
      */
-    private async handleIsAsStatement(lineNumber: number): Promise<void> {
+    private async handleIsAsStatement(_lineNumber: number): Promise<void> {
         // 初始化当前节点的变量表
         if (this.currentActiveNode && !this.currentActiveNode.variableTable) {
             this.currentActiveNode.variableTable = new Map<string, VariableInfo>();
@@ -891,6 +920,13 @@ export class PLSQLParser {
                 // 恢复外层方法为活动节点(它在 DECLARE 时被压入 nodeStack)
                 const parentNode = this.nodeStack.pop();
                 this.currentActiveNode = parentNode || this.packageNode;
+                // 内联匿名块泄漏修复（ZCodeTest pkg_body_long 场景）：
+                // startAnonymousBlock 将 currentLevel 抬升到宿主+1，
+                // 闭合时必须恢复宿主层级，否则宿主内每个内联块
+                // 永久泄漏 +1，累积后触发"嵌套深度超过限制"使整文件解析为 0 节点
+                if (parentNode) {
+                    this.currentLevel = parentNode.level;
+                }
                 return;
             }
         }
@@ -909,12 +945,14 @@ export class PLSQLParser {
                 this.currentActiveNode = this.packageNode;
             }
 
-            // 子程序闭合：恢复进入它时保存的外层上下文（计数器+匿名块水位），
-            // 使宿主单元/外层内联匿名块的 END 配对回到正确的计数刻度
+            // 子程序闭合：恢复进入它时保存的外层上下文（计数器+匿名块水位+层级），
+            // 使宿主单元/外层内联匿名块的 END 配对回到正确的计数刻度，
+            // 层级按进入前的宿主值恢复（帧值优先于递减值，自愈体内漂移）
             const savedUnitState = this.unitStateStack.pop();
             if (savedUnitState) {
                 this.beginEndCounter = savedUnitState.beginEndCounter;
                 this.anonBlockCounters = savedUnitState.anonBlockCounters;
+                this.currentLevel = savedUnitState.currentLevel;
             }
 
             // 方法结束时清空控制栈
@@ -1033,25 +1071,25 @@ export class PLSQLParser {
      */
     private parseControlStructures(line: string, lineNumber: number): boolean {
         // END IF
-        if (KeywordPatterns.END_IF.test(line)) {
+        if (PATTERNS.END_IF.test(line)) {
             this.popControlStack(lineNumber, 'IF');
             return true;
         }
 
         // END LOOP
-        if (KeywordPatterns.END_LOOP.test(line)) {
+        if (PATTERNS.END_LOOP.test(line)) {
             this.popControlStack(lineNumber, 'LOOP');
             return true;
         }
 
         // END CASE
-        if (KeywordPatterns.END_CASE.test(line)) {
+        if (PATTERNS.END_CASE.test(line)) {
             this.popControlStack(lineNumber, 'CASE');
             return true;
         }
 
         // ELSIF
-        const elsifMatch = line.match(KeywordPatterns.ELSIF_START);
+        const elsifMatch = line.match(PATTERNS.ELSIF_START);
         if (elsifMatch) {
             this.handleElsifBranch(elsifMatch[1], lineNumber);
             return true;
@@ -1061,7 +1099,7 @@ export class PLSQLParser {
         // Issue #3 修复：CASE 的 ELSE 原先误走 IF 分支被压入 controlStack，
         // 而 popControlStack('CASE') 不接受 ELSE_BRANCH，END CASE 弹不出栈，
         // 残留栈帧会把后续同级控制结构（WHILE、异常区 IF 等）挂到 ELSE 分支下。
-        if (KeywordPatterns.ELSE_START.test(line)) {
+        if (PATTERNS.ELSE_START.test(line)) {
             const top = this.controlStack[this.controlStack.length - 1];
             if (top && top.type === NodeType.CASE_STATEMENT) {
                 this.handleCaseElseBranch(lineNumber);
@@ -1072,21 +1110,21 @@ export class PLSQLParser {
         }
 
         // IF START
-        const ifMatch = line.match(KeywordPatterns.IF_START);
+        const ifMatch = line.match(PATTERNS.IF_START);
         if (ifMatch) {
             this.pushControlNode(NodeType.IF_STATEMENT, 'IF', ifMatch[1], lineNumber);
             return true;
         }
 
         // WHILE LOOP
-        const whileMatch = line.match(KeywordPatterns.WHILE_LOOP_START);
+        const whileMatch = line.match(PATTERNS.WHILE_LOOP_START);
         if (whileMatch) {
             this.pushControlNode(NodeType.WHILE_LOOP, 'WHILE', whileMatch[1], lineNumber);
             return true;
         }
 
         // FOR LOOP (单行: FOR x IN ... LOOP)
-        const forMatch = line.match(KeywordPatterns.FOR_LOOP_START);
+        const forMatch = line.match(PATTERNS.FOR_LOOP_START);
         if (forMatch) {
             const conditionText = `${forMatch[1]} IN ${forMatch[2]}`;
             this.pushControlNode(NodeType.FOR_LOOP, 'FOR', conditionText, lineNumber);
@@ -1103,13 +1141,13 @@ export class PLSQLParser {
         }
 
         // BASIC LOOP
-        if (KeywordPatterns.BASIC_LOOP_START.test(line)) {
+        if (PATTERNS.BASIC_LOOP_START.test(line)) {
             this.pushControlNode(NodeType.LOOP_STATEMENT, 'LOOP', '', lineNumber);
             return true;
         }
 
         // CASE
-        const caseMatch = line.match(KeywordPatterns.CASE_START);
+        const caseMatch = line.match(PATTERNS.CASE_START);
         if (caseMatch && caseMatch[0].trim().toUpperCase() !== 'CASE') {
             // CASE with expression
             this.pushControlNode(NodeType.CASE_STATEMENT, 'CASE', caseMatch[1] || '', lineNumber);
@@ -1123,7 +1161,7 @@ export class PLSQLParser {
         }
 
         // WHEN（仅在CASE上下文中）
-        const whenMatch = line.match(KeywordPatterns.WHEN_START);
+        const whenMatch = line.match(PATTERNS.WHEN_START);
         if (whenMatch && this.isInCaseContext()) {
             this.handleWhenBranch(whenMatch[1], lineNumber);
             return true;
@@ -1357,7 +1395,7 @@ export class PLSQLParser {
     }
 
     private checkAndRecordConstantDeclaration(line: string, lineNumber: number): void {
-        const constMatch = line.match(KeywordPatterns.CONSTANT_DECLARATION);
+        const constMatch = line.match(PATTERNS.CONSTANT_DECLARATION);
         if (constMatch && this.currentActiveNode) {
             const table = this.ensureVariableTable();
             if (!table) { return; }
@@ -1380,7 +1418,7 @@ export class PLSQLParser {
         // 注意：VARIABLE_DECLARATION 正则要求行尾以 ';' 结尾，因此此处直接使用原始行（仅去除首尾空白），
         // 不再预先剥离 ';'。
         const cleanLine = line.trim();
-        const varMatch = cleanLine.match(KeywordPatterns.VARIABLE_DECLARATION);
+        const varMatch = cleanLine.match(PATTERNS.VARIABLE_DECLARATION);
         if (varMatch && this.currentActiveNode) {
             // 排除保留关键字：避免 PRAGMA EXCEPTION_INIT(...);、END IF; 等被误判为变量声明
             if (this.isReservedWord(varMatch[1])) {
@@ -1412,7 +1450,7 @@ export class PLSQLParser {
     }
 
     private checkAndRecordTypeDeclaration(line: string, lineNumber: number): void {
-        const typeMatch = line.match(KeywordPatterns.TYPE_DECLARATION);
+        const typeMatch = line.match(PATTERNS.TYPE_DECLARATION);
         if (typeMatch && this.currentActiveNode) {
             const table = this.ensureVariableTable();
             if (!table) { return; }
@@ -1439,7 +1477,7 @@ export class PLSQLParser {
     }
 
     private checkAndRecordCursorDeclaration(line: string, lineNumber: number): void {
-        const cursorMatch = line.match(KeywordPatterns.CURSOR_DECLARATION);
+        const cursorMatch = line.match(PATTERNS.CURSOR_DECLARATION);
         if (cursorMatch && this.currentActiveNode) {
             const table = this.ensureVariableTable();
             if (!table) { return; }
@@ -1455,7 +1493,7 @@ export class PLSQLParser {
     }
 
     private checkAndRecordExceptionDeclaration(line: string, lineNumber: number): void {
-        const exceptionMatch = line.match(KeywordPatterns.EXCEPTION_DECLARATION);
+        const exceptionMatch = line.match(PATTERNS.EXCEPTION_DECLARATION);
         if (exceptionMatch && this.currentActiveNode) {
             const table = this.ensureVariableTable();
             if (!table) { return; }
@@ -1478,7 +1516,7 @@ export class PLSQLParser {
     private createNode(type: NodeType, name: string, declarationLine: number, level: number): ParseNode {
         return {
             type,
-            name: this.getCachedString(name),
+            name: name,
             declarationLine,
             beginLine: null,
             exceptionLine: null,
@@ -1512,9 +1550,15 @@ export class PLSQLParser {
     }
 
     /**
-     * 让出控制权
+     * 让出控制权：仅在距上次让步超过 YIELD_INTERVAL_MS 时才让出事件循环，
+     * 保证大文件解析期间 UI 仍可响应，同时消除中小文件上的事件循环往返开销
      */
     private async yield(): Promise<void> {
+        const now = Date.now();
+        if (now - this.lastYieldTime < PLSQLParser.YIELD_INTERVAL_MS) {
+            return;
+        }
+        this.lastYieldTime = now;
         return new Promise(resolve => setImmediate(resolve));
     }
 }

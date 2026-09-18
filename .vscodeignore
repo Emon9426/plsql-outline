@@ -1,26 +1,32 @@
+# 源码与工程配置（发布包只需 out/ 产物 + 清单文件 + res/）
+src/**
+tests/**
+scripts/**
+docs/**
+release/**
+.ai/**
+.zcode/**
+.mimosa/**
+.github/**
 .vscode/**
 .vscode-test/**
-out/test/**
-src/**
-.gitignore
-.yarnrc
-vsc-extension-quickstart.md
-**/tsconfig.json
-**/.eslintrc.json
-**/*.map
-**/*.ts
-test/**
-GMLTest/**
 node_modules/**
-*.vsix
-.git/**
-.github/**
-.zcode/**
-Design/**
-scripts/**
-DEV_REQUIREMENTS_*.md
-update_*.js
-generate_*.js
-debug_*.js
-verify_*.js
-regenerate_*.js
+
+# AI 指令文件（根目录）
+AGENTS.md
+CLAUDE.md
+
+# 工程文件
+.git**
+.yarnrc
+package-lock.json
+**/tsconfig.json
+eslint.config.mjs
+**/*.ts
+**/*.map
+
+# 历史遗留防护：任何临时/调查目录与生成报告不得进入安装包
+tmp*
+temp*
+memory_test_report.json
+*.log

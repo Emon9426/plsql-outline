@@ -10,7 +10,24 @@ import {
     VariableInfo,
     DeclarationCategory
 } from './types';
-import { IDataProvider } from './debug';
+import { getOutputChannel } from './logger';
+import { DEFAULT_FILE_EXTENSIONS, isCallableNode } from './shared';
+
+/**
+ * 解析结果持有者（大纲树的唯一数据源）。
+ * v1.8.0 起自 debug.ts 迁入唯一消费方 treeView，删除 DataBridge/工厂中转层。
+ */
+export interface IDataProvider {
+    getParseResult(): Promise<ParseResult>;
+}
+
+export class MemoryDataProvider implements IDataProvider {
+    constructor(private parseResult: ParseResult) {}
+
+    async getParseResult(): Promise<ParseResult> {
+        return this.parseResult;
+    }
+}
 /**
  * PL/SQL大纲树数据提供者 - 内存优化版本
  */
@@ -38,7 +55,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
 
     constructor() {
         this.loadConfiguration();
-        this.outputChannel = vscode.window.createOutputChannel('PL/SQL Outline');
+        this.outputChannel = getOutputChannel();
     }
 
     /**
@@ -863,8 +880,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
      * 子程序节点标签（仅显示名称，类型由图标区分）
      */
     getDeclareNodeLabel(node: ParseNode): string {
-        if (node.type === NodeType.FUNCTION || node.type === NodeType.FUNCTION_DECLARATION ||
-            node.type === NodeType.PROCEDURE || node.type === NodeType.PROCEDURE_DECLARATION) {
+        if (isCallableNode(node)) {
             return node.name;
         }
         return this.getNodeLabel(node);
@@ -1093,8 +1109,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         treeItem.tooltip = this.getNodeTooltip(node);
         // 子程序（Function/Procedure）不显示描述（按需求仅名称+图标）；
         // 其他节点（包/触发器/控制结构）保留简洁描述
-        if (node.type === NodeType.FUNCTION || node.type === NodeType.PROCEDURE ||
-            node.type === NodeType.FUNCTION_DECLARATION || node.type === NodeType.PROCEDURE_DECLARATION) {
+        if (isCallableNode(node)) {
             treeItem.description = '';
         } else {
             treeItem.description = this.getNodeDescription(node);
@@ -1384,7 +1399,7 @@ export class TreeViewManager {
 
     constructor(context: vscode.ExtensionContext) {
         this.provider = new PLSQLOutlineProvider();
-        this.outputChannel = vscode.window.createOutputChannel('PL/SQL Outline');
+        this.outputChannel = getOutputChannel();
 
         this.treeView = vscode.window.createTreeView('plsqlOutline', {
             treeDataProvider: this.provider,
@@ -1405,7 +1420,6 @@ export class TreeViewManager {
         this.registerCommands(context);
 
         // 监听配置变化
-        this.registerConfigurationListener(context);
 
         this.outputChannel.appendLine('TreeViewManager初始化完成');
     }
@@ -1445,19 +1459,6 @@ export class TreeViewManager {
             toggleStructureBlocksCommand,
             manageFileExtensionsCommand
         );
-    }
-
-    /**
-     * 注册配置监听器
-     */
-    private registerConfigurationListener(context: vscode.ExtensionContext): void {
-        const configListener = vscode.workspace.onDidChangeConfiguration(event => {
-            if (event.affectsConfiguration('plsql-outline')) {
-                this.provider.refresh();
-            }
-        });
-
-        context.subscriptions.push(configListener);
     }
 
     /**
@@ -1609,39 +1610,11 @@ export class TreeViewManager {
     }
 
     /**
-     * 获取节点类型显示名称
-     */
-    private getNodeTypeDisplayName(type: NodeType): string {
-        switch (type) {
-            case NodeType.PACKAGE_HEADER: return 'Package Header';
-            case NodeType.PACKAGE_BODY: return 'Package Body';
-            case NodeType.FUNCTION: return 'Function';
-            case NodeType.PROCEDURE: return 'Procedure';
-            case NodeType.FUNCTION_DECLARATION: return 'Function Declaration';
-            case NodeType.PROCEDURE_DECLARATION: return 'Procedure Declaration';
-            case NodeType.TRIGGER: return 'Trigger';
-            case NodeType.ANONYMOUS_BLOCK: return 'Anonymous Block';
-            case NodeType.TYPE: return 'Type';
-            case NodeType.TYPE_BODY: return 'Type Body';
-            case NodeType.VIEW: return 'View';
-            case NodeType.IF_STATEMENT: return 'IF';
-            case NodeType.ELSIF_BRANCH: return 'ELSIF';
-            case NodeType.ELSE_BRANCH: return 'ELSE';
-            case NodeType.LOOP_STATEMENT: return 'LOOP';
-            case NodeType.WHILE_LOOP: return 'WHILE';
-            case NodeType.FOR_LOOP: return 'FOR';
-            case NodeType.CASE_STATEMENT: return 'CASE';
-            case NodeType.WHEN_BRANCH: return 'WHEN';
-            default: return type;
-        }
-    }
-
-    /**
      * 管理文件扩展名
      */
     private async manageFileExtensions(): Promise<void> {
         const config = vscode.workspace.getConfiguration('plsql-outline');
-        const currentExtensions = config.get<string[]>('fileExtensions', ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.typ']);
+        const currentExtensions = config.get<string[]>('fileExtensions', [...DEFAULT_FILE_EXTENSIONS]);
         
         const options = [
             '添加扩展名',
@@ -1723,7 +1696,7 @@ export class TreeViewManager {
      * 重置文件扩展名为默认值
      */
     private async resetFileExtensions(): Promise<void> {
-        const defaultExtensions = ['.sql', '.fnc', '.fcn', '.prc', '.pks', '.pkb', '.typ'];
+        const defaultExtensions = [...DEFAULT_FILE_EXTENSIONS];
         const config = vscode.workspace.getConfiguration('plsql-outline');
         await config.update('fileExtensions', defaultExtensions, vscode.ConfigurationTarget.Global);
         vscode.window.showInformationMessage('已重置为默认扩展名列表');
@@ -1772,7 +1745,7 @@ export class TreeViewManager {
             if (target.type === 'declarationEntry' && target.entry && target.node) {
                 // 声明项：reveal 到该声明项（其父链为 node → DECLARE section → declarationGroup → entry）
                 const entry = target.entry;
-                const parentNode = target.node;
+                const _parentNode = target.node;
                 // declarationEntry 叶节点（字段与 getChildren 声明分组分支的产出一致）
                 const treeItemData: TreeItemData = {
                     isStructureBlock: false,
@@ -1829,8 +1802,7 @@ export class TreeViewManager {
             if (target.node) {
                 const n = target.node;
                 let label: string;
-                if (n.type === NodeType.FUNCTION || n.type === NodeType.PROCEDURE ||
-                    n.type === NodeType.FUNCTION_DECLARATION || n.type === NodeType.PROCEDURE_DECLARATION) {
+                if (isCallableNode(n)) {
                     label = this.provider.getDeclareNodeLabel(n);
                 } else if (this.provider.isControlStructureType(n.type)) {
                     label = this.provider.getSimplifiedControlLabel(n.type);
