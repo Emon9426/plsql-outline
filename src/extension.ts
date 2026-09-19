@@ -38,6 +38,9 @@ export class PLSQLOutlineExtension {
     private quietParseInFlight: Promise<void> | null = null;
     // 编辑内容变化的防抖重解析（保持大纲/跳转与未保存编辑一致）
     private changeDebounceTimer: NodeJS.Timeout | null = null;
+    // 最近一个 PL/SQL 活动编辑器：大纲树获得焦点时 activeTextEditor 为 undefined，
+    // 顶部 Refresh 按钮需回退到此编辑器解析（否则出现"点了没反应"，Issue #23 评审 H1）
+    private lastActivePLSQLEditor: vscode.TextEditor | null = null;
     // 折叠范围缓存：uri → 文档版本 + 解析结果（与大纲共用同一次解析，避免重复解析，Issue #23）
     private foldingCache: Map<string, { version: number; result: ParseResult }> = new Map();
     // 缓存上限（可见编辑器数量级，超出淘汰最早条目）
@@ -229,7 +232,12 @@ export class PLSQLOutlineExtension {
      * 解析当前文件 - 内存优化版本
      */
     private async parseCurrentFile(): Promise<void> {
-        const editor = vscode.window.activeTextEditor;
+        // 大纲树获得焦点时 activeTextEditor 为 undefined：回退到最近的 PL/SQL 编辑器
+        // （活动编辑器存在但非 PL/SQL 文件时保持原警告语义，不回退）
+        let editor = vscode.window.activeTextEditor;
+        if (!editor && this.lastActivePLSQLEditor && !this.lastActivePLSQLEditor.document.isClosed) {
+            editor = this.lastActivePLSQLEditor;
+        }
         if (!editor) {
             vscode.window.showWarningMessage('没有活动的编辑器');
             return;
@@ -266,6 +274,9 @@ export class PLSQLOutlineExtension {
 
                 // 解析文件
                 const content = document.getText();
+                // 版本快照必须在解析前读取：解析 await 期间文档可能再次编辑，
+                // 事后读 version 会把陈旧结果以新版本号写入缓存/新鲜度标记（评审 M1）
+                const documentVersion = document.version;
                 const sourceFile = document.fileName;
 
                 // 文件大小检查（与 parser 内部 10MB 上限对齐）
@@ -293,8 +304,8 @@ export class PLSQLOutlineExtension {
                 
                 this.currentParseResult = parseResult;
                 this.debugManager.logParseResult(parseResult, sourceFile);
-                this.lastParsedKey = { uri: document.uri.toString(), version: document.version };
-                this.updateFoldingCache(document.uri.toString(), document.version, parseResult);
+                this.lastParsedKey = { uri: document.uri.toString(), version: documentVersion };
+                this.updateFoldingCache(document.uri.toString(), documentVersion, parseResult);
                 
                 progress.report({ increment: 80, message: '更新视图...' });
                 
@@ -357,6 +368,8 @@ export class PLSQLOutlineExtension {
                 return;
             }
             const content = document.getText();
+            // 版本快照与 parseCurrentFile 同理：await 前读取，防解析期间编辑污染缓存键（评审 M1）
+            const documentVersion = document.version;
             if (content.length > 10 * 1024 * 1024) {
                 return; // 与 parseCurrentFile 的 10MB 上限一致
             }
@@ -376,8 +389,8 @@ export class PLSQLOutlineExtension {
 
             this.currentParseResult = parseResult;
             this.debugManager.logParseResult(parseResult, document.fileName);
-            this.lastParsedKey = { uri: document.uri.toString(), version: document.version };
-            this.updateFoldingCache(document.uri.toString(), document.version, parseResult);
+            this.lastParsedKey = { uri: document.uri.toString(), version: documentVersion };
+            this.updateFoldingCache(document.uri.toString(), documentVersion, parseResult);
 
             // 同步大纲视图（树与未保存编辑保持一致）
             this.treeViewManager.updateDataProvider(new MemoryDataProvider(this.currentParseResult));
@@ -829,6 +842,11 @@ export class PLSQLOutlineExtension {
      * 活动编辑器变化处理
      */
     private async onActiveEditorChanged(editor: vscode.TextEditor | undefined): Promise<void> {
+        // 记录最近的 PL/SQL 活动编辑器（供 Refresh 在大纲树获得焦点时回退）
+        if (editor && this.isPLSQLFile(editor.document)) {
+            this.lastActivePLSQLEditor = editor;
+        }
+
         if (!editor) {
             return;
         }
@@ -1375,6 +1393,7 @@ export class PLSQLOutlineExtension {
         
         // 清理所有引用
         this.currentParseResult = null;
+        this.lastActivePLSQLEditor = null;
     }
 }
 

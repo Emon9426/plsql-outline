@@ -18,6 +18,7 @@ const suites = [
     'huge_package_test.js',
     'regression_edge_test.js',
     'ui_structure_test.js',
+    'refresh_focus_test.js',
     'test_memory_optimization.js'
 ];
 
