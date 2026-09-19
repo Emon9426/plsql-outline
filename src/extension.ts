@@ -1197,7 +1197,11 @@ export class PLSQLOutlineExtension {
     /**
      * 检查是否为PL/SQL文件
      */
-    private isPLSQLFile(document: vscode.TextDocument): boolean {
+    /**
+     * 判定文档是否按 PL/SQL 处理：语言 ID（sql/plsql）或 plsql-outline.fileExtensions
+     * 配置扩展名命中。public：activate() 激活自动解析与提供者回调共用同一口径（Issue #29）。
+     */
+    isPLSQLFile(document: vscode.TextDocument): boolean {
         const languageId = document.languageId;
         const fileName = document.fileName.toLowerCase();
         
@@ -1463,21 +1467,15 @@ export function activate(context: vscode.ExtensionContext): void {
         // 扩展激活成功日志始终输出
         console.log('PL/SQL Outline 扩展激活成功');
 
-        // 如果当前有活动的PL/SQL文件，自动解析
+        // 如果当前有活动的PL/SQL文件，自动解析（识别口径与 parseCurrentFile/提供者一致：
+        // isPLSQLFile = 语言 ID 或配置扩展名。此前硬编码 DEFAULT_FILE_EXTENSIONS，
+        // 配置扩展名文件激活时不触发——Issue #29）
         const activeEditor = vscode.window.activeTextEditor;
-        if (activeEditor && extensionInstance) {
-            const document = activeEditor.document;
-            const languageId = document.languageId;
-            const fileName = document.fileName.toLowerCase();
-            
-            if (languageId === 'plsql' || languageId === 'sql' ||
-                DEFAULT_FILE_EXTENSIONS.some(ext => fileName.endsWith(ext))) {
-                
-                // 延迟执行，确保扩展完全激活
-                setTimeout(() => {
-                    vscode.commands.executeCommand('plsqlOutline.parseCurrentFile');
-                }, 1000);
-            }
+        if (activeEditor && extensionInstance && extensionInstance.isPLSQLFile(activeEditor.document)) {
+            // 延迟执行，确保扩展完全激活
+            setTimeout(() => {
+                vscode.commands.executeCommand('plsqlOutline.parseCurrentFile');
+            }, 1000);
         }
 
     } catch (error) {

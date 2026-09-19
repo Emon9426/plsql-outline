@@ -19,6 +19,7 @@ const suites = [
     'regression_edge_test.js',
     'ui_structure_test.js',
     'refresh_focus_test.js',
+    'activation_auto_parse_test.js',
     'test_memory_optimization.js'
 ];
 
