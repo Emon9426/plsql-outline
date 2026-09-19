@@ -7,6 +7,14 @@
   Exception 段；内联 DECLARE..END 块渲染为宿主 Body 内可展开分组。
 - **代码导航**：点击节点跳转定义行；Ctrl+Click 跨文件跳转（符号索引，含代码仓库路径，
   最多 2 个、按优先级）；光标移动自动同步选中大纲节点（不自动展开）。
+- **块结构代码折叠**（Issue #23）：FoldingRangeProvider 复用解析起止行号，提供编辑器
+  原生折叠箭头——Function/Procedure→END、IF→END IF（IF/ELSIF/ELSE 兄弟链合并）、
+  LOOP/WHILE/FOR→END LOOP、CASE→END CASE、匿名块→END、Package Body 整体；
+  ELSIF/ELSE/WHEN 不独立折叠；未闭合节点（包规格/触发器根）不折叠。
+  计算逻辑在 src/folding.ts（vscode-free），适用 plsql + sql 语言。
+- **解析进度与刷新**（Issue #23）：解析进度显示在大纲视图内（面板顶部进度条，
+  解析完成大纲更新后才消失，替代右上角通知）；顶部 Refresh 按钮 = 强制重新解析
+  当前活动文件并刷新大纲（旧实现仅重绘旧结果）。
 - **实用工具**：解析统计、导出解析结果（JSON）、展开全部、切换结构块显示、调试模式、
   文件扩展名管理、设置页（`plsqlOutline.openSettings`）。
 - **文件类型**：默认 `.sql .fnc .fcn .prc .pks .pkb .typ`（可配置）。

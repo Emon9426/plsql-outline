@@ -9,7 +9,7 @@ VS Code 扩展：解析 PL/SQL 代码为结构化大纲树，让 VS Code 拥有�
 ## 目录结构
 
 ```
-src/            扩展源码（8 个模块，编译到 out/）
+src/            扩展源码（9 个模块，编译到 out/）
 tests/
   unit/         解析器/渲染单元套件（自研断言，node tests/unit/run_all.js）
   regression/   回归套件（node tests/regression/run_all.js）
@@ -28,6 +28,8 @@ scripts/        图标生成器等工具脚本
 extension.ts（激活/命令/事件接线，入口 activate()）
   ├─ parser.ts ──── PLSQLParser：手写行级状态机（每次解析必须 new 独立实例！）
   │    └─ types.ts  NodeType/ParseNode/ParseResult 等共享模型
+  ├─ folding.ts ─── 折叠范围纯计算（vscode-free；extension.ts 的
+  │                 FoldingRangeProvider 复用大纲解析缓存，未命中时兜底解析）
   ├─ treeView.ts ── PLSQLOutlineProvider（TreeDataProvider）+ TreeViewManager
   ├─ symbolIndex.ts 符号索引（跨文件跳转，磁盘缓存 symbol-index.json）
   ├─ debug.ts ───── DebugManager/Logger（调试输出，文件输出已废弃）

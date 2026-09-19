@@ -1434,12 +1434,6 @@ export class TreeViewManager {
             (line: number) => this.goToLine(line)
         );
 
-        // 刷新命令
-        const refreshCommand = vscode.commands.registerCommand(
-            'plsqlOutline.refresh',
-            () => this.refresh()
-        );
-
         // 切换结构块显示
         const toggleStructureBlocksCommand = vscode.commands.registerCommand(
             'plsqlOutline.toggleStructureBlocks',
@@ -1455,7 +1449,6 @@ export class TreeViewManager {
 
         context.subscriptions.push(
             goToLineCommand,
-            refreshCommand,
             toggleStructureBlocksCommand,
             manageFileExtensionsCommand
         );
