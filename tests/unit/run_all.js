@@ -7,30 +7,31 @@
 const fs = require('fs');
 const path = require('path');
 
+// [套件名, 模块] 成对注册：套件模块只导出 run，崩溃时拿不到 suiteName，名字由此提供（Issue #28）
 const suites = [
-    require('./nested_subprograms_test'),
-    require('./standalone_proc_func_test'),
-    require('./anon_block_trigger_test'),
-    require('./large_package_render_test'),
-    require('./nested_definition_test'),
-    require('./qquote_create_test'),
-    require('./qquote_edge_test'),
-    require('./anonymous_block_render_test'),
-    require('./forward_declaration_cursor_test'),
-    require('./constant_declaration_test'),
-    require('./case_else_nesting_test'),
-    require('./top_level_anon_test'),
-    require('./anon_subfunc_definition_test'),
-    require('./inline_anon_subprogram_test'),
-    require('./inline_anon_visible_test'),
-    require('./inline_anon_level_test'),
-    require('./concurrent_parse_isolation_test'),
-    require('./cancellation_test'),
-    require('./settings_schema_test'),
-    require('./quoted_identifier_test'),
-    require('./get_ddl_test'),
-    require('./folding_test')
-];
+    ['nested_subprograms_test', require('./nested_subprograms_test')],
+    ['standalone_proc_func_test', require('./standalone_proc_func_test')],
+    ['anon_block_trigger_test', require('./anon_block_trigger_test')],
+    ['large_package_render_test', require('./large_package_render_test')],
+    ['nested_definition_test', require('./nested_definition_test')],
+    ['qquote_create_test', require('./qquote_create_test')],
+    ['qquote_edge_test', require('./qquote_edge_test')],
+    ['anonymous_block_render_test', require('./anonymous_block_render_test')],
+    ['forward_declaration_cursor_test', require('./forward_declaration_cursor_test')],
+    ['constant_declaration_test', require('./constant_declaration_test')],
+    ['case_else_nesting_test', require('./case_else_nesting_test')],
+    ['top_level_anon_test', require('./top_level_anon_test')],
+    ['anon_subfunc_definition_test', require('./anon_subfunc_definition_test')],
+    ['inline_anon_subprogram_test', require('./inline_anon_subprogram_test')],
+    ['inline_anon_visible_test', require('./inline_anon_visible_test')],
+    ['inline_anon_level_test', require('./inline_anon_level_test')],
+    ['concurrent_parse_isolation_test', require('./concurrent_parse_isolation_test')],
+    ['cancellation_test', require('./cancellation_test')],
+    ['settings_schema_test', require('./settings_schema_test')],
+    ['quoted_identifier_test', require('./quoted_identifier_test')],
+    ['get_ddl_test', require('./get_ddl_test')],
+    ['folding_test', require('./folding_test')]
+].map(([name, mod]) => ({ name, mod }));
 
 function escapeHtml(s) {
     return String(s)
@@ -44,19 +45,21 @@ function generateHtml(results) {
     const totalCases = results.reduce((sum, r) => sum + r.cases.length, 0);
     const totalPassed = results.reduce((sum, r) => sum + r.cases.filter(c => c.passed).length, 0);
     const totalFailed = totalCases - totalPassed;
-    const allPassed = totalFailed === 0;
+    const crashedCount = results.filter(r => r.error).length;
+    const allPassed = totalFailed === 0 && crashedCount === 0;
     const now = new Date().toLocaleString('zh-CN', { hour12: false });
 
     const suiteRows = results.map(r => {
         const passed = r.cases.filter(c => c.passed).length;
         const failed = r.cases.length - passed;
+        const crashed = !!r.error;
         return `<tr>
             <td>${escapeHtml(r.suiteName)}</td>
             <td>${r.cases.length}</td>
             <td class="pass">${passed}</td>
-            <td class="${failed > 0 ? 'fail' : ''}">${failed}</td>
+            <td class="${failed > 0 || crashed ? 'fail' : ''}">${failed}</td>
             <td>${r.parseTime || '-'} ms</td>
-            <td class="${failed === 0 ? 'status-pass' : 'status-fail'}">${failed === 0 ? '通过' : '失败'}</td>
+            <td class="${failed === 0 && !crashed ? 'status-pass' : 'status-fail'}">${crashed ? '崩溃' : (failed === 0 ? '通过' : '失败')}</td>
         </tr>`;
     }).join('\n');
 
@@ -117,7 +120,7 @@ function generateHtml(results) {
     <div class="meta">生成时间：${now} ｜ 版本：v${require('../../package.json').version} ｜ 测试框架：Node.js + 自研断言</div>
 
     <div class="banner ${allPassed ? 'ok' : 'bad'}">
-        ${allPassed ? '✓ 全部测试通过' : '✗ 存在失败用例'}
+        ${allPassed ? '✓ 全部测试通过' : (crashedCount > 0 ? '✗ 存在崩溃套件' : '✗ 存在失败用例')}
     </div>
 
     <div class="summary">
@@ -155,13 +158,13 @@ async function main() {
     const results = [];
     for (const suite of suites) {
         try {
-            const r = await suite.run();
+            const r = await suite.mod.run();
             results.push(r);
             const passed = r.cases.filter(c => c.passed).length;
             console.log(`  ${r.suiteName}: ${passed}/${r.cases.length} 通过`);
         } catch (err) {
-            console.error(`  ${suite.suiteName || '(unknown)'} 异常:`, err);
-            results.push({ suiteName: suite.suiteName || '(unknown)', cases: [], parseTime: 0, error: String(err) });
+            console.error(`  ${suite.name} 异常:`, err);
+            results.push({ suiteName: suite.name, cases: [], parseTime: 0, error: String(err) });
         }
     }
 
@@ -171,9 +174,14 @@ async function main() {
 
     const totalCases = results.reduce((s, r) => s + r.cases.length, 0);
     const totalPassed = results.reduce((s, r) => s + r.cases.filter(c => c.passed).length, 0);
+    const crashed = results.filter(r => r.error);
+    if (crashed.length > 0) {
+        console.error(`\n${crashed.length} 个套件崩溃: ${crashed.map(r => r.suiteName).join(', ')}（崩溃套件的用例未计入总数，视为失败）`);
+    }
     console.log(`\n总计: ${totalPassed}/${totalCases} 通过`);
     console.log(`HTML 报告已生成: ${outPath}`);
-    process.exit(totalPassed === totalCases ? 0 : 1);
+    // 崩溃套件必须判失败：其用例未执行，不能让 totalPassed === totalCases 掩盖（Issue #28）
+    process.exit(totalPassed === totalCases && crashed.length === 0 ? 0 : 1);
 }
 
 main();
