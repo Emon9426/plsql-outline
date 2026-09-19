@@ -3,6 +3,13 @@
 本文件记录 PL/SQL Outline 各版本的变化。完整的版本发布信息也可在
 [GitHub Releases](https://github.com/Emon9426/plsql-outline/releases) 查看。
 
+## v1.11.0 (2026-09-19)
+
+- 🟢 **块结构代码折叠（#23）**：注册 FoldingRangeProvider（plsql + sql 语言），编辑器内提供原生折叠箭头——Function/Procedure→END、IF→END IF（IF/ELSIF/ELSE 分支链整体折叠）、LOOP/WHILE/FOR→END LOOP、CASE→END CASE、匿名块→END、Package Body 整体；ELSIF/ELSE/WHEN 不产生独立箭头（已包含在宿主块内），未闭合节点（包规格/触发器根）不折叠。折叠范围复用大纲解析结果（uri+版本缓存，未命中兜底独立解析），计算逻辑独立为 vscode-free 的 `src/folding.ts`；新增 folding_test 21 断言，单元基线 364→**385/385（22 套件）**
+- 🟢 **大纲视图内解析进度（#23）**：解析进度从右上角通知改为大纲面板顶部进度条——解析期间视图不再空白，进度持续到解析完成、大纲更新后才消失；解析可取消与失败提示保留
+- 🟢 **刷新按钮强制重新解析（#23 + 评审 H1）**：顶部 🔄 刷新改为强制重新解析当前活动文件并刷新大纲——旧实现仅用旧解析结果重绘树，文件修改后点击无效；大纲树获得焦点（无活动编辑器）时自动回退最近的 PL/SQL 编辑器（新增 refresh_focus_test，回归基线 11→**12 套件**）
+- 🔧 **解析前版本快照（评审 M1）**：`document.version` 改在解析前读取——此前解析 await 期间文档再编辑，陈旧结果会以新版本号写入折叠缓存/新鲜度标记，大纲与折叠范围滞后到下一次编辑
+
 ## v1.10.0 (2026-09-18)
 
 - 🟢 **dbms_metadata.get_ddl 导出源码支持（#19，源自 #1）**：CREATE 语句容忍 `FORCE` / `EDITIONABLE` / `NONEDITIONABLE` 前导修饰词（三者独立可选）——此前 get_ddl 默认输出（如 `CREATE OR REPLACE FORCE EDITIONABLE PACKAGE BODY "APPS"."PKG" AS`）会把包体误判为顶层匿名块（结构错乱）、规格解析为 0 节点
