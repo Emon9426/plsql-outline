@@ -120,6 +120,8 @@ async function run() {
     // 桩自带新鲜解析结果：跳过按需重解析路径（真实链路由 E2E 覆盖）
     stub.parseDocumentQuiet = async () => {};
     stub.isParseResultFresh = () => true;
+    // Issue #26 起 provideDefinition 前置文件类型门控；路由行为由 foldRouting E2E 锁定
+    stub.isPLSQLFile = () => true;
 
     // 模拟 Ctrl+Click：给定调用名，返回跳转目标行号（1-based）或 null
     async function ctrlClick(callName) {
