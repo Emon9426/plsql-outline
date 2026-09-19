@@ -123,6 +123,8 @@ async function main() {
     // 桩自带新鲜解析结果：跳过按需重解析路径（真实链路由 E2E 覆盖）
     stub.parseDocumentQuiet = async () => {};
     stub.isParseResultFresh = () => true;
+    // Issue #26 起 provideDefinition 前置文件类型门控；路由行为由 foldRouting E2E 锁定
+    stub.isPLSQLFile = () => true;
     const doc = makeDocument(SOURCE);
 
     // 定位关键行号

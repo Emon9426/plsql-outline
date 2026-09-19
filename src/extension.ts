@@ -11,6 +11,20 @@ import { computeFoldRanges } from './folding';
 import { DEFAULT_FILE_EXTENSIONS, isCallableNode } from './shared';
 
 /**
+ * 提供者共享文档选择器（悬停/定义/折叠，Issue #26）：
+ * 除语言 ID 外放行所有本地/未保存文档，回调内由 isPLSQLFile 统一裁决
+ * （语言 ID 或 plsql-outline.fileExtensions 配置扩展名）。仅按语言 ID 注册时，
+ * 配置扩展名识别的文档（如 .fcn/.typ 以 plaintext 或其他扩展的语言打开）
+ * 永远到不了提供者回调——大纲可用而折叠/悬停/跳转失效。
+ */
+const PLSQL_DOC_SELECTOR: vscode.DocumentSelector = [
+    { language: 'sql' },
+    { language: 'plsql' },
+    { scheme: 'file' },
+    { scheme: 'untitled' }
+];
+
+/**
  * PL/SQL大纲扩展主类 - 内存优化版本
  */
 export class PLSQLOutlineExtension {
@@ -200,26 +214,26 @@ export class PLSQLOutlineExtension {
      * 注册悬停和定义提供者
      */
     private registerProviders(context: vscode.ExtensionContext): void {
-        // 注册悬停提供者
+        // 注册悬停提供者（选择器与定义/折叠一致：语言 ID + 配置扩展名路由，Issue #26）
         const hoverProvider = vscode.languages.registerHoverProvider(
-            [{ language: 'sql' }, { language: 'plsql' }],
+            PLSQL_DOC_SELECTOR,
             {
                 provideHover: (document, position, token) => this.provideHover(document, position, token)
             }
         );
 
-        // 注册定义提供者（Ctrl+Click 跳转）- 使用语言选择器，与悬停提供者一致
+        // 注册定义提供者（Ctrl+Click 跳转）
         const definitionProvider = vscode.languages.registerDefinitionProvider(
-            [{ language: 'sql' }, { language: 'plsql' }],
+            PLSQL_DOC_SELECTOR,
             {
                 provideDefinition: (document, position, token) => this.provideDefinition(document, position, token)
             }
         );
 
         // 注册折叠范围提供者（块结构折叠：Function→END、IF→END IF、LOOP→END LOOP 等，
-        // 复用解析器节点起止行号，语言选择器与悬停/定义提供者一致，Issue #23）
+        // 复用解析器节点起止行号，Issue #23）
         const foldingProvider = vscode.languages.registerFoldingRangeProvider(
-            [{ language: 'sql' }, { language: 'plsql' }],
+            PLSQL_DOC_SELECTOR,
             {
                 provideFoldingRanges: (document, _context, _token) => this.provideFoldingRanges(document)
             }
@@ -405,10 +419,16 @@ export class PLSQLOutlineExtension {
 
     /**
      * 提供折叠范围（FoldingRangeProvider 回调）
-     * 优先复用大纲解析缓存（同文档同版本）；未命中时兜底独立解析
-     * （PLSQLParser 每次解析必须独立实例），保证任意可见编辑器（分屏/diff）可折叠。
+     * 选择器已放行全部本地/未保存文档，非 PL/SQL 文档（语言 ID 与配置扩展名均
+     * 不匹配）在此返回空（Issue #26）。优先复用大纲解析缓存（同文档同版本）；
+     * 未命中时兜底独立解析（PLSQLParser 每次解析必须独立实例），
+     * 保证任意可见编辑器（分屏/diff）可折叠。
      */
     private async provideFoldingRanges(document: vscode.TextDocument): Promise<vscode.FoldingRange[]> {
+        if (!this.isPLSQLFile(document)) {
+            return [];
+        }
+
         const uri = document.uri.toString();
         const cached = this.foldingCache.get(uri);
         if (cached && cached.version === document.version) {
@@ -474,6 +494,11 @@ export class PLSQLOutlineExtension {
      * 提供悬停信息
      */
     private async provideHover(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken): Promise<vscode.Hover | null> {
+        // 选择器放行的所有文档在此统一裁决：语言 ID 与配置扩展名均不匹配则不响应（Issue #26）
+        if (!this.isPLSQLFile(document)) {
+            return null;
+        }
+
         // 按需刷新：文档编辑未保存时解析结果已陈旧（匿名块等临时代码场景）
         await this.parseDocumentQuiet(document);
 
@@ -507,6 +532,11 @@ export class PLSQLOutlineExtension {
      * 提供定义位置 - 支持跨文件导航
      */
     private async provideDefinition(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken): Promise<vscode.Definition | vscode.LocationLink[] | null> {
+        // 与悬停一致：语言 ID 与配置扩展名均不匹配则不响应（Issue #26）
+        if (!this.isPLSQLFile(document)) {
+            return null;
+        }
+
         // 按需刷新：文档编辑未保存时解析结果已陈旧，Ctrl+Click 前 先拿到最新树
         await this.parseDocumentQuiet(document);
 
