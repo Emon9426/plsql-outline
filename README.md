@@ -88,6 +88,10 @@ hr_salary_pkg (Package Body)
 
 ELSIF / ELSE / WHEN 分支不产生独立箭头（已包含在宿主块的折叠范围内）。
 
+折叠、悬停与 Ctrl+Click 跳转按「语言 ID（SQL / PL/SQL）或 `plsql-outline.fileExtensions`
+配置的扩展名」识别文件——文件即使未关联 PL/SQL 语言（如 `.fcn` / `.typ` 以纯文本打开），
+只要扩展名在配置清单内同样生效。
+
 ### 🎛️ 实用工具
 
 - **解析统计**：一条命令查看节点数、总行数、解析耗时、嵌套深度、错误/警告数

@@ -3,6 +3,11 @@
 本文件记录 PL/SQL Outline 各版本的变化。完整的版本发布信息也可在
 [GitHub Releases](https://github.com/Emon9426/plsql-outline/releases) 查看。
 
+## v1.11.1 (2026-09-19)
+
+- 🔴 **提供者按配置扩展名识别 PL/SQL 文档（#26）**：折叠/悬停/Ctrl+Click 跳转三个提供者此前只按语言 ID（sql/plsql）注册——`fileExtensions` 配置中未声明为语言的扩展名（如 `.fcn`/`.typ`）以 plaintext 打开、或文件被其他扩展接管语言 ID 时，大纲可用而折叠/悬停/跳转完全失效（v1.11.0 折叠功能"无效"的直接原因）。现在三者共用放行全部本地/未保存文档的选择器，回调内统一按「语言 ID 或配置扩展名」门控，与大纲识别口径一致；非 PL/SQL 文档在门控处立即返回，不触发解析
+- 🧪 新增 foldRouting E2E（真实宿主：`.fcn`(plaintext) 命中折叠提供者、`.txt` 不命中、`.sql` 不回归），e2e 基线 +foldRouting 3/3；定义跳转单测/回归桩同步补 `isPLSQLFile` 协作者
+
 ## v1.11.0 (2026-09-19)
 
 - 🟢 **块结构代码折叠（#23）**：注册 FoldingRangeProvider（plsql + sql 语言），编辑器内提供原生折叠箭头——Function/Procedure→END、IF→END IF（IF/ELSIF/ELSE 分支链整体折叠）、LOOP/WHILE/FOR→END LOOP、CASE→END CASE、匿名块→END、Package Body 整体；ELSIF/ELSE/WHEN 不产生独立箭头（已包含在宿主块内），未闭合节点（包规格/触发器根）不折叠。折叠范围复用大纲解析结果（uri+版本缓存，未命中兜底独立解析），计算逻辑独立为 vscode-free 的 `src/folding.ts`；新增 folding_test 21 断言，单元基线 364→**385/385（22 套件）**
