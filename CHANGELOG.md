@@ -3,6 +3,12 @@
 本文件记录 PL/SQL Outline 各版本的变化。完整的版本发布信息也可在
 [GitHub Releases](https://github.com/Emon9426/plsql-outline/releases) 查看。
 
+## v1.11.2 (2026-09-19)
+
+- 🔴 **激活自动解析统一识别口径（#29）**：`activate()` 的自动解析判定此前硬编码 `DEFAULT_FILE_EXTENSIONS`——用户经「管理文件扩展名」（`plsql-outline.fileExtensions`）配置的扩展名在打开文件启动时不触发自动解析（大纲空白，需手动点解析）；现复用 `isPLSQLFile`（public 化）与解析命令/提供者（#26）同一口径
+- 🧪 **单元运行器崩溃门槛修复（#28）**：`tests/unit/run_all.js` 套件崩溃时此前推入空结果继续跑，`totalPassed === totalCases` 仍成立 → exit 0（#26 修复中实际踩中：2 套件崩溃、21 用例未跑，输出"364/364 通过"）——现在崩溃套件判失败、点名输出并反映到 HTML 报告；套件注册改为成对携带名称
+- 🧪 新增 `activation_auto_parse_test` 回归套件（真实 activate + mock vscode 捕获 executeCommand：.tps 配置 / .fcn 默认 / .txt 负例），回归基线 12 → **13/13**
+
 ## v1.11.1 (2026-09-19)
 
 - 🔴 **提供者按配置扩展名识别 PL/SQL 文档（#26）**：折叠/悬停/Ctrl+Click 跳转三个提供者此前只按语言 ID（sql/plsql）注册——`fileExtensions` 配置中未声明为语言的扩展名（如 `.fcn`/`.typ`）以 plaintext 打开、或文件被其他扩展接管语言 ID 时，大纲可用而折叠/悬停/跳转完全失效（v1.11.0 折叠功能"无效"的直接原因）。现在三者共用放行全部本地/未保存文档的选择器，回调内统一按「语言 ID 或配置扩展名」门控，与大纲识别口径一致；非 PL/SQL 文档在门控处立即返回，不触发解析
