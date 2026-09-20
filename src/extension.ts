@@ -8,6 +8,7 @@ import { SettingsPanel } from './settingsPanel';
 import { SymbolIndex, SymbolEntry, PathConfig } from './symbolIndex';
 import { getOutputChannel, disposeOutputChannel } from './logger';
 import { computeFoldRanges } from './folding';
+import { maskLiteralsAndComments, buildKeywordGroups, matchKeywordGroup, KeywordGroup } from './highlight';
 import { DEFAULT_FILE_EXTENSIONS, isCallableNode } from './shared';
 
 /**
@@ -55,10 +56,20 @@ export class PLSQLOutlineExtension {
     // 最近一个 PL/SQL 活动编辑器：大纲树获得焦点时 activeTextEditor 为 undefined，
     // 顶部 Refresh 按钮需回退到此编辑器解析（否则出现"点了没反应"，Issue #23 评审 H1）
     private lastActivePLSQLEditor: vscode.TextEditor | null = null;
-    // 折叠范围缓存：uri → 文档版本 + 解析结果（与大纲共用同一次解析，避免重复解析，Issue #23）
-    private foldingCache: Map<string, { version: number; result: ParseResult }> = new Map();
+    // 提供者解析缓存：uri → 文档版本 + 解析结果（折叠与关键字配对高亮共用同一次
+    // 解析，掩码/配对组在同版本内懒计算一次，Issue #23/#31）
+    private parseResultCache: Map<string, {
+        version: number;
+        result: ParseResult;
+        maskedLines: string[] | null;
+        keywordGroups: KeywordGroup[] | null;
+    }> = new Map();
     // 缓存上限（可见编辑器数量级，超出淘汰最早条目）
-    private static readonly FOLDING_CACHE_MAX = 8;
+    private static readonly PARSE_CACHE_MAX = 8;
+    // 结构关键字集合（Issue #31）：命中才尝试配对组；其余词直接返回空回退原生词高亮
+    private static readonly STRUCTURAL_KEYWORDS: ReadonlySet<string> = new Set([
+        'DECLARE', 'BEGIN', 'EXCEPTION', 'END', 'IF', 'ELSIF', 'ELSE', 'LOOP', 'FOR', 'WHILE'
+    ]);
     // 启动时延迟构建符号索引的定时器（dispose 时取消，防止停用后仍创建 watcher）
     private indexBuildTimer: NodeJS.Timeout | null = null;
 
@@ -231,7 +242,7 @@ export class PLSQLOutlineExtension {
         );
 
         // 注册折叠范围提供者（块结构折叠：Function→END、IF→END IF、LOOP→END LOOP 等，
-        // 复用解析器节点起止行号，Issue #23）
+        // 复用解析器节点起止行号 + BEGIN/EXCEPTION 段折叠，Issue #23/#31）
         const foldingProvider = vscode.languages.registerFoldingRangeProvider(
             PLSQL_DOC_SELECTOR,
             {
@@ -239,7 +250,17 @@ export class PLSQLOutlineExtension {
             }
         );
 
-        context.subscriptions.push(hoverProvider, definitionProvider, foldingProvider);
+        // 注册关键字配对高亮提供者（Issue #31）：双击结构关键字高亮配对组
+        // （块：DECLARE/BEGIN/EXCEPTION/END；IF 链；循环），其余返回空——
+        // VS Code 对空结果回退原生词高亮，原生行为不受影响
+        const highlightProvider = vscode.languages.registerDocumentHighlightProvider(
+            PLSQL_DOC_SELECTOR,
+            {
+                provideDocumentHighlights: (document, position, token) => this.provideDocumentHighlights(document, position, token)
+            }
+        );
+
+        context.subscriptions.push(hoverProvider, definitionProvider, foldingProvider, highlightProvider);
     }
 
     /**
@@ -319,7 +340,7 @@ export class PLSQLOutlineExtension {
                 this.currentParseResult = parseResult;
                 this.debugManager.logParseResult(parseResult, sourceFile);
                 this.lastParsedKey = { uri: document.uri.toString(), version: documentVersion };
-                this.updateFoldingCache(document.uri.toString(), documentVersion, parseResult);
+                this.updateParseResultCache(document.uri.toString(), documentVersion, parseResult);
                 
                 progress.report({ increment: 80, message: '更新视图...' });
                 
@@ -404,7 +425,7 @@ export class PLSQLOutlineExtension {
             this.currentParseResult = parseResult;
             this.debugManager.logParseResult(parseResult, document.fileName);
             this.lastParsedKey = { uri: document.uri.toString(), version: documentVersion };
-            this.updateFoldingCache(document.uri.toString(), documentVersion, parseResult);
+            this.updateParseResultCache(document.uri.toString(), documentVersion, parseResult);
 
             // 同步大纲视图（树与未保存编辑保持一致）
             this.treeViewManager.updateDataProvider(new MemoryDataProvider(this.currentParseResult));
@@ -420,24 +441,87 @@ export class PLSQLOutlineExtension {
     /**
      * 提供折叠范围（FoldingRangeProvider 回调）
      * 选择器已放行全部本地/未保存文档，非 PL/SQL 文档（语言 ID 与配置扩展名均
-     * 不匹配）在此返回空（Issue #26）。优先复用大纲解析缓存（同文档同版本）；
-     * 未命中时兜底独立解析（PLSQLParser 每次解析必须独立实例），
-     * 保证任意可见编辑器（分屏/diff）可折叠。
+     * 不匹配）在此返回空（Issue #26）。
      */
     private async provideFoldingRanges(document: vscode.TextDocument): Promise<vscode.FoldingRange[]> {
         if (!this.isPLSQLFile(document)) {
             return [];
         }
+        const result = await this.getOrParseForProviders(document);
+        // 折叠是辅助功能：超限/解析失败时静默返回空，不干扰编辑器
+        return result ? this.toFoldingRanges(result) : [];
+    }
 
+    /**
+     * 提供关键字配对高亮（DocumentHighlightProvider 回调，Issue #31）
+     * 结构关键字（DECLARE/BEGIN/EXCEPTION/END/IF/ELSIF/ELSE/LOOP/FOR/WHILE）命中
+     * 配对组时返回组内全部关键字范围；其余（非关键字、字符串/注释内、END CASE 等
+     * 未支持结构）返回空——VS Code 对空结果回退原生相同词高亮，原生行为不受影响。
+     */
+    private async provideDocumentHighlights(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken): Promise<vscode.DocumentHighlight[]> {
+        if (!this.isPLSQLFile(document)) {
+            return [];
+        }
+        const wordRange = document.getWordRangeAtPosition(position);
+        if (!wordRange) {
+            return [];
+        }
+        // 本回调在每次光标停留都触发：缓存版本陈旧（编辑后防抖重解析未完成）时
+        // 直接让位原生词高亮，避免每次光标移动全量重解析；从未解析过的文档才
+        // 兜底解析一次填充缓存（与折叠共用 getOrParseForProviders）
         const uri = document.uri.toString();
-        const cached = this.foldingCache.get(uri);
+        let entry = this.parseResultCache.get(uri);
+        if (!entry || entry.version !== document.version) {
+            if (entry) {
+                return [];
+            }
+            if (await this.getOrParseForProviders(document) === null) {
+                return [];
+            }
+            entry = this.parseResultCache.get(uri);
+            if (!entry || entry.version !== document.version) {
+                return []; // 解析期间文档已再编辑：本次让位原生高亮，下次光标停留重算
+            }
+        }
+        // 掩码懒计算（同版本一次）：字符串/注释等长替换为空格，词提取天然跳过非代码区
+        if (!entry.maskedLines) {
+            entry.maskedLines = maskLiteralsAndComments(document.getText());
+        }
+        const maskedLine = entry.maskedLines[position.line] ?? '';
+        const word = maskedLine.substring(wordRange.start.character, wordRange.end.character);
+        if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(word) ||
+            !PLSQLOutlineExtension.STRUCTURAL_KEYWORDS.has(word.toUpperCase())) {
+            return [];
+        }
+        if (!entry.keywordGroups) {
+            entry.keywordGroups = buildKeywordGroups(entry.result, entry.maskedLines);
+        }
+        const group = matchKeywordGroup(entry.keywordGroups, position.line + 1, wordRange.start.character, wordRange.end.character);
+        if (!group) {
+            return [];
+        }
+        return group.spans.map(s => new vscode.DocumentHighlight(
+            new vscode.Range(s.line - 1, s.start, s.line - 1, s.end),
+            vscode.DocumentHighlightKind.Text
+        ));
+    }
+
+    /**
+     * 提供者共享的「取缓存或独立解析」（折叠/关键字高亮）：
+     * 命中同版本缓存直接返回；未命中则独立解析（PLSQLParser 每次解析必须独立
+     * 实例，Issue #15）并回写缓存。超过 10MB 或解析失败返回 null（调用方按各自
+     * 语义降级），保证任意可见编辑器（分屏/diff）可用。
+     */
+    private async getOrParseForProviders(document: vscode.TextDocument): Promise<ParseResult | null> {
+        const uri = document.uri.toString();
+        const cached = this.parseResultCache.get(uri);
         if (cached && cached.version === document.version) {
-            return this.toFoldingRanges(cached.result);
+            return cached.result;
         }
 
         // 与大纲解析一致的 10MB 上限
         if (document.getText().length > 10 * 1024 * 1024) {
-            return [];
+            return null;
         }
 
         try {
@@ -445,25 +529,24 @@ export class PLSQLOutlineExtension {
                 maxNestingDepth: vscode.workspace.getConfiguration('plsql-outline')
                     .get('parsing.maxNestingDepth', 15)
             });
-            this.updateFoldingCache(uri, document.version, parseResult);
-            return this.toFoldingRanges(parseResult);
+            this.updateParseResultCache(uri, document.version, parseResult);
+            return parseResult;
         } catch {
-            // 折叠是辅助功能：解析失败时静默返回空，不干扰编辑器
-            return [];
+            return null;
         }
     }
 
     /**
-     * 折叠范围缓存更新（解析成功后调用，超出上限淘汰最早条目）
+     * 提供者解析缓存更新（解析成功后调用，超出上限淘汰最早条目；掩码/配对组重置为懒计算）
      */
-    private updateFoldingCache(uri: string, version: number, result: ParseResult): void {
-        if (this.foldingCache.size >= PLSQLOutlineExtension.FOLDING_CACHE_MAX && !this.foldingCache.has(uri)) {
-            const first = this.foldingCache.keys().next();
+    private updateParseResultCache(uri: string, version: number, result: ParseResult): void {
+        if (this.parseResultCache.size >= PLSQLOutlineExtension.PARSE_CACHE_MAX && !this.parseResultCache.has(uri)) {
+            const first = this.parseResultCache.keys().next();
             if (!first.done) {
-                this.foldingCache.delete(first.value);
+                this.parseResultCache.delete(first.value);
             }
         }
-        this.foldingCache.set(uri, { version, result });
+        this.parseResultCache.set(uri, { version, result, maskedLines: null, keywordGroups: null });
     }
 
     /**
@@ -1370,7 +1453,7 @@ export class PLSQLOutlineExtension {
             this.currentParseResult = null;
 
             // 清理折叠范围缓存（避免大文件解析结果滞留内存）
-            this.foldingCache.clear();
+            this.parseResultCache.clear();
             
             // 清理树视图缓存
             if (this.treeViewManager && this.treeViewManager.getProvider()) {

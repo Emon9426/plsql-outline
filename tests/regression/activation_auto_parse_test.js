@@ -91,7 +91,8 @@ const mockVscode = {
     languages: {
         registerHoverProvider: () => ({ dispose() {} }),
         registerDefinitionProvider: () => ({ dispose() {} }),
-        registerFoldingRangeProvider: () => ({ dispose() {} })
+        registerFoldingRangeProvider: () => ({ dispose() {} }),
+        registerDocumentHighlightProvider: () => ({ dispose() {} })
     },
     RelativePattern: class { constructor(b, p) { this.base = b; this.pattern = p; } },
     Uri: { file: (f) => ({ fsPath: f, toString: () => f }) },

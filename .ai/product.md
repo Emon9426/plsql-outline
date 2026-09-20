@@ -7,11 +7,19 @@
   Exception 段；内联 DECLARE..END 块渲染为宿主 Body 内可展开分组。
 - **代码导航**：点击节点跳转定义行；Ctrl+Click 跨文件跳转（符号索引，含代码仓库路径，
   最多 2 个、按优先级）；光标移动自动同步选中大纲节点（不自动展开）。
-- **块结构代码折叠**（Issue #23）：FoldingRangeProvider 复用解析起止行号，提供编辑器
-  原生折叠箭头——Function/Procedure→END、IF→END IF（IF/ELSIF/ELSE 兄弟链合并）、
-  LOOP/WHILE/FOR→END LOOP、CASE→END CASE、匿名块→END、Package Body 整体；
-  ELSIF/ELSE/WHEN 不独立折叠；未闭合节点（包规格/触发器根）不折叠。
-  计算逻辑在 src/folding.ts（vscode-free），适用 plsql + sql 语言。
+- **块结构代码折叠**（Issue #23，#31 补段折叠）：FoldingRangeProvider 复用解析起止
+  行号，提供编辑器原生折叠箭头——Function/Procedure→END、IF→END IF（IF/ELSIF/ELSE
+  兄弟链合并）、LOOP/WHILE/FOR→END LOOP、CASE→END CASE、匿名块→END、Package Body
+  整体；**BEGIN 段**（BEGIN 行→该块 END）与 **EXCEPTION 段**（EXCEPTION 行→END）
+  独立折叠（#31）；ELSIF/ELSE/WHEN 不独立折叠；未闭合节点（包规格/触发器根）不折叠。
+  计算逻辑在 src/folding.ts（vscode-free）。折叠保留首行为 VS Code 原生行为。
+- **结构关键字配对高亮**（Issue #31）：DocumentHighlightProvider——双击（词高亮）
+  结构关键字时配对关键字一起高亮：块级 DECLARE/BEGIN/EXCEPTION/END 按节点层级
+  配对（子程序无 DECLARE 则 BEGIN/EXCEPTION/END）；IF→该块的 IF/ELSIF/ELSE/END IF；
+  循环→其 FOR|WHILE/LOOP/END LOOP（END IF / END LOOP 中的 END 与 IF/LOOP 同样命中）。
+  非结构关键字/字符串注释内/END CASE 等返回空——VS Code 回退原生相同词高亮，
+  原生行为不受影响。关键字定位复用解析器 Q-quote 扫描（掩码与解析同口径），
+  掩码/配对组按 (uri, version) 懒计算缓存。实现在 src/highlight.ts（vscode-free）。
 - **解析进度与刷新**（Issue #23）：解析进度显示在大纲视图内（面板顶部进度条，
   解析完成大纲更新后才消失，替代右上角通知）；顶部 Refresh 按钮 = 强制重新解析
   当前活动文件并刷新大纲（旧实现仅重绘旧结果）。

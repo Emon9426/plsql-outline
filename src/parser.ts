@@ -313,10 +313,10 @@ export class PLSQLParser {
             }
 
             // 字符串字面量（标准 单引号 或 Q-quote [n]q'...'）
-            const qStart = this.matchQStringStart(line, i);
+            const qStart = PLSQLParser.matchQStringStart(line, i);
             if (ch === '\'' || qStart !== null) {
                 if (qStart !== null) {
-                    const end = this.scanQStringEnd(line, i, qStart);
+                    const end = PLSQLParser.scanQStringEnd(line, i, qStart);
                     if (end > i) {
                         out += '""';
                         i = end + 1;
@@ -348,18 +348,19 @@ export class PLSQLParser {
      * 检测 position 是否为 Q-quote 字符串起始（[n]q'<delim>）。
      * 返回定界符信息 { prefixLen, open, close } 或 null。
      * 支持：q' / nq' / Q' / NQ'（大小写不敏感）。open 为起始定界符（[ { < ( 或其他字符），close 为对应闭合定界符。
+     * public static：关键字配对高亮（src/highlight.ts）复用同一 Q-quote 语义做字符串掩码（Issue #31）。
      */
-    private matchQStringStart(line: string, i: number): { prefixLen: number; open: string; close: string } | null {
+    public static matchQStringStart(line: string, i: number): { prefixLen: number; open: string; close: string } | null {
         // 尝试匹配可选 N + Q（共 1~2 个字符前缀）后跟 '
         const lower = line.toLowerCase();
         // 模式：[n]q'  → 前缀长度 1 (q) 或 2 (nq)
         // 先试 2 字符前缀 nq'
         if (i + 2 < line.length && (lower[i] === 'n' && lower[i + 1] === 'q' && line[i + 2] === '\'')) {
-            return this.qDelimAt(line, i + 3, 2);
+            return PLSQLParser.qDelimAt(line, i + 3, 2);
         }
         // 1 字符前缀 q'
         if (i + 1 < line.length && lower[i] === 'q' && line[i + 1] === '\'') {
-            return this.qDelimAt(line, i + 2, 1);
+            return PLSQLParser.qDelimAt(line, i + 2, 1);
         }
         return null;
     }
@@ -368,7 +369,7 @@ export class PLSQLParser {
      * 在 q' 之后的 position 读取定界符，返回 { prefixLen, open, close }。
      * 配对定界符：[ ]、{ }、< >、( )；其他字符 c 则 open=close=c。
      */
-    private qDelimAt(line: string, pos: number, prefixLen: number): { prefixLen: number; open: string; close: string } | null {
+    private static qDelimAt(line: string, pos: number, prefixLen: number): { prefixLen: number; open: string; close: string } | null {
         if (pos >= line.length) { return null; }
         const open = line[pos];
         let close: string;
@@ -386,8 +387,9 @@ export class PLSQLParser {
      * 扫描 Q-quote 字符串结束位置，返回闭合 ' 的索引（不含），未闭合返回 -1。
      * start 为前缀起始索引（指向 n 或 q），delim 为定界符信息。
      * Q-quote 闭合形式：close'（先出现 close 定界符再紧跟 '）。无需转义。
+     * public static：与 matchQStringStart 一起供 src/highlight.ts 复用（Issue #31）。
      */
-    private scanQStringEnd(line: string, start: number, delim: { prefixLen: number; open: string; close: string }): number {
+    public static scanQStringEnd(line: string, start: number, delim: { prefixLen: number; open: string; close: string }): number {
         // 内容起始 = start + prefixLen + 1(q') + 1(open)
         const j = start + delim.prefixLen + 1 + 1;
         const closeSeq = delim.close + '\'';

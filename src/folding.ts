@@ -22,10 +22,13 @@ const NON_FOLDABLE_TYPES: ReadonlySet<NodeType> = new Set<NodeType>([
 /**
  * 从解析结果计算块结构折叠范围（纯函数，vscode-free，供单元测试直接覆盖）。
  *
- * 规则（Issue #23）：
- * - 凡解析器已闭合的节点（endLine 非空且大于声明行）均产生折叠范围：
+ * 规则（Issue #23，Issue #31 补段折叠）：
+ * - 凡解析器已闭合的节点（endLine 非空且大于声明行）均产生整体折叠范围：
  *   Function/Procedure → END、LOOP/WHILE/FOR → END LOOP、CASE → END CASE、
  *   匿名块 → END、Package Body → 结束 END。
+ * - BEGIN 段折叠（#31）：折叠 BEGIN 行 → 该块 END 行（子程序/匿名块/
+ *   包体初始化节；与整体折叠并存，箭头分别在声明行与 BEGIN 行）。
+ * - EXCEPTION 段折叠（#31）：折叠 EXCEPTION 行 → 该块 END 行。
  * - IF 行折叠需到达 END IF 行：解析器把 IF/ELSIF/ELSE 拆为同级兄弟节点
  *   （每个分支在下一分支出现时闭合，因此后一分支的 declarationLine 恰为
  *   前一节点的 endLine），须把 IF 与后续连续 ELSIF/ELSE 兄弟链合并，取链上
@@ -68,6 +71,14 @@ export function computeFoldRanges(parseResult: ParseResult | null): FoldRange[] 
                 pushRange(node.declarationLine, mergedEnd);
             } else if (!NON_FOLDABLE_TYPES.has(node.type)) {
                 pushRange(node.declarationLine, node.endLine);
+                // BEGIN 段折叠：BEGIN 行 → 该块 END（#31；无 beginLine 的节点如包规格跳过）
+                if (node.beginLine !== null && node.beginLine !== undefined) {
+                    pushRange(node.beginLine, node.endLine);
+                }
+                // EXCEPTION 段折叠：EXCEPTION 行 → 该块 END（#31）
+                if (node.exceptionLine !== null && node.exceptionLine !== undefined) {
+                    pushRange(node.exceptionLine, node.endLine);
+                }
             }
             visit(node.children);
         }

@@ -75,11 +75,14 @@ hr_salary_pkg (Package Body)
 
 ### 🗂️ 代码折叠
 
-编辑器内提供 PL/SQL 原生折叠箭头，折叠范围由解析器起止行号驱动（与大纲同源）：
+编辑器内提供 PL/SQL 原生折叠箭头，折叠范围由解析器起止行号驱动（与大纲同源），折叠始终保留首行：
 
 | 结构 | 折叠范围 |
 |------|----------|
 | Function / Procedure | 声明行 → END |
+| DECLARE（匿名块） | DECLARE 行 → 块 END（整块） |
+| BEGIN | BEGIN 行 → 该块 END |
+| EXCEPTION | EXCEPTION 行 → 该块 END |
 | IF / ELSIF / ELSE | IF 行 → END IF（整条分支链） |
 | LOOP / WHILE / FOR | 起始行 → END LOOP |
 | CASE | CASE 行 → END CASE |
@@ -91,6 +94,20 @@ ELSIF / ELSE / WHEN 分支不产生独立箭头（已包含在宿主块的折叠
 折叠、悬停与 Ctrl+Click 跳转按「语言 ID（SQL / PL/SQL）或 `plsql-outline.fileExtensions`
 配置的扩展名」识别文件——文件即使未关联 PL/SQL 语言（如 `.fcn` / `.typ` 以纯文本打开），
 只要扩展名在配置清单内同样生效。
+
+### 🔗 结构关键字配对高亮
+
+双击（或光标停留触发词高亮）结构关键字时，配对关键字一起高亮：
+
+| 双击关键字 | 一起高亮 |
+|------|----------|
+| DECLARE / BEGIN / EXCEPTION / END | 该层级的 DECLARE、BEGIN、EXCEPTION、END（子程序无 DECLARE 则高亮其 BEGIN/EXCEPTION/END；按块层级隔离，不含嵌套块） |
+| IF（含 END IF 中的 END / IF） | 该 IF 块的 IF、ELSIF、ELSE、END IF |
+| FOR / WHILE / LOOP（含 END LOOP 中的关键字） | 该循环的 FOR/WHILE、LOOP、END LOOP |
+
+非结构关键字（变量名等普通词）、字符串/注释内的关键字、END CASE 等暂未支持的结构，
+保持 VS Code **原生相同词高亮**不受影响。关键字定位与解析器同口径跳过字符串
+（含 Q-quote）与注释。
 
 ### 🎛️ 实用工具
 

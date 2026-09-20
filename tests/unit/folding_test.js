@@ -1,12 +1,14 @@
 /**
- * GMLTest: 块结构折叠范围计算测试（Issue #23）
+ * GMLTest: 块结构折叠范围计算测试（Issue #23，Issue #31 补段折叠）
  *
  * 验证 src/folding.ts 的 computeFoldRanges 纯函数契约：
  *  - Function/Procedure 折叠整个过程（声明行 → END 行）
+ *  - BEGIN 段折叠（#31）：BEGIN 行 → 该块 END 行；EXCEPTION 段折叠：EXCEPTION 行 → END
  *  - IF 行折叠到 END IF 行（IF/ELSIF/ELSE 兄弟链合并；CASE 内嵌 IF 不误合并）
  *  - LOOP/WHILE/FOR 折叠到 END LOOP 行；CASE 折叠到 END CASE 行
  *  - 匿名块、Package Body 整体折叠；Package Header 等未闭合节点不折叠
  *  - ELSIF/ELSE/WHEN 不产生独立折叠；排序与去重契约
+ *  - 折叠保留首行为 VS Code FoldingRange 原生行为（不在此断言）
  */
 const { PLSQLParser } = require('../../out/parser');
 const { NodeType } = require('../../out/types');
@@ -66,8 +68,8 @@ async function run() {
         'END p_calc;'                                 // 14
     ].join('\n'));
     const f1 = computeFoldRanges(r1);
-    rec.assert('c1_proc_whole', 'Procedure 折叠整个过程 [1,14]',
-        JSON.stringify(f1) === JSON.stringify([{ startLine: 1, endLine: 14 }, { startLine: 4, endLine: 10 }, { startLine: 11, endLine: 13 }]),
+    rec.assert('c1_proc_whole', 'Procedure 折叠整个过程（含 BEGIN 段折叠 [3,14]，#31）',
+        JSON.stringify(f1) === JSON.stringify([{ startLine: 1, endLine: 14 }, { startLine: 3, endLine: 14 }, { startLine: 4, endLine: 10 }, { startLine: 11, endLine: 13 }]),
         JSON.stringify(f1));
     rec.assert('c1_if_to_end_if', 'IF 行折叠到 END IF 行（链合并后 [4,10]）',
         f1.some(r => r.startLine === 4 && r.endLine === 10), JSON.stringify(f1));
@@ -215,6 +217,40 @@ async function run() {
     const f11 = computeFoldRanges(fakeResult(chain));
     rec.assert('c11_elsif_tail', 'IF+ELSIF 链合并到 ELSIF 的 endLine [4,8]',
         f11.some(r => r.startLine === 4 && r.endLine === 8), JSON.stringify(f11));
+
+    // ---- Case 12: BEGIN/EXCEPTION 段折叠（#31：折叠 BEGIN 行→END、EXCEPTION 行→END）----
+    const r12 = await parseOne([
+        'CREATE OR REPLACE PROCEDURE p_exc IS',    // 1
+        '  v NUMBER;',                             // 2
+        'BEGIN',                                   // 3
+        '  NULL;',                                 // 4
+        'EXCEPTION',                               // 5
+        '  WHEN OTHERS THEN NULL;',                // 6
+        'END p_exc;'                               // 7
+    ].join('\n'));
+    const f12 = computeFoldRanges(r12);
+    rec.assert('c12_begin_section', '折叠 BEGIN 行 → BEGIN..END 整体 [3,7]',
+        f12.some(r => r.startLine === 3 && r.endLine === 7), JSON.stringify(f12));
+    rec.assert('c12_exception_section', '折叠 EXCEPTION 行 → EXCEPTION..END [5,7]',
+        f12.some(r => r.startLine === 5 && r.endLine === 7), JSON.stringify(f12));
+
+    // ---- Case 13: 匿名块 DECLARE 整体折叠 + BEGIN 段折叠（#31）----
+    const r13 = await parseOne([
+        'DECLARE',                                 // 1
+        '  v NUMBER;',                             // 2
+        'BEGIN',                                   // 3
+        '  NULL;',                                 // 4
+        'EXCEPTION',                               // 5
+        '  WHEN OTHERS THEN NULL;',                // 6
+        'END;',                                    // 7
+        '/'                                        // 8
+    ].join('\n'));
+    const f13 = computeFoldRanges(r13);
+    rec.assert('c13_anon_declare_whole', '折叠 DECLARE 行 → 匿名块整体 [1,7]',
+        f13.some(r => r.startLine === 1 && r.endLine === 7), JSON.stringify(f13));
+    rec.assert('c13_anon_begin_section', '匿名块 BEGIN 段折叠 [3,7] 与 EXCEPTION 段 [5,7]',
+        f13.some(r => r.startLine === 3 && r.endLine === 7) && f13.some(r => r.startLine === 5 && r.endLine === 7),
+        JSON.stringify(f13));
 
     return { suiteName: 'folding_test', cases: rec.cases };
 }
