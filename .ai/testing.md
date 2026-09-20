@@ -14,9 +14,9 @@ npm run compile   # 所有测试直接 require out/ 编译产物，必须先编�
 | # | 命令 | 基线 | 覆盖 |
 |---|---|---|---|
 | 1 | `npm run test:corpus`（= validate.js + render-validate.js） | **35/35 + 35 OK** | 143k 行语料（含 .pck / get_ddl 形态）的解析层 + 显示层 |
-| 2 | `npm test`（= compile + tests/unit/run_all.js） | **385/385（22 套件）** | 解析/渲染/导航/取消/设置/引号标识符/get_ddl/折叠 契约 |
+| 2 | `npm test`（= compile + tests/unit/run_all.js） | **414/414（23 套件）** | 解析/渲染/导航/取消/设置/引号标识符/get_ddl/折叠/关键字配对高亮 契约 |
 | 3 | `npm run test:regression` | **13/13 套件** | 真实世界包/超大文件/边界/光标同步/定义跳转/符号索引/内存/Refresh 焦点回退/激活自动解析 |
-| 4 | `npm run test:e2e` | **anonDefinition 通过 + smoke 7/7 + foldRouting 3/3** | 真实 VS Code 宿主（@vscode/test-electron）；foldRouting 锁定配置扩展名文档的提供者路由（Issue #26） |
+| 4 | `npm run test:e2e` | **anonDefinition 通过 + smoke 7/7 + foldRouting 8/8** | 真实 VS Code 宿主（@vscode/test-electron）；foldRouting 锁定提供者路由（#26）+ 段折叠/配对高亮/原生回退（#31） |
 
 补充：`node tests/bench.js` 输出语料大文件解析耗时基准（性能改动的证据）。
 

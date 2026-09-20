@@ -30,7 +30,8 @@ const suites = [
     ['settings_schema_test', require('./settings_schema_test')],
     ['quoted_identifier_test', require('./quoted_identifier_test')],
     ['get_ddl_test', require('./get_ddl_test')],
-    ['folding_test', require('./folding_test')]
+    ['folding_test', require('./folding_test')],
+    ['keyword_highlight_test', require('./keyword_highlight_test')]
 ].map(([name, mod]) => ({ name, mod }));
 
 function escapeHtml(s) {

@@ -1,13 +1,11 @@
 /**
- * 真实 VS Code 端到端测试：配置扩展名文件的提供者路由（Issue #26）
+ * 真实 VS Code 端到端测试：配置扩展名文件的提供者路由 + 段折叠/关键字配对高亮
  *
- * 在真实扩展宿主中验证：
- *   1. .fcn 在 plsql-outline.fileExtensions 默认清单内，但未在 contributes.languages
- *      声明 → 编辑器 languageId 为 plaintext（Issue #26 的复现前提）
- *   2. executeFoldingRangeProvider 对该文件返回真实折叠范围
- *      （修复前：选择器按语言 ID 匹配，plaintext 文档永远到不了提供者，返回空）
- *   3. 非 PL/SQL 文档（.txt，不在配置扩展名内）不产生折叠范围
- *   4. .sql 文件（languageId=sql）路由不受选择器改写影响
+ * 与 anonDefinition.e2e.test.js 同模式(@vscode/test-electron + --disable-extensions):
+ *   1. 语言关联: .fcn 以 plaintext 打开（Issue #26 复现前提）→ 折叠提供者仍命中
+ *   2. BEGIN/EXCEPTION 段折叠（Issue #31）
+ *   3. vscode.executeDocumentHighlights: 结构关键字配对组（块/IF/循环），
+ *      普通词返回空（回退原生词高亮）
  *
  * 运行：node tests/e2e/foldRouting.e2e.test.js
  */
