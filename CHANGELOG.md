@@ -3,6 +3,12 @@
 本文件记录 PL/SQL Outline 各版本的变化。完整的版本发布信息也可在
 [GitHub Releases](https://github.com/Emon9426/plsql-outline/releases) 查看。
 
+## v1.12.0 (2026-09-20)
+
+- 🟢 **结构关键字配对高亮（#31）**：双击（词高亮）结构关键字时配对关键字一起高亮——双击 DECLARE/BEGIN/EXCEPTION/END 高亮该层级的四个块关键字（按解析节点层级隔离，不串嵌套块）；双击 IF（含 END IF 中的 END 或 IF）高亮该 IF 块的 IF/ELSIF/ELSE/END IF；双击 FOR/WHILE/LOOP（含 END LOOP 中的关键字）高亮该循环的 FOR|WHILE/LOOP/END LOOP。非结构关键字、字符串/注释内、END CASE 等返回空——VS Code 回退**原生相同词高亮**，原生行为不受影响。关键字定位与解析器同口径跳过字符串（含 Q-quote 跨行）与注释（新模块 `src/highlight.ts`，Q-quote 扫描复用 parser 静态化方法）；与折叠共用解析缓存，掩码/配对组按版本懒计算，编辑窗口期让位原生避免光标移动重解析
+- 🟢 **BEGIN / EXCEPTION 段折叠（#31）**：折叠 BEGIN 行 → 该块 END、EXCEPTION 行 → 该块 END（子程序/匿名块/包体初始化节），与整体折叠并存，箭头分别在声明行与 BEGIN/EXCEPTION 行；既有 DECLARE 整块/IF 链/循环/单元折叠不回归，所有折叠保留首行
+- 🧪 folding_test 21→25（段折叠）；新增 keyword_highlight_test（25 断言：掩码/分组/命中/负例/大小写/null 防御）；foldRouting E2E 3→8（段折叠 + 真实宿主 `executeDocumentHighlights` 配对组 + 普通词返回空）；单元基线 385/385(22) → **414/414(23)**；回归 mock vscode 补 `registerDocumentHighlightProvider`
+
 ## v1.11.2 (2026-09-19)
 
 - 🔴 **激活自动解析统一识别口径（#29）**：`activate()` 的自动解析判定此前硬编码 `DEFAULT_FILE_EXTENSIONS`——用户经「管理文件扩展名」（`plsql-outline.fileExtensions`）配置的扩展名在打开文件启动时不触发自动解析（大纲空白，需手动点解析）；现复用 `isPLSQLFile`（public 化）与解析命令/提供者（#26）同一口径
