@@ -12,6 +12,7 @@ const suites = [
     'symbolIndex_test.js',
     'definition_test.js',
     'cursor_sync_test.js',
+    'cursor_follow_region_test.js',
     'declaration_render_test.js',
     'complex_realworld_test.js',
     'ecommerce_pkg_test.js',

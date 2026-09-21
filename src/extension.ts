@@ -26,6 +26,21 @@ const PLSQL_DOC_SELECTOR: vscode.DocumentSelector = [
 ];
 
 /**
+ * 是否为控制结构节点类型（与 treeView.PLSQLOutlineProvider.isControlStructureType 同集）。
+ * 光标跟随（findTargetByLine）用它区分控制结构与普通节点以计算候选优先级。
+ */
+function isControlStructureNodeType(type: NodeType): boolean {
+    return type === NodeType.IF_STATEMENT ||
+        type === NodeType.ELSIF_BRANCH ||
+        type === NodeType.ELSE_BRANCH ||
+        type === NodeType.LOOP_STATEMENT ||
+        type === NodeType.WHILE_LOOP ||
+        type === NodeType.FOR_LOOP ||
+        type === NodeType.CASE_STATEMENT ||
+        type === NodeType.WHEN_BRANCH;
+}
+
+/**
  * PL/SQL大纲扩展主类 - 内存优化版本
  */
 export class PLSQLOutlineExtension {
@@ -1159,7 +1174,17 @@ export class PLSQLOutlineExtension {
                     candidates.push({
                         node: node,
                         blockType: blockType,
-                        priority: 100 + node.level // 范围匹配优先级较低
+                        priority: 150 + node.level // 区域范围匹配（与控制结构同基准，保证"最内层胜出"）
+                    });
+                } else if (node.type === NodeType.ELSIF_BRANCH || node.type === NodeType.ELSE_BRANCH) {
+                    // ELSIF/ELSE 分支在显示层被合并进 IF（无独立树项），范围匹配跳过，
+                    // 让位给外围容器（宿主 Body 区域 / 所在 LOOP 等），避免 reveal 到不存在的元素
+                } else if (isControlStructureNodeType(node.type)) {
+                    // 控制结构范围匹配（Issue #22）：与区域范围同基准（150+level），
+                    // 同层级时控制结构比宿主区域更内层——按层级深度统一裁决"最内层容器跟随"
+                    candidates.push({
+                        node: node,
+                        priority: 150 + node.level
                     });
                 } else {
                     candidates.push({
@@ -1209,7 +1234,7 @@ export class PLSQLOutlineExtension {
                 }
             }
         }
-        
+
         // 检查是否在EXCEPTION块范围内
         if (node.exceptionLine !== null && node.exceptionLine !== undefined && line > node.exceptionLine) {
             if (node.endLine !== null && node.endLine !== undefined) {
@@ -1218,7 +1243,13 @@ export class PLSQLOutlineExtension {
                 }
             }
         }
-        
+
+        // 检查是否在DECLARE块范围内（Issue #22：声明区跟随选中 Declaration 文件夹）
+        if (node.beginLine !== null && node.beginLine !== undefined &&
+            line > node.declarationLine && line < node.beginLine) {
+            return 'DECLARE';
+        }
+
         return null;
     }
 

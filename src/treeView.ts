@@ -355,8 +355,21 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
                         return this.buildProgramGroupItem(parent, 'subprogram');
                     }
                     if (this.isControlStructureType(childType)) {
-                        // 控制结构：若其父也是控制结构，直接返回父控制结构节点；否则返回 Body 文件夹
+                        // 控制结构：若其父也是控制结构，直接返回父控制结构节点；否则返回 Body 文件夹。
+                        // ELSIF/ELSE 分支自身无独立树项（mergeIfGroups 已并入 IF）：
+                        // 其子级的显示父级需上溯到分支前面的所属 IF，保证 reveal 父链可解析。
                         if (this.isControlStructureType(parent.type)) {
+                            if (parent.type === NodeType.ELSIF_BRANCH || parent.type === NodeType.ELSE_BRANCH) {
+                                const owningIfItem = this.buildOwningIfItemForBranch(parseResult.nodes, parent);
+                                if (owningIfItem) {
+                                    return owningIfItem;
+                                }
+                                // 孤立分支（无前置 IF，显示层同样不可达）：按宿主 Body 兜底
+                                const holder = this.findParentNode(parseResult.nodes, parent);
+                                if (holder) {
+                                    return this.buildProgramGroupItem(holder, 'body');
+                                }
+                            }
                             return {
                                 node: parent,
                                 isStructureBlock: false,
@@ -409,9 +422,19 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 构造 Declaration 包裹文件夹 TreeItemData（字段与 createGroupedChildren 产出一致）
+     * Declaration 包裹文件夹是否会渲染（与 createGroupedChildren 的判定同一来源）。
+     * public：TreeViewManager 在 DECLARE 区域跟随时判断目标是否存在，
+     * 不存在（无声明项 / view.showDeclarations 关闭）则回退选中宿主节点。
      */
-    private buildDeclarationSectionItem(owner: ParseNode): TreeItemData {
+    public willRenderDeclarationSection(node: ParseNode): boolean {
+        return this.showDeclarations && !!node.variableTable && node.variableTable.size > 0;
+    }
+
+    /**
+     * 构造 Declaration 包裹文件夹 TreeItemData（字段与 createGroupedChildren 产出一致）。
+     * public：TreeViewManager.selectAndRevealTarget 构造 DECLARE 区域跟随目标时复用。
+     */
+    public buildDeclarationSectionItem(owner: ParseNode): TreeItemData {
         return {
             isStructureBlock: false,
             isDeclarationSection: true,
@@ -422,9 +445,10 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 构造程序文件夹 TreeItemData（Sub Program / Body，字段与 createGroupedChildren 产出一致）
+     * 构造程序文件夹 TreeItemData（Sub Program / Body，字段与 createGroupedChildren 产出一致）。
+     * public：TreeViewManager.selectAndRevealTarget 构造 Body 区域跟随目标时复用。
      */
-    private buildProgramGroupItem(owner: ParseNode, kind: 'subprogram' | 'body'): TreeItemData {
+    public buildProgramGroupItem(owner: ParseNode, kind: 'subprogram' | 'body'): TreeItemData {
         const children = owner.children || [];
         let groupChildren: ParseNode[];
         if (kind === 'subprogram') {
@@ -482,6 +506,54 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
                 }
             }
             const found = this.findOwnerNodeOfVariable(node.children, entry);
+            if (found) { return found; }
+        }
+        return undefined;
+    }
+
+    /**
+     * 为 ELSIF/ELSE 分支的子级构造所属 IF 的显示项（带 mergedChildren，与显示层
+     * mergeIfGroups 的吸收口径一致），保证 reveal 父链与 getChildren 可互相解析。
+     * 分支与 IF 是同级兄弟（IF 在前）；找不到前置 IF 返回 undefined（孤立分支）。
+     */
+    private buildOwningIfItemForBranch(nodes: ParseNode[], branch: ParseNode): TreeItemData | undefined {
+        for (const node of nodes) {
+            const idx = node.children.indexOf(branch);
+            if (idx >= 0) {
+                let owningIf: ParseNode | undefined;
+                for (let i = idx - 1; i >= 0; i--) {
+                    if (node.children[i].type === NodeType.IF_STATEMENT) {
+                        owningIf = node.children[i];
+                        break;
+                    }
+                }
+                if (!owningIf) { return undefined; }
+                // 收集 owningIf 自身 + 其后各 ELSIF/ELSE 分支（至当前分支）的控制结构子项
+                const merged: ParseNode[] = [];
+                const collectControls = (list: ParseNode[]) => {
+                    for (const c of list) {
+                        if (this.isControlStructureType(c.type) &&
+                            c.type !== NodeType.ELSIF_BRANCH && c.type !== NodeType.ELSE_BRANCH) {
+                            merged.push(c);
+                        }
+                    }
+                };
+                collectControls(owningIf.children || []);
+                for (let i = node.children.indexOf(owningIf) + 1; i <= idx; i++) {
+                    const sibling = node.children[i];
+                    if (sibling.type === NodeType.ELSIF_BRANCH || sibling.type === NodeType.ELSE_BRANCH) {
+                        collectControls(sibling.children || []);
+                    }
+                }
+                return {
+                    node: owningIf,
+                    isStructureBlock: false,
+                    mergedChildren: merged.length > 0 ? merged : undefined,
+                    label: this.getSimplifiedControlLabel(owningIf.type),
+                    line: owningIf.declarationLine
+                };
+            }
+            const found = this.buildOwningIfItemForBranch(node.children, branch);
             if (found) { return found; }
         }
         return undefined;
@@ -656,7 +728,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         }
 
         // 1. Declaration 包裹文件夹：含全部声明类别（变量/游标/常量/类型/异常）
-        const hasDeclarations = this.showDeclarations && !!node.variableTable && node.variableTable.size > 0;
+        const hasDeclarations = this.willRenderDeclarationSection(node);
         if (hasDeclarations) {
             items.push({
                 isStructureBlock: false,
@@ -1393,10 +1465,6 @@ export class TreeViewManager {
     private provider: PLSQLOutlineProvider;
     private outputChannel: vscode.OutputChannel;
 
-    // 用户手动展开/折叠的覆盖表（元素键 → 是否展开）。
-    // reveal 前据此判断目标是否可见：不可见则跳过，避免 VS Code reveal 沿父链自动展开。
-    private expansionOverrides: Map<string, boolean> = new Map();
-
     constructor(context: vscode.ExtensionContext) {
         this.provider = new PLSQLOutlineProvider();
         this.outputChannel = getOutputChannel();
@@ -1405,16 +1473,6 @@ export class TreeViewManager {
             treeDataProvider: this.provider,
             showCollapseAll: true
         });
-
-        // 跟踪用户手动展开/折叠（仅用户操作触发，作为默认状态之上的覆盖值）
-        context.subscriptions.push(
-            this.treeView.onDidExpandElement(e => {
-                this.expansionOverrides.set(this.provider.generateCacheKey(e.element), true);
-            }),
-            this.treeView.onDidCollapseElement(e => {
-                this.expansionOverrides.set(this.provider.generateCacheKey(e.element), false);
-            })
-        );
 
         // 注册命令
         this.registerCommands(context);
@@ -1729,9 +1787,9 @@ export class TreeViewManager {
     }
 
     /**
-     * 选中并展开到指定目标（节点/结构块/声明项）
-     * 注意：构造的 TreeItemData 字段必须与 getChildren /
-     * createDeclarationGroupItems 的产出逐字段一致，否则 reveal 的元素相等性比较会失败。
+     * 选中并展开到指定目标（节点/结构块/声明项/区域文件夹）
+     * 元素匹配只依赖 TreeItem.id（= generateCacheKey，经 VS Code createHandle 以 id 定位），
+     * 构造的 TreeItemData 无需与 getChildren 产出逐字段相等，键字段一致即可。
      */
     async selectAndRevealTarget(target: { type: 'node' | 'structureBlock' | 'declarationEntry', node?: ParseNode, blockType?: string, entry?: VariableInfo }): Promise<void> {
         try {
@@ -1753,20 +1811,29 @@ export class TreeViewManager {
             }
 
             if (target.type === 'structureBlock' && target.node && target.blockType) {
-                // BEGIN 在新扁平化结构中没有对应树节点（BEGIN 由 Body 文件夹代表，非叶子）。
-                // 按用户决策 A：光标在过程体内（BEGIN 区域）→ 选中所属 Procedure/Function 节点。
+                // 区域跟随（Issue #22）：光标进入 BEGIN/DECLARE 区域时选中对应的
+                // Body / Declaration 文件夹（此前回退选中宿主过程/函数名，即旧"决策 A"）。
                 // EXCEPTION/END 是真实叶子节点，正常 reveal。
                 if (target.blockType === 'BEGIN') {
                     const owner = target.node;
-                    const ownerLabel = this.provider.getDeclareNodeLabel(owner);
-                    const ownerItem: TreeItemData = {
-                        node: owner,
-                        isStructureBlock: false,
-                        label: ownerLabel,
-                        line: owner.declarationLine
-                    };
-                    await this.revealItem(ownerItem);
-                    this.outputChannel.appendLine(`已选中节点(BEGIN区): ${owner.name} (第${owner.declarationLine}行)`);
+                    const bodyItem = this.provider.buildProgramGroupItem(owner, 'body');
+                    await this.revealItem(bodyItem);
+                    this.outputChannel.appendLine(`已选中Body区域: ${owner.name} (第${owner.beginLine ?? '?'}行)`);
+                    return;
+                }
+
+                if (target.blockType === 'DECLARE') {
+                    const owner = target.node;
+                    if (this.provider.willRenderDeclarationSection(owner)) {
+                        const declItem = this.provider.buildDeclarationSectionItem(owner);
+                        await this.revealItem(declItem);
+                        this.outputChannel.appendLine(`已选中Declaration区域: ${owner.name} (第${owner.declarationLine}行)`);
+                    } else {
+                        // Declaration 文件夹不渲染（无声明项或 view.showDeclarations 关闭）：
+                        // 回退选中宿主节点，保证跟随不中断
+                        await this.revealItem(this.buildNodeDisplayItem(owner));
+                        this.outputChannel.appendLine(`Declaration区域不可用，回退选中节点: ${owner.name} (第${owner.declarationLine}行)`);
+                    }
                     return;
                 }
 
@@ -1789,29 +1856,11 @@ export class TreeViewManager {
                 return;
             }
 
-            // 普通节点：构造的 TreeItemData 字段必须与 getChildren 的产出逐字段一致，
-            // 否则 reveal 的元素相等性比较会失败（包下子程序用 getDeclareNodeLabel=仅名称，
-            // 控制结构等用 getSimplifiedControlLabel）。这里按节点类型选用正确的标签。
+            // 普通节点：reveal 元素匹配只看 TreeItem.id（见方法头注释），标签仅供
+            // getTreeItem 生成 cacheKey 之外的信息，按节点类型选用常规标签即可。
             if (target.node) {
-                const n = target.node;
-                let label: string;
-                if (isCallableNode(n)) {
-                    label = this.provider.getDeclareNodeLabel(n);
-                } else if (this.provider.isControlStructureType(n.type)) {
-                    label = this.provider.getSimplifiedControlLabel(n.type);
-                } else if (n.type === NodeType.ANONYMOUS_BLOCK) {
-                    label = 'Anonymous Block'; // 与 Body 内匿名块分组的渲染标签一致
-                } else {
-                    label = this.provider.getNodeLabel(n);
-                }
-                const treeItemData: TreeItemData = {
-                    node: n,
-                    isStructureBlock: false,
-                    label,
-                    line: n.declarationLine
-                };
-                await this.revealItem(treeItemData);
-                this.outputChannel.appendLine(`已选中节点: ${n.name} (第${n.declarationLine}行)`);
+                await this.revealItem(this.buildNodeDisplayItem(target.node));
+                this.outputChannel.appendLine(`已选中节点: ${target.node.name} (第${target.node.declarationLine}行)`);
             }
 
         } catch (error) {
@@ -1821,12 +1870,34 @@ export class TreeViewManager {
     }
 
     /**
+     * 构造普通节点（子程序/控制结构/匿名块/其他）的显示项。
+     * 标签规则与 getChildren 各分支一致（子程序=纯名称，控制结构=简化关键字等）。
+     */
+    private buildNodeDisplayItem(n: ParseNode): TreeItemData {
+        let label: string;
+        if (isCallableNode(n)) {
+            label = this.provider.getDeclareNodeLabel(n);
+        } else if (this.provider.isControlStructureType(n.type)) {
+            label = this.provider.getSimplifiedControlLabel(n.type);
+        } else if (n.type === NodeType.ANONYMOUS_BLOCK) {
+            label = 'Anonymous Block'; // 与 Body 内匿名块分组的渲染标签一致
+        } else {
+            label = this.provider.getNodeLabel(n);
+        }
+        return {
+            node: n,
+            isStructureBlock: false,
+            label,
+            line: n.declarationLine
+        };
+    }
+
+    /**
      * 调用 reveal API（容错：面板不可见时 VS Code 抛错，直接吞掉）
      *
-     * 不自动展开：VS Code 的 reveal 会沿父链强制展开所有祖先。为满足
-     * "大纲仅在用户手动操作时改变展开状态"，reveal 前先确认目标的全部
-     * 显示层祖先已展开（用户覆盖值优先，否则取默认状态）；任一祖先折叠
-     * 则静默跳过——不选中、不展开。
+     * Issue #22 起光标跟随允许自动展开：reveal 会沿父链展开折叠的祖先，
+     * 使 Body/Declaration/EXCEPTION 等区域目标可见后选中（仅展开、绝不折叠；
+     * 展开状态用户仍可手动收回）。这取代了 v1.6.4 的"目标不可见即跳过"门控。
      */
     private async revealItem(treeItemData: TreeItemData): Promise<void> {
         // 当面板可见时才尝试 reveal；不可见时静默跳过（reveal 会抛 TreeError）
@@ -1834,10 +1905,6 @@ export class TreeViewManager {
             return;
         }
         try {
-            if (!(await this.isTargetVisible(treeItemData))) {
-                this.outputChannel.appendLine('reveal 跳过: 目标位于折叠区域（不自动展开）');
-                return;
-            }
             await this.treeView.reveal(treeItemData, {
                 select: true,
                 focus: false
@@ -1846,32 +1913,6 @@ export class TreeViewManager {
             // reveal 失败（如父链无法定位）时静默处理
             this.outputChannel.appendLine(`reveal 失败: ${e}`);
         }
-    }
-
-    /**
-     * 判断目标元素当前是否可见：沿 getParent 逐层上溯，每个祖先都必须处于展开状态
-     * （用户覆盖值 ?? 默认折叠状态）。到根（无父）即可见。
-     */
-    private async isTargetVisible(element: TreeItemData): Promise<boolean> {
-        let current: TreeItemData | undefined = element;
-        for (let depth = 0; current && depth < 64; depth++) {
-            const parent: TreeItemData | undefined = await this.provider.getParent(current);
-            if (!parent) {
-                return true;
-            }
-            const state = this.provider.computeElementCollapsibleState(parent);
-            if (state !== vscode.TreeItemCollapsibleState.None) {
-                const key = this.provider.generateCacheKey(parent);
-                const expanded = this.expansionOverrides.has(key)
-                    ? this.expansionOverrides.get(key)!
-                    : state === vscode.TreeItemCollapsibleState.Expanded;
-                if (!expanded) {
-                    return false;
-                }
-            }
-            current = parent;
-        }
-        return true;
     }
 
     /**
