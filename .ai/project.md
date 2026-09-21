@@ -41,9 +41,11 @@ extension.ts（激活/命令/事件接线，入口 activate()）
 
 1. **解析器实例隔离**（Issue #15/#16，v1.7.3）：`PLSQLParser` 有大量可变实例状态，
    每次解析必须 `new PLSQLParser().parse(...)`；并发靠实例隔离而非互斥锁。
-2. **无自动展开策略**（v1.6.4，Emon 明确要求）：大纲展开状态只随用户手动操作变化；
-   `reveal()` 会强制展开祖先链，必须先走 `getParent` 可见性门控。TreeItem 用稳定 `id`
-   保证刷新后展开/选中状态保留。
+2. **光标跟随自动展开（Issue #22，v1.13.0 起）**：光标进入 Declare/Body/Exception
+   区域时，跟随选中对应区域文件夹，reveal 依赖 VS Code 原生沿父链自动展开祖先
+   （仅展开、绝不折叠）。这**取代**了 v1.6.4 的"目标不可见即跳过"门控
+   （expansionOverrides 覆盖表与 isTargetVisible 已删除）；用户手动折叠仍随时可收回。
+   TreeItem 用稳定 `id` 保证刷新后展开/选中状态保留。
 3. **点击跳转、箭头展开**：所有可展开节点必须设置 `command`（v1.6.3 教训）。
 4. **图标**：树节点用 res/icons/ 自绘 SVG（数据库圆柱主题，P=蓝 / F=琥珀，深浅两套），
    由 `scripts/generate_icons.js` 生成；marketplace README 不允许内联 SVG，图标表用文字。

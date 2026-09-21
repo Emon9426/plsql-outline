@@ -53,8 +53,12 @@
 - Body 文件夹只要有 `beginLine` 就生成（v1.6.3）；触发器借用匿名块的 beginLine。
 - 宿主自带 EXCEPTION/END 时，内联块内同类叶子去重。
 - 所有可展开 TreeItem 必须有 `command` + 稳定 `id`（`generateCacheKey` 带源文件前缀）。
-- `reveal` 前必须走 `getParent` 链可见性检查（用户覆盖态优先于默认折叠态）——
-  VS Code `reveal()` 会强制展开祖先链，违反无自动展开策略。
+- **reveal 元素匹配只看 TreeItem.id**（VS Code `createHandle`：设了 id 则句柄即 id），
+  构造跟随目标无需逐字段复刻 getChildren 产出。
+- 光标跟随（Issue #22）：DECLARE/BEGIN 区域 → Declaration/Body 文件夹，EXCEPTION/END →
+  叶子；控制结构范围匹配优先级 150+level > 区域范围 100+level > 普通节点 50+level，
+  ELSIF/ELSE（显示层合并进 IF）不产生范围候选。reveal 不做可见性门控，靠 VS Code
+  reveal 沿父链自动展开祖先（v1.6.4 门控已被 #22 推翻删除）。
 
 ## 已知未修缺陷（改动相关区域时留意）
 
