@@ -88,6 +88,11 @@ export class PLSQLParser {
     // 取消令牌（v1.8.0：大文件解析可中断）
     private cancellationToken?: { isCancellationRequested: boolean };
 
+    // 原文行 / 清洗行映射（解析期间有效，cleanup 释放；游标 SQL 原文截取用，Issue #33）
+    private originalLines: string[] = [];
+    private cleanLines: string[] = [];
+    private lineMapping: number[] = [];
+
     /**
      * 设置控制结构配置
      */
@@ -119,10 +124,15 @@ export class PLSQLParser {
             }
             
             const { cleanLines, lineMapping } = this.preprocessContent(content);
-            
+
             if (cleanLines.length > 50000) {
                 throw new Error(`文件行数过多(${cleanLines.length})，超过50000行限制`);
             }
+
+            // 游标 SQL 原文截取（Issue #33）依赖的行数据，解析期间持有、cleanup 释放
+            this.originalLines = content.split('\n');
+            this.cleanLines = cleanLines;
+            this.lineMapping = lineMapping;
             
             await this.parseLines(cleanLines, lineMapping);
             
@@ -199,6 +209,9 @@ export class PLSQLParser {
         this.unitStateStack = [];
         this.processedLines.clear();
         this.lastYieldTime = Date.now();
+        this.originalLines = [];
+        this.cleanLines = [];
+        this.lineMapping = [];
     }
 
     /**
@@ -212,6 +225,9 @@ export class PLSQLParser {
         this.unitStateStack = [];
         this.currentActiveNode = null;
         this.packageNode = null;
+        this.originalLines = [];
+        this.cleanLines = [];
+        this.lineMapping = [];
     }
 
     /**
@@ -458,7 +474,7 @@ export class PLSQLParser {
             // 检查跨行CURSOR声明（参数列表换行：CURSOR name ( ... ) IS）
             const multiLineCursor = this.checkMultiLineCursor(lines, i);
             if (multiLineCursor) {
-                this.checkAndRecordCursorDeclaration(multiLineCursor.combinedText, originalLineNumber);
+                this.checkAndRecordCursorDeclaration(multiLineCursor.combinedText, originalLineNumber, i);
 
                 for (let j = i + 1; j <= multiLineCursor.endIndex; j++) {
                     this.processedLines.add(lineMapping[j]);
@@ -643,7 +659,7 @@ export class PLSQLParser {
         this.checkAndRecordConstantDeclaration(line, lineNumber);
         this.checkAndRecordVariableDeclaration(line, lineNumber);
         this.checkAndRecordTypeDeclaration(line, lineNumber);
-        this.checkAndRecordCursorDeclaration(line, lineNumber);
+        this.checkAndRecordCursorDeclaration(line, lineNumber, lineIndex);
         this.checkAndRecordExceptionDeclaration(line, lineNumber);
 
         // CREATE语句处理
@@ -1484,7 +1500,7 @@ export class PLSQLParser {
         }
     }
 
-    private checkAndRecordCursorDeclaration(line: string, lineNumber: number): void {
+    private checkAndRecordCursorDeclaration(line: string, lineNumber: number, cleanIndex?: number): void {
         const cursorMatch = line.match(PATTERNS.CURSOR_DECLARATION);
         if (cursorMatch && this.currentActiveNode) {
             const table = this.ensureVariableTable();
@@ -1496,8 +1512,94 @@ export class PLSQLParser {
                 scope: this.currentActiveNode.name,
                 category: DeclarationCategory.CURSOR
             };
+            // Issue #33：捕获游标声明的完整原文，供大纲/编辑器悬浮展示完整 SQL
+            const sql = this.captureCursorSql(cleanIndex);
+            if (sql !== undefined) {
+                cursorInfo.sql = sql;
+            }
             table.set(cursorMatch[1], cursorInfo);
         }
+    }
+
+    /**
+     * 截取游标声明的完整原文（Issue #33）：从清洗行的声明起点向后扫描到首个 ';'
+     * （清洗行已剥离字符串/注释，出现的分号即语句终止符），再按行映射回到原文行；
+     * 末行原文在字符串感知下于该 ';' 处截断，避免带入尾注释或后续代码。
+     * 防护：向后扫描 ≤200 行 / ≤20000 字符，异常时放弃截取（sql 保持 undefined）。
+     */
+    private captureCursorSql(cleanIndex?: number): string | undefined {
+        if (cleanIndex === undefined || cleanIndex < 0 || cleanIndex >= this.cleanLines.length) {
+            return undefined;
+        }
+        let endIdx = -1;
+        let total = 0;
+        for (let i = cleanIndex; i < this.cleanLines.length && i <= cleanIndex + 200; i++) {
+            // 畸形防护：缺少终止 ';' 的游标声明会一直吞到下一语句的分号——
+            // 扫描途中遇到结构性关键字行即放弃截取（SELECT 体内不会独占这些关键字行）
+            if (i > cleanIndex && /^\s*(BEGIN|EXCEPTION|END|DECLARE|CREATE|PROCEDURE|FUNCTION)\b/i.test(this.cleanLines[i])) {
+                return undefined;
+            }
+            total += this.cleanLines[i].length;
+            if (total > 20000) { return undefined; }
+            if (this.cleanLines[i].indexOf(';') !== -1) {
+                endIdx = i;
+                break;
+            }
+        }
+        if (endIdx === -1) { return undefined; }
+
+        const startOrig = this.lineMapping[cleanIndex];
+        const endOrig = this.lineMapping[endIdx];
+        if (!startOrig || !endOrig || endOrig < startOrig) { return undefined; }
+        const lines = this.originalLines.slice(startOrig - 1, endOrig);
+        const semi = this.findStatementSemicolon(lines[lines.length - 1]);
+        if (semi !== -1) {
+            lines[lines.length - 1] = lines[lines.length - 1].slice(0, semi + 1);
+        }
+        // 输出上限：防护按清洗行长度计（字面量/注释已剥），原文可能远大于清洗文本；
+        // 超限时截断并标注，避免超大字符串进入 tooltip/Hover
+        const sql = lines.join('\n');
+        if (sql.length > 20000) {
+            return sql.slice(0, 20000) + '\n-- ...（超长截断）';
+        }
+        return sql;
+    }
+
+    /**
+     * 在单行原文中定位语句终止 ';'：跳过字符串字面量与 Q-quote、单横线与斜杠星注释，
+     * 与 preprocessContent 共用 matchQStringStart/scanQStringEnd 保持口径一致。
+     * 未找到（含进入行尾注释/未闭合字符串）返回 -1。
+     */
+    private findStatementSemicolon(line: string): number {
+        let i = 0;
+        const n = line.length;
+        while (i < n) {
+            const ch = line[i];
+            const two = line.substring(i, i + 2);
+            if (two === '--') {
+                return -1; // 行内注释：其后无真实代码
+            }
+            if (two === '/*') {
+                const close = line.indexOf('*/', i + 2);
+                if (close === -1) { return -1; }
+                i = close + 2;
+                continue;
+            }
+            if (ch === '\'') {
+                const end = this.scanStdStringEnd(line, i);
+                if (end > i) { i = end + 1; continue; }
+                return -1; // 未闭合字符串：保守放弃截断
+            }
+            const qStart = PLSQLParser.matchQStringStart(line, i);
+            if (qStart !== null) {
+                const end = PLSQLParser.scanQStringEnd(line, i, qStart);
+                if (end > i) { i = end + 1; continue; }
+                return -1;
+            }
+            if (ch === ';') { return i; }
+            i++;
+        }
+        return -1;
     }
 
     private checkAndRecordExceptionDeclaration(line: string, lineNumber: number): void {

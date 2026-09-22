@@ -14,3 +14,16 @@ export function isCallableNode(node: ParseNode): boolean {
         node.type === NodeType.FUNCTION_DECLARATION ||
         node.type === NodeType.PROCEDURE_DECLARATION;
 }
+
+/**
+ * 构造 SQL 的 markdown 代码块（Issue #33 游标悬浮）。
+ * 围栏长度取 max(3, 文本内最长反引号连串 + 1)，避免 SQL 中的 ``` 序列提前闭合代码块。
+ */
+export function buildSqlMarkdownBlock(sql: string): string {
+    let maxRun = 0;
+    for (const run of sql.match(/`+/g) || []) {
+        maxRun = Math.max(maxRun, run.length);
+    }
+    const fence = '`'.repeat(Math.max(3, maxRun + 1));
+    return `${fence}sql\n${sql}\n${fence}`;
+}

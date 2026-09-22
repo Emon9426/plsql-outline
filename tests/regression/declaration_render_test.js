@@ -21,6 +21,7 @@ const mockVscode = {
         constructor(label, collapsibleState) { this.label = label; this.collapsibleState = collapsibleState; }
     },
     ThemeIcon: class ThemeIcon { constructor(id) { this.id = id; } },
+    MarkdownString: class MarkdownString { constructor(s) { this.value = s || ''; } appendMarkdown(s) { this.value += s; return this; } },
     EventEmitter: class EventEmitter {
         constructor() { this.listeners = []; }
         event(l) { this.listeners.push(l); return { dispose: () => {} }; }
