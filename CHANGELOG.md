@@ -3,6 +3,14 @@
 本文件记录 PL/SQL Outline 各版本的变化。完整的版本发布信息也可在
 [GitHub Releases](https://github.com/Emon9426/plsql-outline/releases) 查看。
 
+## v1.13.0 (2026-09-22)
+
+- 🟢 **游标完整 SQL 悬浮（#33）**：鼠标悬浮大纲 Cursors 下的游标项、或编辑器内的游标名，悬浮窗以 ```sql 代码块显示该游标的完整 SQL 原文——解析器截取游标声明全文（清洗行定位首个真实 `;`、按行映射回原文、末行字符串感知截断，字符串/Q-quote 内分号与尾注释不干扰；畸形缺分号不吞后续语句，超长截断；markdown 围栏自适应加长，SQL 内 ``` 序列不破坏渲染）
+- 🟢 **大纲嵌套缩进 + 缩进参考线（#33）**：控制结构（LOOP/IF/CASE/WHEN）标签按嵌套层级伪缩进，每层 4 格（NBSP，普通空格会被 HTML 折叠）；层级沿显示父链计算，同级严格对齐（与 parser 的 level 跳变无关）；激活时若用户从未配置 `workbench.tree.renderIndentGuides` 则默认开启 `always`（显式配置不覆盖）
+- 🔴 **ELSIF/ELSE 分支内控制结构不可见修复（#33）**：分支节点此前在 `createGroupedChildren` 分类阶段被丢弃（mergeIfGroups 的吸收从未生效），IF 分支内的循环等结构在大纲中消失——现在分支真正合并进 IF，Body 计数仍按展示根数
+- 🔴 **光标区域跟随（#22）**：光标进入过程/函数的 Body 区域时大纲跟随选中 **Body 文件夹**（此前回退选中宿主名，旧"决策 A"）；新增 DECLARE 区域判定选中 Declaration 文件夹（不可渲染时回退宿主）；EXCEPTION/END 维持叶子跟随；跟随依赖 reveal 沿父链自动展开（**推翻 v1.6.4 无自动展开门控**，expansionOverrides 覆盖表删除，仅展开绝不折叠）；区域与控制结构范围匹配统一 150+level 基准——光标位于 LOOP/IF 内部时跟随到最内层控制结构，ELSIF/ELSE（已合并进 IF）不产生范围候选；reveal 元素匹配确认为仅依赖 `TreeItem.id`（VS Code `createHandle`）
+- 🧪 新增 `cursor_follow_region_test` 回归（44 断言，含 reveal 父链可解析性契约、触发器代理匿名块、无声明回退、包规格）、`cursor_sql_hover_test`（13）与 `control_indent_test`（11）；各既有套件 mock vscode 补 `MarkdownString`；单元基线 414/414(23) → **438/438(25)**，回归基线 13→**14/14**
+
 ## v1.12.0 (2026-09-20)
 
 - 🟢 **结构关键字配对高亮（#31）**：双击（词高亮）结构关键字时配对关键字一起高亮——双击 DECLARE/BEGIN/EXCEPTION/END 高亮该层级的四个块关键字（按解析节点层级隔离，不串嵌套块）；双击 IF（含 END IF 中的 END 或 IF）高亮该 IF 块的 IF/ELSIF/ELSE/END IF；双击 FOR/WHILE/LOOP（含 END LOOP 中的关键字）高亮该循环的 FOR|WHILE/LOOP/END LOOP。非结构关键字、字符串/注释内、END CASE 等返回空——VS Code 回退**原生相同词高亮**，原生行为不受影响。关键字定位与解析器同口径跳过字符串（含 Q-quote 跨行）与注释（新模块 `src/highlight.ts`，Q-quote 扫描复用 parser 静态化方法）；与折叠共用解析缓存，掩码/配对组按版本懒计算，编辑窗口期让位原生避免光标移动重解析
