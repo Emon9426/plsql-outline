@@ -10,6 +10,7 @@ import { getOutputChannel, disposeOutputChannel } from './logger';
 import { computeFoldRanges } from './folding';
 import { maskLiteralsAndComments, buildKeywordGroups, matchKeywordGroup, KeywordGroup } from './highlight';
 import { DEFAULT_FILE_EXTENSIONS, isCallableNode, buildSqlMarkdownBlock } from './shared';
+import { OutlineSearchViewProvider } from './searchBox';
 
 /**
  * 提供者共享文档选择器（悬停/定义/折叠，Issue #26）：
@@ -134,31 +135,6 @@ export class PLSQLOutlineExtension {
         this.registerProviders(context);
         this.startMemoryMonitoring();
         this.initializeSymbolIndex(context);
-        this.ensureTreeIndentGuides();
-    }
-
-    /**
-     * 开启树视图缩进参考线（Issue #33）：控制结构嵌套缩进（标签伪缩进）配合参考线
-     * 才能一眼分辨层级。仅在用户从未显式配置 workbench.tree.renderIndentGuides 时
-     * 写入默认 'always'（用户级）；显式配置过（含 'never'）一律尊重，不做覆盖。
-     */
-    private ensureTreeIndentGuides(): void {
-        try {
-            const cfg = vscode.workspace.getConfiguration('workbench.tree');
-            const inspection = cfg.inspect<string>('renderIndentGuides');
-            if (!inspection) { return; }
-            const userHasExplicitValue = inspection.globalValue !== undefined ||
-                inspection.workspaceValue !== undefined ||
-                inspection.workspaceFolderValue !== undefined;
-            if (userHasExplicitValue) { return; }
-            void cfg.update('renderIndentGuides', 'always', vscode.ConfigurationTarget.Global).then(() => {
-                this.outputChannel.appendLine('已开启树视图缩进参考线（workbench.tree.renderIndentGuides=always，用户级默认）');
-            }, () => {
-                // 写入失败（如只读环境）不影响扩展激活
-            });
-        } catch {
-            // 读取异常时静默跳过，不影响激活
-        }
     }
 
     /**
@@ -300,7 +276,18 @@ export class PLSQLOutlineExtension {
             }
         );
 
-        context.subscriptions.push(hoverProvider, definitionProvider, foldingProvider, highlightProvider);
+        // 注册大纲搜索框视图（Issue #36）：置于大纲树上方的常驻 Webview 输入框，
+        // 输入实时过滤大纲、回车跳转第一个命中项
+        const searchViewProvider = new OutlineSearchViewProvider(
+            (text) => { void this.treeViewManager.setFilter(text); },
+            () => { void this.treeViewManager.revealFirstFilterMatch(); }
+        );
+        const searchViewRegistration = vscode.window.registerWebviewViewProvider(
+            OutlineSearchViewProvider.VIEW_ID,
+            searchViewProvider
+        );
+
+        context.subscriptions.push(hoverProvider, definitionProvider, foldingProvider, highlightProvider, searchViewRegistration);
     }
 
     /**
@@ -652,6 +639,44 @@ export class PLSQLOutlineExtension {
             return new vscode.Hover(contents, wordRange);
         }
 
+        // 节点名悬浮聚合（Issue #36）：悬浮过程/函数/包等单元名时，展示单元信息
+        // 与其直接作用域内声明的全部游标 SQL（与大纲节点 tooltip 同一来源、自适应高度）
+        const hoveredNode = this.findNodeByNameInParseResult(this.currentParseResult.nodes, hoveredWord);
+        if (hoveredNode) {
+            const cursorSqls = this.treeViewManager.getProvider().getScopeCursorSqls(hoveredNode);
+            let markdown = `**${hoveredNode.name}**（${hoveredNode.type}，第 ${hoveredNode.declarationLine} 行）`;
+            if (cursorSqls.length > 0) {
+                const sections = cursorSqls.map(c =>
+                    `**游标 ${c.name}**（第 ${c.line} 行）\n\n${buildSqlMarkdownBlock(c.sql)}`
+                ).join('\n\n');
+                markdown += `\n\n${sections}`;
+            }
+            const contents = new vscode.MarkdownString(markdown);
+            contents.isTrusted = true;
+            contents.supportHtml = true;
+            return new vscode.Hover(contents, wordRange);
+        }
+
+        return null;
+    }
+
+    /**
+     * 按名称查找解析节点（编辑器悬浮聚合用，Issue #36）：
+     * 大小写不敏感精确匹配；控制结构（IF/LOOP 等关键字占位名）与匿名块不作为目标
+     */
+    private findNodeByNameInParseResult(nodes: ParseNode[], name: string): ParseNode | null {
+        const lower = name.toLowerCase();
+        for (const node of nodes) {
+            if (node.name && node.name.toLowerCase() === lower &&
+                node.type !== NodeType.ANONYMOUS_BLOCK &&
+                !isControlStructureNodeType(node.type)) {
+                return node;
+            }
+            const found = this.findNodeByNameInParseResult(node.children, name);
+            if (found) {
+                return found;
+            }
+        }
         return null;
     }
 
@@ -1087,6 +1112,13 @@ export class PLSQLOutlineExtension {
         
         if (!autoSelectOnCursor) {
             this.debugLog('光标同步: 功能已禁用');
+            return;
+        }
+
+        // 大纲过滤（搜索框）期间暂停光标跟随（Issue #36）：
+        // 跟随 reveal 会与过滤树的展开/选中互相干扰，且跟随目标可能已被过滤隐藏
+        if (this.treeViewManager.isFilterActive()) {
+            this.debugLog('光标同步: 大纲过滤中，暂停跟随');
             return;
         }
 

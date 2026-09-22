@@ -55,11 +55,22 @@
 - ELSIF/ELSE 分支保留在 bodyChildren 交给 mergeIfGroups 吸收进前一个 IF
   （#33 修复：此前在分类阶段被丢弃，分支内控制结构不可见）；Body 计数用
   展示根数（分支不计独立项）。
-- 控制结构标签伪缩进（#33）：displayIndent 按显示父级链在 getChildren 各
-  创建点计算，getTreeItem 每层前缀 4×NBSP；无 displayIndent 的临时项
-  （reveal/getParent 构造）按 level 估算且**不写 treeItemCache**（防污染）。
-- 游标声明项 tooltip（#33）：VariableInfo.sql 存完整原文（清洗行定位 ';'，
-  末行字符串感知截断），大纲悬浮与编辑器 Hover 均以 ```sql 块展示。
+- 控制结构嵌套层级由**原生树缩进**表达（#36 推翻 #33 的 NBSP 标签伪缩进：
+  图标不随标签缩进移动、参考线与文字错位）；缩进宽度/参考线经 package.json
+  `configurationDefaults` 提供 `workbench.tree.indent=16` + `renderIndentGuides=always`
+  （用户显式配置优先）。TreeItemData 已无 displayIndent 字段。
+- 逐级展开（#36）：控制结构（含 mergedChildren 合并 IF）与区域文件夹默认 Collapsed，
+  顶层对象沿 view.expandByDefault；forceExpandAll（展开所有）时全部 Expanded；
+  过滤生效时命中分支全部 Expanded（computeElementCollapsibleState / folderCollapsibleState）。
+- 搜索过滤（#36）：filterText 非空时 getChildren = computeChildren + applyFilter
+  （命中=节点名/声明项名子串，控制结构占位名/文件夹不匹配、仅作祖先保留）；
+  过滤期间 generateCacheKey 追加 `::f` 后缀（独立展开状态），清空后原 id 找回
+  展开记忆；过滤期间光标跟随暂停（extension 侧 isFilterActive 门控）。
+- 游标 SQL 悬浮（#33/#36）：VariableInfo.sql 存完整原文（清洗行定位 ';'，末行
+  字符串感知截断）；游标项/游标名悬浮显示单条 SQL（#33）；单元节点与编辑器
+  单元名悬浮经 getScopeCursorSqls 聚合直接作用域全部游标（嵌套子程序不并入）。
+- 复制名称（#36）：右键命令 plsqlOutline.copyName 复制 node.name/entry.name，
+  控制结构占位名与文件夹不可复制（package.json view/item/context 的 viewItem 正则限定制表项）。
 - 所有可展开 TreeItem 必须有 `command` + 稳定 `id`（`generateCacheKey` 带源文件前缀）。
 - **reveal 元素匹配只看 TreeItem.id**（VS Code `createHandle`：设了 id 则句柄即 id），
   构造跟随目标无需逐字段复刻 getChildren 产出。

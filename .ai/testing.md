@@ -14,7 +14,7 @@ npm run compile   # 所有测试直接 require out/ 编译产物，必须先编�
 | # | 命令 | 基线 | 覆盖 |
 |---|---|---|---|
 | 1 | `npm run test:corpus`（= validate.js + render-validate.js） | **35/35 + 35 OK** | 143k 行语料（含 .pck / get_ddl 形态）的解析层 + 显示层 |
-| 2 | `npm test`（= compile + tests/unit/run_all.js） | **438/438（25 套件）** | 解析/渲染/导航/取消/设置/引号标识符/get_ddl/折叠/关键字配对高亮/游标SQL悬浮/控制结构缩进 契约 |
+| 2 | `npm test`（= compile + tests/unit/run_all.js） | **489/489（28 套件）** | 解析/渲染/导航/取消/设置/引号标识符/get_ddl/折叠/关键字配对高亮/游标SQL悬浮/逐级展开与原生缩进/搜索过滤/复制名称/悬浮聚合SQL 契约 |
 | 3 | `npm run test:regression` | **14/14 套件** | 真实世界包/超大文件/边界/光标同步/区域跟随（#22）/定义跳转/符号索引/内存/Refresh 焦点回退/激活自动解析 |
 | 4 | `npm run test:e2e` | **anonDefinition 通过 + smoke 7/7 + foldRouting 8/8** | 真实 VS Code 宿主（@vscode/test-electron）；foldRouting 锁定提供者路由（#26）+ 段折叠/配对高亮/原生回退（#31） |
 
@@ -25,6 +25,9 @@ npm run compile   # 所有测试直接 require out/ 编译产物，必须先编�
 - `tests/unit/`：自研断言（`{ run }` 返回 `{ suiteName, cases, parseTime }`），
   `run_all.js` 汇总并生成 `test_report.html`（已 gitignore）。vscode 模块通过
   `Module._resolveFilename` 劫持 mock。**新套件必须注册进 run_all.js**。
+  run_all 单进程共享 vscode_mock 缓存：**构造 TreeViewManager 的套件**（需要
+  createTreeView/命令捕获）须先 `delete require.cache` 掉 out/treeView 再以
+  自身 mock 重新 require（见 outline_filter/copy_name_test 头部注释）。
 - `tests/regression/`：14 个可独立运行的脚本（`node tests/regression/<name>.js`），
   `run_all.js` 依次 spawn 聚合退出码。`parser_test.js` 使用 expected/ golden 文件
   （12 组 JSON 对比）。**不要运行 generate_*.js**（生成确定性 fixture，勿覆盖）。

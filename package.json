@@ -40,10 +40,23 @@
     "views": {
       "plsqlOutlineContainer": [
         {
+          "type": "webview",
+          "id": "plsqlOutlineSearch",
+          "name": "搜索"
+        },
+        {
           "id": "plsqlOutline",
           "name": "PLSQL Outline"
         }
       ]
+    },
+    "configurationDefaults": {
+      "workbench": {
+        "tree": {
+          "indent": 16,
+          "renderIndentGuides": "always"
+        }
+      }
     },
     "commands": [
       {
@@ -110,6 +123,12 @@
         "title": "重建符号索引",
         "category": "PL/SQL Outline",
         "icon": "$(database)"
+      },
+      {
+        "command": "plsqlOutline.copyName",
+        "title": "复制名称",
+        "category": "PL/SQL Outline",
+        "icon": "$(copy)"
       }
     ],
     "menus": {
@@ -155,6 +174,11 @@
           "command": "plsqlOutline.goToLine",
           "when": "view == plsqlOutline",
           "group": "navigation@1"
+        },
+        {
+          "command": "plsqlOutline.copyName",
+          "when": "view == plsqlOutline && viewItem =~ /^(function|procedure|function_declaration|procedure_declaration|package_header|package_body|trigger|type|type_body|view|declarationEntry)(_with_children)?$/",
+          "group": "navigation@2"
         }
       ],
       "editor/context": [
@@ -165,6 +189,10 @@
         }
       ],
       "commandPalette": [
+        {
+          "command": "plsqlOutline.copyName",
+          "when": "false"
+        },
         {
           "command": "plsqlOutline.parseCurrentFile",
           "when": "resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|trg)$/i"

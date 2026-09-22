@@ -31,6 +31,7 @@ extension.ts（激活/命令/事件接线，入口 activate()）
   ├─ folding.ts ─── 折叠范围纯计算（vscode-free；extension.ts 的
   │                 FoldingRangeProvider 复用大纲解析缓存，未命中时兜底解析）
   ├─ treeView.ts ── PLSQLOutlineProvider（TreeDataProvider）+ TreeViewManager
+  ├─ searchBox.ts ─ 大纲搜索框 Webview 视图（Issue #36，置于树上方）
   ├─ symbolIndex.ts 符号索引（跨文件跳转，磁盘缓存 symbol-index.json）
   ├─ debug.ts ───── DebugManager/Logger（调试输出，文件输出已废弃）
   ├─ settingsPanel.ts 设置页 webview（由 settingsSchema.ts 驱动）
@@ -52,3 +53,13 @@ extension.ts（激活/命令/事件接线，入口 activate()）
 5. **解析器保持 vscode-free**：单元测试直接 `require('../../out/parser')`，
    因此 parser.ts 不得 import 'vscode'。
 6. **中文注释/中文 UI**：代码注释与用户可见文案均为中文，保持既有风格。
+7. **大纲交互五件套（Issue #36，v1.14.0）**：
+   - 嵌套缩进改**原生树缩进**（configurationDefaults 提供 `workbench.tree.indent=16`
+     + `renderIndentGuides=always`，用户显式配置优先），**推翻 #33 的 NBSP 标签伪缩进**
+     （图标不随标签移动、参考线与文字错位，TreeItemData.displayIndent 已删除）；
+   - **逐级展开**：控制结构/文件夹默认折叠，顶层对象沿 view.expandByDefault；
+     forceExpandAll 补齐为文件夹也强制展开；
+   - **搜索过滤**在 provider 层实现（computeChildren 原始口径 + applyFilter 保留
+     命中与祖先链），过滤期间 id 加 `::f` 后缀获得独立展开状态、清空复原；
+     搜索框是树上方独立 Webview 视图（searchBox.ts，过滤词为唯一持有方）；
+   - 光标跟随在过滤期间暂停；悬浮聚合走 getScopeCursorSqls（仅直接作用域）。

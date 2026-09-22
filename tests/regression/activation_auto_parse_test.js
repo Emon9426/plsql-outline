@@ -77,6 +77,8 @@ const mockVscode = {
         showWarningMessage: (msg) => { warnings.push(msg); },
         showErrorMessage: (msg) => { warnings.push(msg); },
         setStatusBarMessage() {},
+        // 大纲搜索框视图（Issue #36）：只注册不渲染
+        registerWebviewViewProvider: () => ({ dispose() {} }),
         // withProgress：立即执行回调（不渲染 UI），取消令牌永不触发
         withProgress: async (_opts, cb) => cb(
             { report() {} },
