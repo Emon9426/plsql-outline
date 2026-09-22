@@ -31,7 +31,9 @@ const suites = [
     ['quoted_identifier_test', require('./quoted_identifier_test')],
     ['get_ddl_test', require('./get_ddl_test')],
     ['folding_test', require('./folding_test')],
-    ['keyword_highlight_test', require('./keyword_highlight_test')]
+    ['keyword_highlight_test', require('./keyword_highlight_test')],
+    ['cursor_sql_hover_test', require('./cursor_sql_hover_test')],
+    ['control_indent_test', require('./control_indent_test')]
 ].map(([name, mod]) => ({ name, mod }));
 
 function escapeHtml(s) {

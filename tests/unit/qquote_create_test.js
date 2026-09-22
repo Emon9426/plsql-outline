@@ -26,7 +26,7 @@ const mockVscode = {
     Position: class { constructor(l, c) { this.line = l; this.character = c; } },
     Location: class { constructor(u, r) { this.uri = u; this.range = r; } },
     Range: class { constructor(s, e) { this.start = s; this.end = e; } },
-    MarkdownString: class { constructor(s) { this.value = s; } },
+    MarkdownString: class { constructor(s) { this.value = s || ''; } appendMarkdown(s) { this.value += s; return this; } },
     Hover: class { constructor(c, r) { this.contents = c; this.range = r; } },
     ViewColumn: { One: 1, Two: 2, Beside: -2 }
 };

@@ -48,6 +48,8 @@ export interface VariableInfo {
     category: DeclarationCategory;
     /** 可选：常量/带初值变量的初值文本，如 '0'、'''N''' */
     initialValue?: string;
+    /** 可选：游标声明的完整原文（CURSOR ... SELECT ...;），悬浮展示完整 SQL 用（Issue #33） */
+    sql?: string;
 }
 
 /**
@@ -139,6 +141,8 @@ export interface TreeItemData {
     line?: number;
     mergedChildren?: ParseNode[];  // IF合并后的子节点
     parentNode?: ParseNode;        // 分组节点的父引用
+    /** 显示缩进步数（控制结构标签伪缩进，Issue #33；reveal 匹配只看 cacheKey，不参与相等性） */
+    displayIndent?: number;
     // 声明项分组（Declaration 区域内按类别分组：Variables/Cursors/Constants/Types/Exceptions）
     isDeclarationGroup?: boolean;
     declarationCategory?: DeclarationCategory;

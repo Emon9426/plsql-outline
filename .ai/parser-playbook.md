@@ -52,6 +52,14 @@
   包体子程序直接挂包下，嵌套子程序才用 Sub Program 文件夹。
 - Body 文件夹只要有 `beginLine` 就生成（v1.6.3）；触发器借用匿名块的 beginLine。
 - 宿主自带 EXCEPTION/END 时，内联块内同类叶子去重。
+- ELSIF/ELSE 分支保留在 bodyChildren 交给 mergeIfGroups 吸收进前一个 IF
+  （#33 修复：此前在分类阶段被丢弃，分支内控制结构不可见）；Body 计数用
+  展示根数（分支不计独立项）。
+- 控制结构标签伪缩进（#33）：displayIndent 按显示父级链在 getChildren 各
+  创建点计算，getTreeItem 每层前缀 4×NBSP；无 displayIndent 的临时项
+  （reveal/getParent 构造）按 level 估算且**不写 treeItemCache**（防污染）。
+- 游标声明项 tooltip（#33）：VariableInfo.sql 存完整原文（清洗行定位 ';'，
+  末行字符串感知截断），大纲悬浮与编辑器 Hover 均以 ```sql 块展示。
 - 所有可展开 TreeItem 必须有 `command` + 稳定 `id`（`generateCacheKey` 带源文件前缀）。
 - **reveal 元素匹配只看 TreeItem.id**（VS Code `createHandle`：设了 id 则句柄即 id），
   构造跟随目标无需逐字段复刻 getChildren 产出。

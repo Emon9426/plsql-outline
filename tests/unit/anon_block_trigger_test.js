@@ -17,6 +17,7 @@ const mockVscode = {
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
     TreeItem: class TreeItem { constructor(label, collapsibleState) { this.label = label; this.collapsibleState = collapsibleState; } },
     ThemeIcon: class ThemeIcon { constructor(id) { this.id = id; } },
+    MarkdownString: class MarkdownString { constructor(s) { this.value = s || ''; } appendMarkdown(s) { this.value += s; return this; } },
     EventEmitter: class EventEmitter { constructor() { this.listeners = []; } event(l) { this.listeners.push(l); return { dispose() {} }; } fire(d) { this.listeners.forEach(l => l(d)); } dispose() { this.listeners = []; } },
     workspace: { getConfiguration: () => ({ get: (k, def) => def }) },
     window: { createOutputChannel: () => ({ appendLine() {}, dispose() {} }) },

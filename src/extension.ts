@@ -3,13 +3,13 @@ import * as path from 'path';
 import { PLSQLParser, ParseCancelledError } from './parser';
 import { TreeViewManager, MemoryDataProvider } from './treeView';
 import { DebugManager } from './debug';
-import { ParseResult, ParseNode, VariableInfo, NodeType, LogLevel } from './types';
+import { ParseResult, ParseNode, VariableInfo, NodeType, DeclarationCategory, LogLevel } from './types';
 import { SettingsPanel } from './settingsPanel';
 import { SymbolIndex, SymbolEntry, PathConfig } from './symbolIndex';
 import { getOutputChannel, disposeOutputChannel } from './logger';
 import { computeFoldRanges } from './folding';
 import { maskLiteralsAndComments, buildKeywordGroups, matchKeywordGroup, KeywordGroup } from './highlight';
-import { DEFAULT_FILE_EXTENSIONS, isCallableNode } from './shared';
+import { DEFAULT_FILE_EXTENSIONS, isCallableNode, buildSqlMarkdownBlock } from './shared';
 
 /**
  * 提供者共享文档选择器（悬停/定义/折叠，Issue #26）：
@@ -134,6 +134,31 @@ export class PLSQLOutlineExtension {
         this.registerProviders(context);
         this.startMemoryMonitoring();
         this.initializeSymbolIndex(context);
+        this.ensureTreeIndentGuides();
+    }
+
+    /**
+     * 开启树视图缩进参考线（Issue #33）：控制结构嵌套缩进（标签伪缩进）配合参考线
+     * 才能一眼分辨层级。仅在用户从未显式配置 workbench.tree.renderIndentGuides 时
+     * 写入默认 'always'（用户级）；显式配置过（含 'never'）一律尊重，不做覆盖。
+     */
+    private ensureTreeIndentGuides(): void {
+        try {
+            const cfg = vscode.workspace.getConfiguration('workbench.tree');
+            const inspection = cfg.inspect<string>('renderIndentGuides');
+            if (!inspection) { return; }
+            const userHasExplicitValue = inspection.globalValue !== undefined ||
+                inspection.workspaceValue !== undefined ||
+                inspection.workspaceFolderValue !== undefined;
+            if (userHasExplicitValue) { return; }
+            void cfg.update('renderIndentGuides', 'always', vscode.ConfigurationTarget.Global).then(() => {
+                this.outputChannel.appendLine('已开启树视图缩进参考线（workbench.tree.renderIndentGuides=always，用户级默认）');
+            }, () => {
+                // 写入失败（如只读环境）不影响扩展激活
+            });
+        } catch {
+            // 读取异常时静默跳过，不影响激活
+        }
     }
 
     /**
@@ -618,6 +643,10 @@ export class PLSQLOutlineExtension {
         
         if (variableInfo) {
             const contents = new vscode.MarkdownString(`**${variableInfo.name}** \`${variableInfo.type}\`\n\n*Defined in ${variableInfo.scope}*`);
+            // 游标声明（Issue #33）：悬浮追加完整 SQL（原文，markdown 代码块）
+            if (variableInfo.category === DeclarationCategory.CURSOR && variableInfo.sql) {
+                contents.appendMarkdown(`\n\n${buildSqlMarkdownBlock(variableInfo.sql)}`);
+            }
             contents.isTrusted = true;
             contents.supportHtml = true;
             return new vscode.Hover(contents, wordRange);
