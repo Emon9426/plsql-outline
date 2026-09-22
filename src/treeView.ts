@@ -42,8 +42,9 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     private showDeclarations: boolean = true;
     private groupDeclarations: boolean = true;
 
-    // 控制结构标签伪缩进：每层缩进的 NBSP 数（Issue #33）
-    private static readonly CONTROL_INDENT_STEP = 4;
+    // 大纲搜索过滤（Issue #36）：搜索框输入的过滤词（已小写化）。非空时
+    // getChildren 只保留命中项及其祖先链，且命中分支以展开态呈现
+    private filterText: string = '';
     
     // 内存优化相关
     private treeItemCache: Map<string, vscode.TreeItem> = new Map();
@@ -156,13 +157,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         // 稳定 id：VS Code 据此在整树刷新（重新解析/切换文件）后保持展开与选中状态
         treeItem.id = cacheKey;
 
-        // 缓存树项——控制结构的临时项（reveal/getParent 构造、无 displayIndent）除外：
-        // 其标签使用 level 估算缩进，写入缓存会顶掉后续真实渲染项（displayIndent 精确）的标签
-        if (!(element.node &&
-            this.isControlStructureType(element.node.type) &&
-            element.displayIndent === undefined)) {
-            this.setCachedTreeItem(cacheKey, treeItem);
-        }
+        this.setCachedTreeItem(cacheKey, treeItem);
 
         return treeItem;
     }
@@ -182,8 +177,15 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     /**
      * 生成树项的元素稳定键（同时用作 TreeItem.id，供 VS Code 跨刷新保持展开/选中状态）。
      * 带文件前缀，避免不同文件的同名同位置节点互相污染展开状态。
+     * 过滤期间追加 ::f 后缀：VS Code 按 id 记忆展开状态，独立 id 使命中分支
+     * 直接以展开态呈现；清除过滤后恢复原 id，用户此前的展开状态原样找回（Issue #36）。
      */
     public generateCacheKey(element: TreeItemData): string {
+        const base = this.generateBaseCacheKey(element);
+        return this.isFilterActive() ? `${base}::f` : base;
+    }
+
+    private generateBaseCacheKey(element: TreeItemData): string {
         const prefix = this.currentSourceFileTag ? `${this.currentSourceFileTag}::` : '';
         if (element.isDeclarationSection && element.parentNode) {
             return `${prefix}declsection_${element.parentNode.name}_${element.parentNode.declarationLine}`;
@@ -202,9 +204,27 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 获取子项 - 内存优化版本
+     * 获取子项 - 内存优化版本。
+     * 过滤生效（搜索框有输入）时只保留命中项及其祖先链（Issue #36）。
      */
     async getChildren(element?: TreeItemData): Promise<TreeItemData[]> {
+        const children = await this.computeChildren(element);
+        if (!this.isFilterActive()) {
+            return children;
+        }
+        const kept: TreeItemData[] = [];
+        for (const item of children) {
+            if (await this.subtreeHasMatch(item)) {
+                kept.push(item);
+            }
+        }
+        return kept;
+    }
+
+    /**
+     * 未经过滤的显示子项计算（原 getChildren 主体）
+     */
+    private async computeChildren(element?: TreeItemData): Promise<TreeItemData[]> {
         if (!this.dataProvider) {
             return [];
         }
@@ -247,22 +267,12 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
                     const label = item.node!.type === NodeType.ANONYMOUS_BLOCK
                         ? 'Anonymous Block'
                         : this.getSimplifiedControlLabel(item.node!.type);
-                    if (item.mergedChildren) {
-                        return {
-                            node: item.node,
-                            isStructureBlock: false,
-                            mergedChildren: item.mergedChildren,
-                            label,
-                            line: item.node!.declarationLine,
-                            displayIndent: 0
-                        } as TreeItemData;
-                    }
                     return {
                         node: item.node,
                         isStructureBlock: false,
+                        mergedChildren: item.mergedChildren,
                         label,
-                        line: item.node!.declarationLine,
-                        displayIndent: 0
+                        line: item.node!.declarationLine
                     } as TreeItemData;
                 });
             } else if (element.isDeclarationGroup && element.declarationEntries) {
@@ -275,15 +285,14 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
                     declarationEntry: e
                 }));
             } else if (element.mergedChildren && element.mergedChildren.length > 0) {
-                // 合并IF节点：渲染合并后的子控制结构（缩进 = 承载项缩进 + 1）
+                // 合并IF节点：渲染合并后的子控制结构
                 const merged = this.mergeIfGroups(element.mergedChildren);
                 return merged.map(item => ({
                     node: item.node,
                     isStructureBlock: false,
                     mergedChildren: item.mergedChildren,
                     label: this.getSimplifiedControlLabel(item.node!.type),
-                    line: item.node!.declarationLine,
-                    displayIndent: (element.displayIndent ?? 0) + 1
+                    line: item.node!.declarationLine
                 } as TreeItemData));
             } else if (!element.isStructureBlock && element.node) {
                 // 节点级别：返回子节点和结构块
@@ -636,9 +645,9 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
      */
     private createChildItems(element: TreeItemData): TreeItemData[] {
         const node = element.node!;
-        // 控制结构节点: 直接渲染子节点（简化标签，无分组；缩进 = 承载项缩进 + 1）
+        // 控制结构节点: 直接渲染子节点（简化标签，无分组）
         if (this.isControlStructureType(node.type)) {
-            return this.createControlStructureChildren(node, (element.displayIndent ?? 0) + 1);
+            return this.createControlStructureChildren(node);
         }
 
         // Package Header: 直接渲染声明（规范/头文件中的子程序声明）
@@ -855,9 +864,9 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 控制结构节点的子项渲染（缩进步数 = 承载项缩进 + 1）
+     * 控制结构节点的子项渲染（嵌套层级由树结构原生缩进表达，Issue #36）
      */
-    private createControlStructureChildren(node: ParseNode, indent: number): TreeItemData[] {
+    private createControlStructureChildren(node: ParseNode): TreeItemData[] {
         if (!node.children || node.children.length === 0) {
             // 如果有mergedChildren (合并的IF)，从父TreeItemData获取
             return [];
@@ -866,22 +875,12 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         // 合并IF组，简化标签
         const merged = this.mergeIfGroups(node.children);
         return merged.map(item => {
-            if (item.mergedChildren) {
-                return {
-                    node: item.node,
-                    isStructureBlock: false,
-                    mergedChildren: item.mergedChildren,
-                    label: this.getSimplifiedControlLabel(item.node!.type),
-                    line: item.node!.declarationLine,
-                    displayIndent: indent
-                } as TreeItemData;
-            }
             return {
                 node: item.node,
                 isStructureBlock: false,
+                mergedChildren: item.mergedChildren,
                 label: this.getSimplifiedControlLabel(item.node!.type),
-                line: item.node!.declarationLine,
-                displayIndent: indent
+                line: item.node!.declarationLine
             } as TreeItemData;
         });
     }
@@ -1095,13 +1094,20 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         }
     }
 
+    /** 文件夹类树项的折叠状态：默认折叠；过滤/展开所有时展开（与 computeElementCollapsibleState 同规则） */
+    private folderCollapsibleState(): vscode.TreeItemCollapsibleState {
+        return this.forceExpandAll || this.isFilterActive()
+            ? vscode.TreeItemCollapsibleState.Expanded
+            : vscode.TreeItemCollapsibleState.Collapsed;
+    }
+
     /**
      * 创建声明类别分组树项（Variables/Cursors/Constants/Types/Exceptions）
      */
     private createDeclarationGroupTreeItem(element: TreeItemData): vscode.TreeItem {
         const treeItem = new vscode.TreeItem(
             element.label,
-            vscode.TreeItemCollapsibleState.Collapsed
+            this.folderCollapsibleState()
         );
         const meta = PLSQLOutlineProvider.DECL_CATEGORY_META.find(
             m => m.key === element.declarationCategory
@@ -1160,7 +1166,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     private createDeclarationSectionTreeItem(element: TreeItemData): vscode.TreeItem {
         const treeItem = new vscode.TreeItem(
             element.label,
-            vscode.TreeItemCollapsibleState.Collapsed
+            this.folderCollapsibleState()
         );
         treeItem.iconPath = this.getCustomIcon('folder-decl');
         // 统计声明项总数
@@ -1188,7 +1194,7 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     private createProgramGroupTreeItem(element: TreeItemData): vscode.TreeItem {
         const treeItem = new vscode.TreeItem(
             element.label,
-            vscode.TreeItemCollapsibleState.Collapsed
+            this.folderCollapsibleState()
         );
         treeItem.iconPath = this.getCustomIcon(
             element.programGroupKind === 'subprogram' ? 'folder-sub' : 'folder-body'
@@ -1219,23 +1225,22 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
         // 确定折叠状态（统一走 computeElementCollapsibleState，与可见性判断共用同一套规则）
         const collapsibleState = this.computeElementCollapsibleState(element);
 
-        // 控制结构标签伪缩进（Issue #33）：每层 4 个 NBSP 前缀，使 LOOP/IF 嵌套关系
-        // 一眼可见（普通空格在树标签中会被 HTML 折叠）。displayIndent 由 getChildren
-        // 按显示层级计算；reveal/getParent 构造的临时项缺省按 level 估算（不参与显示）。
-        let label = element.label;
-        if (this.isControlStructureType(node.type)) {
-            const steps = element.displayIndent !== undefined
-                ? element.displayIndent
-                : Math.max(0, node.level - 2);
-            if (steps > 0) {
-                label = '\u00A0'.repeat(steps * PLSQLOutlineProvider.CONTROL_INDENT_STEP) + label;
-            }
-        }
-
-        const treeItem = new vscode.TreeItem(label, collapsibleState);
+        const treeItem = new vscode.TreeItem(element.label, collapsibleState);
 
         treeItem.iconPath = this.getNodeIcon(node.type);
-        treeItem.tooltip = this.getNodeTooltip(node);
+        // 游标 SQL 聚合悬浮（Issue #36）：单元直接作用域内声明的全部游标逐条以
+        // ```sql 块展示（原生悬浮高度随内容自适应）；无游标时保持纯文本 tooltip
+        const cursorSqls = this.getScopeCursorSqls(node);
+        if (cursorSqls.length > 0) {
+            const sections = cursorSqls.map(c =>
+                `**游标 ${c.name}**（第 ${c.line} 行）\n\n${buildSqlMarkdownBlock(c.sql)}`
+            ).join('\n\n');
+            const md = new vscode.MarkdownString(`${this.getNodeTooltip(node)}\n\n${sections}`);
+            md.supportHtml = true;
+            treeItem.tooltip = md;
+        } else {
+            treeItem.tooltip = this.getNodeTooltip(node);
+        }
         // 子程序（Function/Procedure）不显示描述（按需求仅名称+图标）；
         // 其他节点（包/触发器/控制结构）保留简洁描述
         if (isCallableNode(node)) {
@@ -1345,22 +1350,34 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
 
     /**
      * 统一计算任意树项的默认折叠状态（各工厂方法与 reveal 可见性判断共用同一套规则）。
-     * 初始默认值保持既有行为：包/控制结构默认展开，代码单元与各文件夹默认折叠。
+     * - 逐级展开（Issue #36）：控制结构（含合并 IF）与区域文件夹默认折叠——展开父级
+     *   只露出一级，子层级由用户逐级手动展开；顶层对象（包等）沿用 view.expandByDefault。
+     * - 过滤（搜索框）生效时：命中分支一律以展开态呈现，直接显示命中路径。
+     * - forceExpandAll（「展开所有」命令）：所有可展开项强制展开（含文件夹与代码单元）。
      */
     public computeElementCollapsibleState(element: TreeItemData): vscode.TreeItemCollapsibleState {
+        const collapsed = vscode.TreeItemCollapsibleState.Collapsed;
+        const expanded = vscode.TreeItemCollapsibleState.Expanded;
+        const filterActive = this.isFilterActive();
         if (element.isDeclarationSection || element.isDeclarationGroup || element.isProgramGroup) {
-            return vscode.TreeItemCollapsibleState.Collapsed;
+            return this.forceExpandAll || filterActive ? expanded : collapsed;
         }
         if (element.isDeclarationEntry || element.isStructureBlock) {
             return vscode.TreeItemCollapsibleState.None;
         }
         if (element.node) {
-            if (element.mergedChildren && element.mergedChildren.length > 0) {
-                return vscode.TreeItemCollapsibleState.Expanded;
+            // 控制结构（含 mergedChildren 承载项）：有子级才可折叠，默认折叠（逐级展开）
+            if (this.isControlStructureType(element.node.type)) {
+                const hasChildren = element.node.children.length > 0 ||
+                    (element.mergedChildren !== undefined && element.mergedChildren.length > 0);
+                if (!hasChildren) {
+                    return vscode.TreeItemCollapsibleState.None;
+                }
+                return this.forceExpandAll || filterActive ? expanded : collapsed;
             }
             if (this.shouldUseSectionGrouping(element.node)) {
                 // 有代码体的节点可展开（Declaration/Sub Program/Body 等）
-                return vscode.TreeItemCollapsibleState.Collapsed;
+                return this.forceExpandAll || filterActive ? expanded : collapsed;
             }
             return this.getCollapsibleState(element.node);
         }
@@ -1373,6 +1390,114 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     public setForceExpandAll(force: boolean): void {
         this.forceExpandAll = force;
         this.outputChannel.appendLine(`设置强制展开标志: ${force}`);
+    }
+
+    // ====== 大纲搜索过滤（Issue #36）======
+
+    /** 过滤是否生效（搜索框有非空输入） */
+    public isFilterActive(): boolean {
+        return this.filterText.length > 0;
+    }
+
+    /**
+     * 设置过滤词（空串/空白 = 清除过滤），随后刷新树。
+     * 重复设置同一过滤词不触发刷新。
+     */
+    public setFilter(text: string): void {
+        const normalized = text.trim().toLowerCase();
+        if (normalized === this.filterText) {
+            return;
+        }
+        this.filterText = normalized;
+        this.refresh();
+    }
+
+    /**
+     * 项的匹配名：节点名 / 声明项名。控制结构（IF/LOOP 等关键字占位名）与
+     * 文件夹/结构块不直接参与匹配——文件夹仅作为命中项的祖先保留。
+     */
+    private getFilterableName(element: TreeItemData): string | undefined {
+        if (element.isDeclarationEntry && element.declarationEntry) {
+            return element.declarationEntry.name;
+        }
+        if (element.node && !this.isControlStructureType(element.node.type)) {
+            return element.node.name;
+        }
+        return undefined;
+    }
+
+    private itemMatchesFilter(element: TreeItemData): boolean {
+        const name = this.getFilterableName(element);
+        return name !== undefined && name.toLowerCase().includes(this.filterText);
+    }
+
+    /** 子树内是否存在命中项（含自身；按未过滤的显示子项递归枚举） */
+    private async subtreeHasMatch(element: TreeItemData): Promise<boolean> {
+        if (this.itemMatchesFilter(element)) {
+            return true;
+        }
+        const children = await this.computeChildren(element);
+        for (const child of children) {
+            if (await this.subtreeHasMatch(child)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 命中项总数（标题栏提示用） */
+    public async countFilterMatches(): Promise<number> {
+        if (!this.isFilterActive()) {
+            return 0;
+        }
+        let count = 0;
+        const walk = async (items: TreeItemData[]) => {
+            for (const item of items) {
+                if (this.itemMatchesFilter(item)) {
+                    count++;
+                }
+                await walk(await this.computeChildren(item));
+            }
+        };
+        await walk(await this.computeChildren());
+        return count;
+    }
+
+    /** 第一个命中项（搜索框回车跳转用）：按显示顺序深度优先 */
+    public async getFirstFilterMatch(): Promise<TreeItemData | undefined> {
+        if (!this.isFilterActive()) {
+            return undefined;
+        }
+        const walk = async (items: TreeItemData[]): Promise<TreeItemData | undefined> => {
+            for (const item of items) {
+                if (this.itemMatchesFilter(item)) {
+                    return item;
+                }
+                const found = await walk(await this.computeChildren(item));
+                if (found) {
+                    return found;
+                }
+            }
+            return undefined;
+        };
+        return walk(await this.computeChildren());
+    }
+
+    /**
+     * 节点直接作用域内声明的游标（含完整 SQL），按声明行排序（Issue #36 悬浮聚合）。
+     * 仅统计该节点自身 variableTable——嵌套子程序有独立作用域，不并入父级。
+     */
+    public getScopeCursorSqls(node: ParseNode): { name: string; line: number; sql: string }[] {
+        if (!node.variableTable) {
+            return [];
+        }
+        const result: { name: string; line: number; sql: string }[] = [];
+        for (const v of node.variableTable.values()) {
+            if (v.category === DeclarationCategory.CURSOR && v.sql) {
+                result.push({ name: v.name, line: v.line, sql: v.sql });
+            }
+        }
+        return result.sort((a, b) => a.line - b.line);
     }
 
     /**
@@ -1562,11 +1687,66 @@ export class TreeViewManager {
             () => this.manageFileExtensions()
         );
 
+        // 复制名称（Issue #36）：右键树项复制干净标识符（节点名/声明项名）
+        const copyNameCommand = vscode.commands.registerCommand(
+            'plsqlOutline.copyName',
+            (element: TreeItemData) => this.copyName(element)
+        );
+
         context.subscriptions.push(
             goToLineCommand,
             toggleStructureBlocksCommand,
-            manageFileExtensionsCommand
+            manageFileExtensionsCommand,
+            copyNameCommand
         );
+    }
+
+    /**
+     * 复制树项名称：节点复制 node.name、声明项复制 entry.name；
+     * 文件夹/结构块/控制结构（关键字占位名）没有可复制标识符，给出提示
+     */
+    private async copyName(element: TreeItemData): Promise<void> {
+        let name: string | undefined;
+        if (element.isDeclarationEntry && element.declarationEntry) {
+            name = element.declarationEntry.name;
+        } else if (element.node && !this.provider.isControlStructureType(element.node.type)) {
+            name = element.node.name;
+        }
+        if (!name) {
+            vscode.window.showWarningMessage('该项没有可复制的名称');
+            return;
+        }
+        await vscode.env.clipboard.writeText(name);
+        vscode.window.showInformationMessage(`已复制：${name}`);
+    }
+
+    /**
+     * 设置大纲过滤词（搜索框输入，Issue #36）：
+     * 非空时树只保留命中项及祖先链，标题栏显示命中数；空串清除过滤并恢复展开状态
+     */
+    async setFilter(text: string): Promise<void> {
+        const wasActive = this.provider.isFilterActive();
+        this.provider.setFilter(text);
+        if (this.provider.isFilterActive()) {
+            const count = await this.provider.countFilterMatches();
+            this.treeView.message = `筛选 "${text.trim()}"：${count} 个匹配`;
+        } else if (wasActive) {
+            this.treeView.message = undefined;
+        }
+    }
+
+    /** 过滤是否生效（光标跟随在过滤期间暂停，避免 reveal 与过滤树互相干扰） */
+    isFilterActive(): boolean {
+        return this.provider.isFilterActive();
+    }
+
+    /** 搜索框回车：跳转（reveal）到第一个命中项 */
+    async revealFirstFilterMatch(): Promise<void> {
+        const match = await this.provider.getFirstFilterMatch();
+        if (!match) {
+            return;
+        }
+        await this.revealItem(match);
     }
 
     /**
@@ -1834,6 +2014,13 @@ export class TreeViewManager {
      */
     getProvider(): PLSQLOutlineProvider {
         return this.provider;
+    }
+
+    /**
+     * 获取树视图（测试与消息控制用）
+     */
+    getTreeView(): vscode.TreeView<TreeItemData> {
+        return this.treeView;
     }
 
     /**
