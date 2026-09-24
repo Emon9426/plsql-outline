@@ -36,7 +36,8 @@ const suites = [
     ['control_expand_test', require('./control_expand_test')],
     ['outline_filter_test', require('./outline_filter_test')],
     ['copy_name_test', require('./copy_name_test')],
-    ['node_sql_hover_test', require('./node_sql_hover_test')]
+    ['node_sql_hover_test', require('./node_sql_hover_test')],
+    ['symbol_scanner_test', require('./symbol_scanner_test')]
 ].map(([name, mod]) => ({ name, mod }));
 
 function escapeHtml(s) {

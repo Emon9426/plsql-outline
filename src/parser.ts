@@ -304,6 +304,14 @@ export class PLSQLParser {
      * 若 Q-quote 或标准字符串在本行未闭合（跨行），设置 state.openString 供下一行继续。
      */
     private stripLiteralsAndComments(line: string, state: { inMultiLineComment: boolean; openString: { kind: 'q' | 'std'; closeSeq: string } | null }): string {
+        // 快路径（Issue #39）：无跨行状态且行内不含任何触发标记（' / -- / /*）
+        // 时，剥离器对该行是恒等变换，跳过逐字符扫描。q-quote 起始必含 '，
+        // 因此单一引号探测即覆盖标准字符串与 Q-quote 两类。
+        if (!state.inMultiLineComment && !state.openString &&
+            line.indexOf("'") < 0 && line.indexOf('--') < 0 && line.indexOf('/*') < 0) {
+            return line;
+        }
+
         let out = '';
         let i = 0;
         const n = line.length;
@@ -507,7 +515,7 @@ export class PLSQLParser {
             return null;
         }
 
-        const singleLineMatch = this.matchCreateStatement(startLine);
+        const singleLineMatch = PLSQLParser.matchCreateStatement(startLine);
         if (singleLineMatch) {
             return null;
         }
@@ -539,7 +547,7 @@ export class PLSQLParser {
             
             endIndex = nextLineIndex;
             
-            const createMatch = this.matchCreateStatement(combinedLine);
+            const createMatch = PLSQLParser.matchCreateStatement(combinedLine);
             if (createMatch) {
                 return {
                     match: createMatch,
@@ -618,7 +626,7 @@ export class PLSQLParser {
     /**
      * 匹配CREATE语句（支持 schema 前缀与带引号标识符）
      */
-    private matchCreateStatement(line: string): { type: NodeType; name: string } | null {
+    private static matchCreateStatement(line: string): { type: NodeType; name: string } | null {
         for (const p of PLSQLParser.CREATE_PATTERNS) {
             const match = line.match(p.re);
             if (match) {
@@ -636,7 +644,31 @@ export class PLSQLParser {
     private static readonly SUB_FUNCTION_RE = /^\s*(?:MEMBER|STATIC|FINAL|OVERRIDING|CONSTRUCTOR|MAP)?\s*FUNCTION\s+(\w+)/i;
     private static readonly SUB_PROCEDURE_RE = /^\s*(?:MEMBER|STATIC|FINAL|OVERRIDING|CONSTRUCTOR|MAP)?\s*PROCEDURE\s+(\w+)/i;
 
-    private matchFunctionProcedure(line: string): { type: NodeType; name: string } | null {
+    /** 符号扫描器复用（Issue #39）：与解析同口径的清洗层（注释/字符串/Q-quote 剥离 + 行映射）。
+     *  三个 ForScan 包装是 symbolScanner 的唯一正则事实源，防止两套实现漂移。 */
+    public static preprocessContentForScan(content: string): { cleanLines: string[]; lineMapping: number[] } {
+        return new PLSQLParser().preprocessContent(content);
+    }
+
+    /** 符号扫描器复用（Issue #39）：CREATE 语句匹配（schema 前缀/引号标识符/get_ddl 修饰词） */
+    public static matchCreateForScan(line: string): { type: NodeType; name: string } | null {
+        return PLSQLParser.matchCreateStatement(line);
+    }
+
+    /** 符号扫描器复用（Issue #39）：FUNCTION/PROCEDURE 关键字匹配 */
+    public static matchSubprogramForScan(line: string): { type: NodeType; name: string } | null {
+        return PLSQLParser.matchFunctionProcedure(line);
+    }
+
+    /** 符号扫描器复用（Issue #39）：CURSOR 声明匹配（与解析器声明记录同口径，
+     *  要求尾部 IS；规格级 `CURSOR c RETURN t%ROWTYPE;` 无体形态解析器本身
+     *  不记录，扫描器保持一致） */
+    public static matchCursorDeclarationForScan(line: string): { name: string } | null {
+        const match = line.match(PATTERNS.CURSOR_DECLARATION);
+        return match ? { name: match[1] } : null;
+    }
+
+    private static matchFunctionProcedure(line: string): { type: NodeType; name: string } | null {
         let match = line.match(PLSQLParser.SUB_FUNCTION_RE);
         if (match) {
             return { type: NodeType.FUNCTION, name: match[1] };
@@ -663,7 +695,7 @@ export class PLSQLParser {
         this.checkAndRecordExceptionDeclaration(line, lineNumber);
 
         // CREATE语句处理
-        const createMatch = this.matchCreateStatement(line);
+        const createMatch = PLSQLParser.matchCreateStatement(line);
         if (createMatch) {
             await this.handleCreateStatement(createMatch, lineNumber);
             return;
@@ -692,7 +724,7 @@ export class PLSQLParser {
         }
 
         // FUNCTION/PROCEDURE 关键字处理（子函数/过程）
-        const functionMatch = this.matchFunctionProcedure(line);
+        const functionMatch = PLSQLParser.matchFunctionProcedure(line);
         if (functionMatch) {
             await this.handleSubFunctionProcedure(functionMatch, lineNumber, lines, lineIndex);
             return;

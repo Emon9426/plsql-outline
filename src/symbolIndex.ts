@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { PLSQLParser } from './parser';
-import { ParseNode, ParseResult, NodeType } from './types';
+import { promises as fsp } from 'fs';
+import { extractFileSymbols, symbolsFromParseResult, ScannedSymbol } from './symbolScanner';
+import { ParseResult, NodeType } from './types';
 
 /**
  * 符号条目
@@ -13,7 +14,6 @@ export interface SymbolEntry {
     packageName?: string;
     filePath: string;
     line: number;
-    parameters?: string;
 }
 
 /**
@@ -29,9 +29,9 @@ export interface PathConfig {
  */
 export interface IndexProgress {
     building: boolean;
-    /** 本轮已索引文件数 */
+    /** 本轮已处理文件数（增量口径：需重扫的文件） */
     indexed: number;
-    /** 本轮计划索引文件总数 */
+    /** 本轮需处理文件总数（增量口径） */
     total: number;
     /** 当前已入索引的文件数 */
     fileCount: number;
@@ -45,21 +45,34 @@ export interface IndexProgress {
 export interface BuildOptions {
     /** 结构化取消令牌（鸭子类型兼容 vscode.CancellationToken，测试无需 vscode 模块） */
     cancellationToken?: { isCancellationRequested: boolean };
-    /** 每索引完一个文件回调（供 withProgress 报告真实进度） */
+    /** 每处理完一个文件回调（供 withProgress 报告真实进度） */
     onProgress?: (indexed: number, total: number) => void;
+    /** 强制全量重扫（忽略 mtime 缓存；手动"重建索引"用，Issue #39） */
+    forceFull?: boolean;
+}
+
+/** 文件新鲜度标记（mtime+size；不变则跳过重扫） */
+interface FileStat {
+    mtimeMs: number;
+    size: number;
 }
 
 /**
  * 符号索引 - 管理跨文件的PL/SQL符号索引
  *
- * 构建采用影子写入 + 原子切换（Issue #38）：新结果先写入局部 Map，
- * 完成后一次性替换线上 Map，构建期间旧索引持续可查；此前先 clear 再
- * 重建，重建窗口期内跳转全黑。构建期间到达的 watcher 更新与当前文件
- * upsert 进入待处理队列，切换前重放到影子 Map（取消/失败时重放到线上）。
+ * 构建采用影子写入 + 原子切换（Issue #38）：结果先写入线上 Map 的克隆，
+ * 完成后一次性替换，构建期间旧索引持续可查；构建期间到达的 watcher 更新
+ * 与当前文件 upsert 进入待处理队列，切换前重放。
+ *
+ * 增量构建（Issue #39）：缓存 v4 记录每个已扫描文件的 mtime+size，重建时
+ * 只重扫变化/新增文件、剔除已消失文件；无缓存/强制全量时退化为全量扫描。
+ * 文件读取按分块并行（IO_CHUNK）执行、按扫描顺序应用，保证条目顺序确定。
  */
 export class SymbolIndex {
     private symbols: Map<string, SymbolEntry[]> = new Map();
     private fileSymbols: Map<string, string[]> = new Map(); // filePath -> symbolNames[]
+    // 构建扫描过的文件的新鲜度标记（upsert 进来的当前文件不在此列，不会被增量逻辑移除）
+    private fileStats: Map<string, FileStat> = new Map();
     private lastBuildTime: number = 0;
     private watchers: vscode.FileSystemWatcher[] = [];
     // 尚未触发的防抖更新定时器（dispose 时统一清理）
@@ -76,6 +89,8 @@ export class SymbolIndex {
     // 进度通知节流：不足 20 个文件的步进不打扰状态栏（首尾必通知）
     private static readonly PROGRESS_NOTIFY_STEP = 20;
     private lastProgressNotifyIndex = -1;
+    // 分块并行 IO 的窗口大小（内存上限 ≈ 64 个文件内容）
+    private static readonly IO_CHUNK = 64;
 
     constructor(outputChannel: vscode.OutputChannel) {
         this.outputChannel = outputChannel;
@@ -124,7 +139,7 @@ export class SymbolIndex {
     }
 
     /**
-     * 全量构建索引（影子写入，完成后原子切换，期间旧索引保持可查）
+     * 构建索引（增量：mtime+size 命中则跳过；影子写入，完成后原子切换）
      * @returns true=完成并切换；false=已有构建进行中、被取消或构建失败（均保留旧索引）
      */
     async buildIndex(paths: PathConfig[], fileExtensions: string[], maxFiles: number = 5000, options?: BuildOptions): Promise<boolean> {
@@ -140,53 +155,122 @@ export class SymbolIndex {
         const startTime = Date.now();
         this.notifyProgress(true);
 
-        // 影子 Map：构建全程只写局部结构，线上索引不受影响
-        const newSymbols = new Map<string, SymbolEntry[]>();
-        const newFileSymbols = new Map<string, string[]>();
-
         try {
-            // 先扫描全部路径再索引：total 提前可知，进度才有真实分母
+            // 1) 扫描（按优先级排序、跨路径去重、maxFiles 上限）
             const sortedPaths = [...paths].sort((a, b) => a.priority - b.priority);
-            const scanned: string[] = [];
+            const files: string[] = [];
             const seen = new Set<string>();
             for (const pathConfig of sortedPaths) {
-                if (scanned.length >= maxFiles) break;
+                if (files.length >= maxFiles) break;
 
-                const files = await this.scanDirectory(pathConfig.path, fileExtensions);
-                for (const file of files) {
-                    if (scanned.length >= maxFiles) break;
+                const scannedFiles = await this.scanDirectory(pathConfig.path, fileExtensions);
+                for (const file of scannedFiles) {
+                    if (files.length >= maxFiles) break;
                     if (seen.has(file)) continue; // 路径重叠/嵌套时不重复解析
                     seen.add(file);
-                    scanned.push(file);
+                    files.push(file);
                 }
             }
 
-            this.buildingTotal = scanned.length;
+            // 2) 并行 stat 全量文件
+            const scanStats = new Map<string, FileStat>();
+            for (let c = 0; c < files.length; c += SymbolIndex.IO_CHUNK) {
+                const chunk = files.slice(c, c + SymbolIndex.IO_CHUNK);
+                await Promise.all(chunk.map(async file => {
+                    try {
+                        const st = await fsp.stat(file);
+                        scanStats.set(file, { mtimeMs: st.mtimeMs, size: st.size });
+                    } catch {
+                        // 消失/不可访问：不进 stats，进入 todo 后由读取失败路径剔除
+                    }
+                }));
+            }
+
+            // 3) 增量划分：stat 未变 → 命中缓存；否则重扫
+            const todo: string[] = [];
+            let cacheHit = 0;
+            for (const file of files) {
+                const cur = scanStats.get(file);
+                if (!cur) {
+                    todo.push(file);
+                    continue;
+                }
+                const prev = options?.forceFull ? undefined : this.fileStats.get(file);
+                if (prev && prev.mtimeMs === cur.mtimeMs && prev.size === cur.size) {
+                    cacheHit++;
+                } else {
+                    todo.push(file);
+                }
+            }
+            // 上轮扫描过、本轮不在扫描集（已删除/移出路径/扩展名变化）→ 从索引移除
+            const currentSet = new Set(files);
+            const removedPaths = [...this.fileStats.keys()].filter(f => !currentSet.has(f));
+
+            this.buildingTotal = todo.length;
             this.notifyProgress(true);
 
-            for (const file of scanned) {
+            // 4) 影子 = 线上深克隆（条目数组也复制：applyScanned 的 push 不得
+            //    触及线上仍引用的数组，保证构建期间线上索引完全不变）；
+            //    先剔除消失文件
+            const newSymbols = new Map(Array.from(this.symbols, ([k, v]) => [k, [...v]]));
+            const newFileSymbols = new Map(this.fileSymbols);
+            for (const file of removedPaths) {
+                this.removeFileFrom(newSymbols, newFileSymbols, file);
+            }
+
+            // 5) 分块并行读 + 按扫描顺序应用（条目顺序确定，同名跳转消解稳定）
+            const failedReads = new Set<string>();
+            for (let c = 0; c < todo.length; c += SymbolIndex.IO_CHUNK) {
                 if (options?.cancellationToken?.isCancellationRequested) {
                     this.outputChannel.appendLine(`索引构建已取消（${this.buildingIndexed}/${this.buildingTotal}）`);
                     // 取消：丢弃影子，待处理变更重放到线上 Map
                     await this.replayPendingInto(this.symbols, this.fileSymbols);
                     return false;
                 }
-                await this.indexFileInto(file, newSymbols, newFileSymbols);
-                this.buildingIndexed++;
-                options?.onProgress?.(this.buildingIndexed, this.buildingTotal);
-                this.notifyProgress();
+                const chunkFiles = todo.slice(c, c + SymbolIndex.IO_CHUNK);
+                const chunkContents = await Promise.all(chunkFiles.map(async file => {
+                    try {
+                        return await fsp.readFile(file, 'utf8');
+                    } catch {
+                        return null;
+                    }
+                }));
+                for (let k = 0; k < chunkFiles.length; k++) {
+                    const file = chunkFiles[k];
+                    const content = chunkContents[k];
+                    if (content === null) {
+                        failedReads.add(file);
+                        this.removeFileFrom(newSymbols, newFileSymbols, file);
+                        continue;
+                    }
+                    const scannedSymbols = await extractFileSymbols(content);
+                    this.applyScanned(scannedSymbols, file, newSymbols, newFileSymbols);
+                    this.buildingIndexed++;
+                    options?.onProgress?.(this.buildingIndexed, this.buildingTotal);
+                    this.notifyProgress();
+                }
             }
 
-            // 构建期间到达的变更重放到影子 Map 后再切换
+            // 6) 构建期间积压的变更重放后原子切换
             await this.replayPendingInto(newSymbols, newFileSymbols);
-
             this.symbols = newSymbols;
             this.fileSymbols = newFileSymbols;
-            this.lastBuildTime = Date.now();
 
+            // fileStats：本轮已知 stat 且读取成功的文件（失败的下轮重试）
+            const newStats = new Map<string, FileStat>();
+            for (const file of files) {
+                const st = scanStats.get(file);
+                if (st && !failedReads.has(file)) {
+                    newStats.set(file, st);
+                }
+            }
+            this.fileStats = newStats;
+
+            this.lastBuildTime = Date.now();
             const elapsed = Date.now() - startTime;
             this.outputChannel.appendLine(
-                `索引构建完成: ${this.fileSymbols.size} 文件, ${this.symbols.size} 符号, 耗时 ${elapsed}ms`
+                `索引构建完成: ${this.fileSymbols.size} 文件, ${this.symbols.size} 符号` +
+                `（扫描 ${files.length}, 重扫 ${todo.length}, 命中缓存 ${cacheHit}）, 耗时 ${elapsed}ms`
             );
             return true;
         } catch (error) {
@@ -211,7 +295,7 @@ export class SymbolIndex {
             this.pendingUpserts.set(filePath, result);
             return;
         }
-        this.upsertResultInto(result, filePath, this.symbols, this.fileSymbols);
+        this.applyScanned(symbolsFromParseResult(result), filePath, this.symbols, this.fileSymbols);
     }
 
     /**
@@ -223,10 +307,11 @@ export class SymbolIndex {
             return;
         }
 
-        // 先移除该文件的旧符号，再重新索引
         this.removeFileFrom(this.symbols, this.fileSymbols, filePath);
+        this.fileStats.delete(filePath);
         if (fs.existsSync(filePath)) {
-            await this.indexFileInto(filePath, this.symbols, this.fileSymbols);
+            await this.reindexFileInto(filePath, this.symbols, this.fileSymbols);
+            this.refreshFileStat(filePath);
         }
     }
 
@@ -239,14 +324,17 @@ export class SymbolIndex {
             return;
         }
         this.removeFileFrom(this.symbols, this.fileSymbols, filePath);
+        this.fileStats.delete(filePath);
     }
 
     /**
-     * 查找符号
+     * 查找符号（跳转口径）。游标是仅搜索条目（Issue #39 Emon 决策纳入
+     * Ctrl+T 搜索）：在此过滤，Ctrl+Click 跳转语义保持不变。
      */
     lookup(name: string, packageName?: string): SymbolEntry[] {
         const upperName = name.toUpperCase();
-        const entries = this.symbols.get(upperName) || [];
+        const entries = (this.symbols.get(upperName) || [])
+            .filter(e => e.type !== NodeType.CURSOR);
 
         if (packageName) {
             const upperPkg = packageName.toUpperCase();
@@ -287,15 +375,51 @@ export class SymbolIndex {
     }
 
     /**
-     * 保存索引到磁盘（v2：含 fileSymbols，加载后 watcher 增删才能正确去重）
+     * 工作区符号搜索（Ctrl+T，Issue #39）：名称包含查询词（大小写不敏感）。
+     * 支持 `pkg.func` 写法（按包名 + 名称双重过滤）；上限防刷屏。
+     */
+    searchSymbols(query: string, limit: number = 512): SymbolEntry[] {
+        const q = query.trim().toUpperCase();
+        if (!q) {
+            return [];
+        }
+        const dot = q.lastIndexOf('.');
+        const pkgQuery = dot > 0 ? q.slice(0, dot) : null;
+        const nameQuery = dot > 0 ? q.slice(dot + 1) : q;
+
+        const out: SymbolEntry[] = [];
+        for (const [key, entries] of this.symbols) {
+            if (!key.includes(nameQuery)) {
+                continue;
+            }
+            for (const entry of entries) {
+                if (pkgQuery &&
+                    !(entry.packageName && entry.packageName.toUpperCase().includes(pkgQuery))) {
+                    continue;
+                }
+                out.push(entry);
+                if (out.length >= limit) {
+                    return out;
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 保存索引到磁盘（v4：含 fileSymbols 与文件新鲜度标记 fileStats；
+     * v3→v4 因游标纳入搜索条目的提取口径变更而升版）。
+     * 注意：version 门的是缓存格式；若未来扫描器提取口径再变更，必须同步升版
+     * （旧缓存按 mtime 命中会跳过重扫，仅手动重建 forceFull 可强制纠正）。
      */
     async save(storagePath: string): Promise<void> {
         const data = {
-            version: 2,
+            version: 4,
             buildTime: this.lastBuildTime,
             fileCount: this.fileSymbols.size,
             symbols: {} as Record<string, SymbolEntry[]>,
-            fileSymbols: {} as Record<string, string[]>
+            fileSymbols: {} as Record<string, string[]>,
+            fileStats: {} as Record<string, FileStat>
         };
 
         for (const [key, entries] of this.symbols) {
@@ -303,6 +427,9 @@ export class SymbolIndex {
         }
         for (const [filePath, names] of this.fileSymbols) {
             data.fileSymbols[filePath] = names;
+        }
+        for (const [filePath, stat] of this.fileStats) {
+            data.fileStats[filePath] = stat;
         }
 
         const dir = path.dirname(storagePath);
@@ -313,7 +440,8 @@ export class SymbolIndex {
     }
 
     /**
-     * 从磁盘加载索引（v1 旧格式不含 fileSymbols，直接失效走全量重建）
+     * 从磁盘加载索引（v4 含增量构建所需的 fileStats；
+     * v1/v2/v3 旧格式直接失效走全量重建）
      */
     async load(storagePath: string): Promise<boolean> {
         try {
@@ -322,19 +450,24 @@ export class SymbolIndex {
             const raw = fs.readFileSync(storagePath, 'utf8');
             const data = JSON.parse(raw);
 
-            if (data.version !== 2) return false;
+            if (data.version !== 4) return false;
 
             const symbols = new Map<string, SymbolEntry[]>();
             const fileSymbols = new Map<string, string[]>();
+            const fileStats = new Map<string, FileStat>();
             for (const [key, entries] of Object.entries(data.symbols)) {
                 symbols.set(key, entries as SymbolEntry[]);
             }
             for (const [filePath, names] of Object.entries(data.fileSymbols || {})) {
                 fileSymbols.set(filePath, names as string[]);
             }
+            for (const [filePath, stat] of Object.entries(data.fileStats || {})) {
+                fileStats.set(filePath, stat as FileStat);
+            }
 
             this.symbols = symbols;
             this.fileSymbols = fileSymbols;
+            this.fileStats = fileStats;
             this.lastBuildTime = data.buildTime;
             return true;
         } catch {
@@ -439,15 +572,13 @@ export class SymbolIndex {
             const updates = [...this.pendingFileUpdates];
             this.pendingFileUpdates.clear();
             for (const filePath of updates) {
-                // 与 updateFile 语义一致：先移除旧条目再重读，避免与扫描结果叠加成重复条目
-                this.removeFileFrom(symbols, fileSymbols, filePath);
-                await this.indexFileInto(filePath, symbols, fileSymbols);
+                await this.reindexFileInto(filePath, symbols, fileSymbols);
             }
 
             const upserts = [...this.pendingUpserts];
             this.pendingUpserts.clear();
             for (const [filePath, result] of upserts) {
-                this.upsertResultInto(result, filePath, symbols, fileSymbols);
+                this.applyScanned(symbolsFromParseResult(result), filePath, symbols, fileSymbols);
             }
         }
     }
@@ -484,44 +615,45 @@ export class SymbolIndex {
     }
 
     /**
-     * 索引单个文件（写入指定 Map）
-     * best-effort（Issue #38）：解析带错误不再整体跳过，能提取多少符号算多少
+     * 重读并重索引单个文件（写入指定 Map；读取/提取失败时移除旧条目）
      */
-    private async indexFileInto(filePath: string, symbols: Map<string, SymbolEntry[]>, fileSymbols: Map<string, string[]>): Promise<void> {
+    private async reindexFileInto(filePath: string, symbols: Map<string, SymbolEntry[]>, fileSymbols: Map<string, string[]>): Promise<void> {
         try {
-            const content = fs.readFileSync(filePath, 'utf8');
-            // 每次解析使用独立实例（Issue #15 同源教训）：buildIndex 与
-            // watcher 驱动的 updateFile 可能交错，共享实例会在 await 点互相污染
-            const result = await new PLSQLParser().parse(content, filePath);
-
-            const symbolNames: string[] = [];
-
-            for (const node of result.nodes) {
-                this.extractSymbolsInto(node, filePath, undefined, symbolNames, symbols);
-            }
-
-            // 0 符号文件（纯匿名块/解析失败）不入 fileSymbols，避免虚增文件计数
-            if (symbolNames.length > 0) {
-                fileSymbols.set(filePath, symbolNames);
-            }
+            const content = await fsp.readFile(filePath, 'utf8');
+            const scanned = await extractFileSymbols(content);
+            this.applyScanned(scanned, filePath, symbols, fileSymbols);
         } catch {
-            // 跳过无法读取/解析的文件
+            this.removeFileFrom(symbols, fileSymbols, filePath);
         }
     }
 
     /**
-     * 把解析结果写入指定 Map（先清该文件旧条目，保证幂等）
+     * 把符号列表写入指定 Map（先清该文件旧条目，幂等；Issue #39 起提取走轻量扫描器）
      */
-    private upsertResultInto(result: ParseResult, filePath: string, symbols: Map<string, SymbolEntry[]>, fileSymbols: Map<string, string[]>): void {
+    private applyScanned(scanned: ScannedSymbol[], filePath: string, symbols: Map<string, SymbolEntry[]>, fileSymbols: Map<string, string[]>): void {
         this.removeFileFrom(symbols, fileSymbols, filePath);
 
+        if (scanned.length === 0) {
+            // 0 符号文件（纯匿名块/解析失败）不入 fileSymbols，避免虚增文件计数
+            return;
+        }
         const symbolNames: string[] = [];
-        for (const node of result.nodes) {
-            this.extractSymbolsInto(node, filePath, undefined, symbolNames, symbols);
+        for (const s of scanned) {
+            const upperName = s.name.toUpperCase();
+            const entry: SymbolEntry = {
+                name: s.name,
+                type: s.type,
+                packageName: s.packageName,
+                filePath: filePath,
+                line: s.line
+            };
+            if (!symbols.has(upperName)) {
+                symbols.set(upperName, []);
+            }
+            symbols.get(upperName)!.push(entry);
+            symbolNames.push(upperName);
         }
-        if (symbolNames.length > 0) {
-            fileSymbols.set(filePath, symbolNames);
-        }
+        fileSymbols.set(filePath, symbolNames);
     }
 
     /**
@@ -545,39 +677,13 @@ export class SymbolIndex {
         }
     }
 
-    /**
-     * 从节点树提取符号（写入指定 Map）
-     */
-    private extractSymbolsInto(node: ParseNode, filePath: string, packageName: string | undefined, symbolNames: string[], symbols: Map<string, SymbolEntry[]>): void {
-        const isPackage = node.type === NodeType.PACKAGE_BODY || node.type === NodeType.PACKAGE_HEADER;
-        const isProgramUnit = node.type === NodeType.FUNCTION ||
-            node.type === NodeType.PROCEDURE ||
-            node.type === NodeType.FUNCTION_DECLARATION ||
-            node.type === NodeType.PROCEDURE_DECLARATION ||
-            node.type === NodeType.TRIGGER;
-
-        if (isPackage || isProgramUnit) {
-            const upperName = node.name.toUpperCase();
-            const entry: SymbolEntry = {
-                name: node.name,
-                type: node.type,
-                packageName: packageName,
-                filePath: filePath,
-                line: node.declarationLine
-            };
-
-            if (!symbols.has(upperName)) {
-                symbols.set(upperName, []);
-            }
-            symbols.get(upperName)!.push(entry);
-            symbolNames.push(upperName);
-        }
-
-        // 递归处理子节点（只处理Package的直接子节点作为符号）
-        if (isPackage) {
-            for (const child of node.children) {
-                this.extractSymbolsInto(child, filePath, node.name, symbolNames, symbols);
-            }
+    /** watcher 重索引后刷新文件新鲜度标记（避免下次构建重复重扫） */
+    private refreshFileStat(filePath: string): void {
+        try {
+            const st = fs.statSync(filePath);
+            this.fileStats.set(filePath, { mtimeMs: st.mtimeMs, size: st.size });
+        } catch {
+            this.fileStats.delete(filePath);
         }
     }
 }

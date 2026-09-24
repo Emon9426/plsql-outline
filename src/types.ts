@@ -13,6 +13,9 @@ export enum NodeType {
     TYPE = 'TYPE',
     TYPE_BODY = 'TYPE_BODY',
     VIEW = 'VIEW',
+    // 仅用于符号索引的搜索条目（Issue #39 游标纳入 Ctrl+T 搜索）；
+    // 解析器不产生此类型的 ParseNode（游标声明记录在 variableTable），显示层不会遇到
+    CURSOR = 'CURSOR',
     // 控制结构类型
     IF_STATEMENT = 'IF_STATEMENT',
     ELSIF_BRANCH = 'ELSIF_BRANCH',

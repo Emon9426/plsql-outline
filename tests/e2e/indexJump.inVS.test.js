@@ -141,12 +141,12 @@ module.exports.run = async () => {
     }, 30000);
     assert.ok(ready, '30 秒内索引未就绪：pkg_a.get_order 始终无 Definition');
 
-    // ---- Case 1: 高优先级仓库的包内函数（pkg_a.get_order → repo_a/pkg_a.pkb L2）----
+    // ---- Case 1: 高优先级仓库的包内函数（pkg_a.get_order → repo_a/pkg_a.pkb L3）----
     {
         const t = await definitionAt(callerDoc, 'pkg_a.get_order(100)', 'get_order');
         check(path.normalize(t?.uri.fsPath || '') === path.normalize(path.join(REPO_A, 'pkg_a.pkb')) &&
-            t.range.start.line + 1 === 2,
-            `高优先级包函数 get_order → repo_a/pkg_a.pkb L2（实际 ${fmt(t)}）`);
+            t.range.start.line + 1 === 3,
+            `高优先级包函数 get_order → repo_a/pkg_a.pkb L3（实际 ${fmt(t)}）`);
     }
 
     // ---- Case 2: 低优先级仓库的包内函数（pkg_b.calc_total → repo_b/pkg_b.pkb L2）----
@@ -206,6 +206,46 @@ module.exports.run = async () => {
         const t = await definitionAt(callerDoc, 'pkg_b.new_total(7);', 'new_total');
         check(ok && t.range.start.line + 1 === expectedLine,
             `watcher 修改文件 pkg_b.new_total → repo_b/pkg_b.pkb L${expectedLine}（实际 ${fmt(t)}）`);
+    }
+
+    // ---- Case 8: 工作区符号搜索（Ctrl+T，Issue #39）：按名搜 calc_tax ----
+    {
+        const results = await vscode.commands.executeCommand(
+            'vscode.executeWorkspaceSymbolProvider', 'calc_tax');
+        const arr = Array.isArray(results) ? results : [];
+        const hit = arr.find(si =>
+            si.name.toUpperCase().includes('CALC_TAX') &&
+            path.normalize(si.location.uri.fsPath) === path.normalize(path.join(REPO_B, 'new_symbols.sql')));
+        check(!!hit, `Ctrl+T 搜索 calc_tax 命中 repo_b/new_symbols.sql（实际 ${arr.length} 条）`);
+    }
+
+    // ---- Case 9: 工作区符号搜索 pkg.func 双重过滤（Issue #39）----
+    {
+        const results = await vscode.commands.executeCommand(
+            'vscode.executeWorkspaceSymbolProvider', 'pkg_a.get_order');
+        const arr = Array.isArray(results) ? results : [];
+        const hit = arr.find(si =>
+            si.name.toUpperCase().includes('PKG_A.GET_ORDER') &&
+            path.normalize(si.location.uri.fsPath) === path.normalize(path.join(REPO_A, 'pkg_a.pkb')));
+        check(!!hit, `Ctrl+T 搜索 pkg_a.get_order 命中 repo_a/pkg_a.pkb（实际 ${arr.length} 条）`);
+    }
+
+    // ---- Case 10: Ctrl+T 搜索游标（Emon 决策纳入，Issue #39）----
+    {
+        const results = await vscode.commands.executeCommand(
+            'vscode.executeWorkspaceSymbolProvider', 'c_open_orders');
+        const arr = Array.isArray(results) ? results : [];
+        const hit = arr.find(si =>
+            si.name.toUpperCase().includes('PKG_A.C_OPEN_ORDERS') &&
+            path.normalize(si.location.uri.fsPath) === path.normalize(path.join(REPO_A, 'pkg_a.pkb')) &&
+            si.location.range.start.line + 1 === 2);
+        check(!!hit, `Ctrl+T 搜索游标 c_open_orders → repo_a/pkg_a.pkb L2（实际 ${arr.length} 条）`);
+    }
+
+    // ---- Case 11: 游标不参与 Ctrl+Click 跳转（仅搜索条目，跳转语义不变）----
+    {
+        const t = await definitionAt(callerDoc, 'OPEN c_open_orders;', 'c_open_orders');
+        check(!t, `游标名 Ctrl+Click 不应返回跨文件 Definition（实际 ${fmt(t)}）`);
     }
 
     assert.strictEqual(failures.length, 0, `${failures.length} 个双仓库跳转用例失败:\n  - ${failures.join('\n  - ')}`);

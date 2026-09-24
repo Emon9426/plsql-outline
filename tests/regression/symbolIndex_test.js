@@ -385,6 +385,113 @@ async function runTests() {
         fs.rmSync(tmpRoot, { recursive: true, force: true });
     }
 
+    // ============ 测试18: mtime 增量构建（Issue #39） ============
+    console.log('\n=== 测试18: mtime 增量构建 ===');
+
+    const tmpIncr = fs.mkdtempSync(path.join(require('os').tmpdir(), 'plsql-outline-incr-'));
+    try {
+        const procSrc = (name) => `CREATE OR REPLACE PROCEDURE ${name} IS\nBEGIN\n    NULL;\nEND ${name};\n/\n`;
+        fs.writeFileSync(path.join(tmpIncr, 'a.sql'), procSrc('pa'), 'utf8');
+        fs.writeFileSync(path.join(tmpIncr, 'b.sql'), procSrc('pb'), 'utf8');
+
+        const incrIndex = new SymbolIndex(mockOutputChannel);
+        await incrIndex.buildIndex([{ path: tmpIncr, priority: 1 }], ['.sql'], 100);
+        assertEqual(incrIndex.lookup('PA').length, 1, '首次构建：pa 入索引');
+        assertEqual(incrIndex.lookup('PB').length, 1, '首次构建：pb 入索引');
+
+        // 二次构建无变化：全部命中 mtime 缓存，无重扫（building 快照 total 恒 0）
+        const snapshots = [];
+        incrIndex.setStatusListener(p => snapshots.push({ ...p }));
+        await incrIndex.buildIndex([{ path: tmpIncr, priority: 1 }], ['.sql'], 100);
+        incrIndex.setStatusListener(null);
+        assert(incrIndex.lookup('PA').length === 1 && incrIndex.lookup('PB').length === 1,
+            '命中缓存的重建后符号保持');
+        assert(!snapshots.some(p => p.building && p.total > 0),
+            `无变化构建不应有重扫文件，快照 ${JSON.stringify(snapshots)}`);
+
+        // 修改 + 新增 + 删除 → 只重扫变化文件，索引正确迁移
+        await new Promise(r => setTimeout(r, 5)); // 保证 mtime 推进
+        fs.writeFileSync(path.join(tmpIncr, 'b.sql'), procSrc('pb2'), 'utf8');
+        fs.writeFileSync(path.join(tmpIncr, 'c.sql'), procSrc('pc'), 'utf8');
+        fs.unlinkSync(path.join(tmpIncr, 'a.sql'));
+        await incrIndex.buildIndex([{ path: tmpIncr, priority: 1 }], ['.sql'], 100);
+        assertEqual(incrIndex.lookup('PA').length, 0, '删除文件后符号应移除');
+        assertEqual(incrIndex.lookup('PB').length, 0, '修改文件的旧符号应被替换');
+        assertEqual(incrIndex.lookup('PB2').length, 1, '修改后的新符号应入索引');
+        assertEqual(incrIndex.lookup('PC').length, 1, '新增文件符号应入索引');
+
+        // forceFull：忽略 mtime 缓存全量重扫
+        await incrIndex.buildIndex([{ path: tmpIncr, priority: 1 }], ['.sql'], 100, { forceFull: true });
+        assert(incrIndex.lookup('PB2').length === 1 && incrIndex.lookup('PC').length === 1,
+            'forceFull 全量重扫后符号保持');
+    } finally {
+        fs.rmSync(tmpIncr, { recursive: true, force: true });
+    }
+
+    // ============ 测试19: 旧格式缓存拒绝（v4 起含游标搜索条目） ============
+    console.log('\n=== 测试19: v2/v3 旧格式缓存拒绝 ===');
+
+    for (const ver of [2, 3]) {
+        const oldPath = path.join(testDir, `.temp_symbol_index_v${ver}.json`);
+        const body = ver === 2
+            ? { version: 2, buildTime: 0, fileCount: 0, symbols: {}, fileSymbols: {} }
+            : { version: 3, buildTime: 0, fileCount: 0, symbols: {}, fileSymbols: {}, fileStats: {} };
+        fs.writeFileSync(oldPath, JSON.stringify(body), 'utf8');
+        const oldIndex = new SymbolIndex(mockOutputChannel);
+        const oldLoaded = await oldIndex.load(oldPath);
+        assert(oldLoaded === false, `v${ver} 缓存应被拒绝（触发全量重建）`);
+        fs.unlinkSync(oldPath);
+    }
+
+    // ============ 测试20: 工作区符号搜索（Ctrl+T，Issue #39） ============
+    console.log('\n=== 测试20: 工作区符号搜索 ===');
+
+    const foundByName = symbolIndex.searchSymbols('func_00');
+    assert(foundByName.length > 0 &&
+        foundByName.every(e => e.name.toUpperCase().includes('FUNC_00')),
+        '按名搜索结果均包含查询词');
+    const foundQualified = symbolIndex.searchSymbols('large_test_pkg.func_001');
+    assert(foundQualified.length > 0 &&
+        foundQualified.every(e => (e.packageName || '').toUpperCase() === 'LARGE_TEST_PKG'),
+        'pkg.func 写法按包名+名称双重过滤');
+    assertEqual(symbolIndex.searchSymbols('').length, 0, '空查询应返回空');
+
+    // ============ 测试21: 游标为仅搜索条目（Emon 决策，Issue #39） ============
+    console.log('\n=== 测试21: 游标纳入搜索但不参与跳转 ===');
+
+    const tmpCur = fs.mkdtempSync(path.join(require('os').tmpdir(), 'plsql-outline-cursor-'));
+    try {
+        const curFile = path.join(tmpCur, 'cur_pkg.pkb');
+        fs.writeFileSync(curFile, [
+            'CREATE OR REPLACE PACKAGE BODY cur_pkg AS',
+            '    CURSOR c_pkg_level IS SELECT 1 FROM dual;',
+            '    PROCEDURE m1 IS',
+            '    BEGIN',
+            '        NULL;',
+            '    END m1;',
+            'END cur_pkg;',
+            '/'
+        ].join('\n'), 'utf8');
+
+        const curIndex = new SymbolIndex(mockOutputChannel);
+        await curIndex.buildIndex([{ path: tmpCur, priority: 1 }], ['.pkb'], 100);
+
+        // 跳转口径：lookup 不返回游标（Ctrl+Click 语义不变）
+        assertEqual(curIndex.lookup('c_pkg_level').length, 0, '游标不应出现在跳转查找结果');
+        assertEqual(curIndex.lookupWithPriority('c_pkg_level', undefined,
+            [{ path: tmpCur, priority: 1 }]).length, 0, '优先级查找同样排除游标');
+
+        // 搜索口径：Ctrl+T 可搜到，带所属包与声明行
+        const hits = curIndex.searchSymbols('c_pkg_level');
+        assertEqual(hits.length, 1, 'Ctrl+T 应搜到游标');
+        assertEqual(hits[0].packageName, 'cur_pkg', '游标搜索结果带所属包');
+        assertEqual(hits[0].line, 2, '游标搜索结果带声明行');
+        const qualified = curIndex.searchSymbols('cur_pkg.c_pkg_level');
+        assertEqual(qualified.length, 1, 'pkg.cursor 双重过滤命中');
+    } finally {
+        fs.rmSync(tmpCur, { recursive: true, force: true });
+    }
+
     // ============ 输出结果 ============
     console.log('\n================================');
     console.log(`测试结果: ${passed}/${passed + failed} 通过`);

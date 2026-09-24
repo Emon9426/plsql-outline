@@ -14,11 +14,16 @@ npm run compile   # 所有测试直接 require out/ 编译产物，必须先编�
 | # | 命令 | 基线 | 覆盖 |
 |---|---|---|---|
 | 1 | `npm run test:corpus`（= validate.js + render-validate.js） | **35/35 + 35 OK** | 143k 行语料（含 .pck / get_ddl 形态）的解析层 + 显示层 |
-| 2 | `npm test`（= compile + tests/unit/run_all.js） | **489/489（28 套件）** | 解析/渲染/导航/取消/设置/引号标识符/get_ddl/折叠/关键字配对高亮/游标SQL悬浮/逐级展开与原生缩进/搜索过滤/复制名称/悬浮聚合SQL 契约 |
+| 2 | `npm test`（= compile + tests/unit/run_all.js） | **504/504（29 套件）** | 解析/渲染/导航/取消/设置/引号标识符/get_ddl/折叠/关键字配对高亮/游标SQL悬浮/逐级展开与原生缩进/搜索过滤/复制名称/悬浮聚合SQL/符号扫描器（corpus 一致性对照 + 游标搜索条目，#39） 契约 |
 | 3 | `npm run test:regression` | **14/14 套件** | 真实世界包/超大文件/边界/光标同步/区域跟随（#22）/定义跳转/符号索引/内存/Refresh 焦点回退/激活自动解析 |
-| 4 | `npm run test:e2e` | **anonDefinition 通过 + smoke 7/7 + foldRouting 8/8 + indexJump 7/7** | 真实 VS Code 宿主（@vscode/test-electron）；foldRouting 锁定提供者路由（#26）+ 段折叠/配对高亮/原生回退（#31）；indexJump 双代码仓库路径跨文件跳转（#38：独立工作区 ws-index 预置双路径 settings.json，启动自动建索引 + 高/低优先级可达 + 同名冲突优先级消解 + 包名限定优先 + 当前文件游标 + watcher 新建/修改增量） |
+| 4 | `npm run test:e2e` | **anonDefinition 通过 + smoke 7/7 + foldRouting 8/8 + indexJump 11/11** | 真实 VS Code 宿主（@vscode/test-electron）；foldRouting 锁定提供者路由（#26）+ 段折叠/配对高亮/原生回退（#31）；indexJump 双代码仓库路径跨文件跳转（#38：独立工作区 ws-index 预置双路径 settings.json，启动自动建索引 + 高/低优先级可达 + 同名冲突优先级消解 + 包名限定优先 + 当前文件游标 + watcher 新建/修改增量；#39：Ctrl+T 工作区符号搜索 + 游标搜索且不参与跳转） |
 
-补充：`node tests/bench.js` 输出语料大文件解析耗时基准（性能改动的证据）。
+补充：`node tests/bench.js` 输出语料大文件解析耗时基准（性能改动的证据）；
+`node tests/stress/index_stress.js` 符号索引压力测试（#38/#39，独立脚本不进
+四步链；合成双目录仓库默认 2000 文件，`PLSQL_STRESS_FILES=5000` 满配；
+11 阶段断言：首建/零重扫/扰动/取消/并发查询/upsert/缓存 round-trip/watcher
+风暴/maxFiles 收缩/病态一致性/查询延迟/内存稳定性；满配实测首建 ~1s、
+无变化重建 <50ms、lookup 0.2µs、缓存 9MB load 65ms）。
 
 ## 目录与机制
 

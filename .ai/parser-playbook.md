@@ -45,6 +45,14 @@
 7. **匹配函数/过程**用模块级缓存正则（性能教训：勿在热路径 new RegExp）。
 8. `parsing.maxNestingDepth` 配置经 `parse(content, sourceFile, {maxNestingDepth})` 传入；
    文件大小（10MB）/行数（50k）保护为解析器内部常量。
+9. **清洗层快路径**（Issue #39）：`stripLiteralsAndComments` 入口处，行内无 `'`/`--`/`/*`
+   且无跨行状态（多行注释/未闭合字符串）时直接返回原串——恒等变换，跳过逐字符扫描；
+   q-quote 起始必含 `'`，单一引号探测即覆盖。修改剥离器时**保持该快路径条件与
+   下方字符循环的等价性**（新增触发标记须同步补进快路径探测）。
+10. **ForScan 静态包装**（Issue #39）：`preprocessContentForScan / matchCreateForScan /
+    matchSubprogramForScan` 是 symbolScanner.ts 复用解析器口径的唯一入口（单一正则
+    事实源）；改 CREATE_PATTERNS / SUB_*_RE / 剥离行为时，跑 tests/unit/
+    symbol_scanner_test.js 的 corpus 一致性对照。
 
 ## 显示层（treeView.ts）规则
 
