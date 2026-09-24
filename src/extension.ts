@@ -1093,7 +1093,13 @@ export class PLSQLOutlineExtension {
     /**
      * 重建符号索引
      */
-    private async rebuildSymbolIndex(): Promise<void> {
+    /**
+     * 重建符号索引。
+     * @param forceFull true=忽略 mtime 缓存全量重扫（手动"重建索引"命令的逃生门）；
+     *                  false=增量（配置变更走此路径：增量对 paths/扩展名/上限变更
+     *                  天然正确迁移——移出扫描集的文件剔除、新增文件重扫，压测已覆盖）
+     */
+    private async rebuildSymbolIndex(forceFull: boolean = true): Promise<void> {
         const config = vscode.workspace.getConfiguration('plsql-outline');
         const pathConfigs = config.get<PathConfig[]>('codeRepository.paths', []);
 
@@ -1115,8 +1121,7 @@ export class PLSQLOutlineExtension {
         }, async (progress, token) => {
             const completed = await this.symbolIndex.buildIndex(pathConfigs, fileExtensions, maxFiles, {
                 cancellationToken: token,
-                // 手动"重建索引"= 强制全量重扫（忽略 mtime 缓存，作为扫描器升级后的逃生门）
-                forceFull: true,
+                forceFull: forceFull,
                 onProgress: (indexed, total) => {
                     progress.report({ increment: 100 / Math.max(total, 1), message: `${indexed}/${total}` });
                 }
@@ -1238,12 +1243,13 @@ export class PLSQLOutlineExtension {
             // 刷新树视图
             this.treeViewManager.refresh();
 
-            // 如果代码仓库配置变化，重建索引（autoIndex 已关闭时只刷新状态栏不重建）
+            // 如果代码仓库配置变化，重建索引（autoIndex 已关闭时只刷新状态栏不重建）；
+            // 配置变更走增量（Issue #39：paths/扩展名/上限变更由增量天然迁移，仅手动重建强制全量）
             if (event.affectsConfiguration('plsql-outline.codeRepository')) {
                 const autoIndex = vscode.workspace.getConfiguration('plsql-outline')
                     .get<boolean>('codeRepository.autoIndex', true);
                 if (autoIndex) {
-                    this.rebuildSymbolIndex();
+                    this.rebuildSymbolIndex(false);
                 } else {
                     this.updateIndexStatusBar();
                 }
