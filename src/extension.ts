@@ -88,6 +88,8 @@ export class PLSQLOutlineExtension {
     ]);
     // 启动时延迟构建符号索引的定时器（dispose 时取消，防止停用后仍创建 watcher）
     private indexBuildTimer: NodeJS.Timeout | null = null;
+    // 构建期间到达的配置变更：排队标志，构建完成后自动补一次增量重建（终审评审 P3）
+    private indexRebuildQueued: boolean = false;
     // 索引状态栏项（Issue #38 常驻三态：未启用 / 构建中 / 就绪）
     private indexStatusBar: vscode.StatusBarItem | null = null;
     // 索引磁盘缓存路径（手动重建后同样落盘；记录自 initializeSymbolIndex）
@@ -1025,6 +1027,7 @@ export class PLSQLOutlineExtension {
                 }
             }
             this.updateIndexStatusBar();
+            this.drainQueuedIndexRebuild();
         }, 3000); // 延迟3秒，避免影响启动速度
     }
 
@@ -1091,9 +1094,6 @@ export class PLSQLOutlineExtension {
     }
 
     /**
-     * 重建符号索引
-     */
-    /**
      * 重建符号索引。
      * @param forceFull true=忽略 mtime 缓存全量重扫（手动"重建索引"命令的逃生门）；
      *                  false=增量（配置变更走此路径：增量对 paths/扩展名/上限变更
@@ -1149,6 +1149,15 @@ export class PLSQLOutlineExtension {
             }
             this.updateIndexStatusBar();
         });
+        this.drainQueuedIndexRebuild();
+    }
+
+    /** 构建期间到达的配置变更出队：补一次增量重建（新配置此时才真正生效） */
+    private drainQueuedIndexRebuild(): void {
+        if (this.indexRebuildQueued && !this.symbolIndex.isBuilding()) {
+            this.indexRebuildQueued = false;
+            this.rebuildSymbolIndex(false).catch(() => { /* 防御：重建失败不影响主流程 */ });
+        }
     }
 
     /**
@@ -1249,7 +1258,13 @@ export class PLSQLOutlineExtension {
                 const autoIndex = vscode.workspace.getConfiguration('plsql-outline')
                     .get<boolean>('codeRepository.autoIndex', true);
                 if (autoIndex) {
-                    this.rebuildSymbolIndex(false);
+                    if (this.symbolIndex.isBuilding()) {
+                        // 构建中：buildIndex 会拒绝重复请求导致本次配置变更丢失，
+                        // 排队待构建完成后补一次增量重建（终审评审 P3）
+                        this.indexRebuildQueued = true;
+                    } else {
+                        this.rebuildSymbolIndex(false).catch(() => { /* 防御：重建失败不影响主流程 */ });
+                    }
                 } else {
                     this.updateIndexStatusBar();
                 }

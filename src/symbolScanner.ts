@@ -101,10 +101,12 @@ export function scanSymbols(content: string): ScanOutcome {
         const multi = checkMultiLineCreate(cleanLines, i);
         const create = multi ? multi.match : PLSQLParser.matchCreateForScan(line);
         if (create) {
-            sawCreate = true;
             closeScope();
-            // 与解析器索引口径一致：TYPE/TYPE_BODY/VIEW 不入索引（识别以推进行指针）
+            // 与解析器索引口径一致：TYPE/TYPE_BODY/VIEW 不入索引（识别以推进行指针）。
+            // 这三类不触发兜底标记（sawCreate）：解析器同样不索引它们，
+            // 纯 TYPE/VIEW 文件退全量解析只会白付一次解析成本（终审评审 P3）
             if (create.type !== NodeType.TYPE && create.type !== NodeType.TYPE_BODY && create.type !== NodeType.VIEW) {
+                sawCreate = true;
                 result.push({ name: create.name, type: create.type, packageName: undefined, line: lineMapping[i] });
             }
             if (create.type === NodeType.PACKAGE_BODY || create.type === NodeType.PACKAGE_HEADER) {

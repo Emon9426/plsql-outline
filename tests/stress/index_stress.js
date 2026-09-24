@@ -11,7 +11,7 @@
  *   3  扰动重建（1% 改 / 0.5% 增 / 0.5% 删 → 正确迁移断言）
  *   4  forceFull + 构建中并发查询（旧索引持续可查断言）+ 构建中 upsert（恰好一次断言）
  *   5  10% 处取消（返回 false、旧索引完好断言）→ 复建成功
- *   6  缓存 v3 落盘/加载（体积/耗时/计数一致/加载后零重扫断言）
+ *   6  缓存 v4 落盘/加载（体积/耗时/计数一致/加载后零重扫断言）
  *   7  watcher 风暴（50 改 + 10 删 → 无重复条目断言）
  *   8  maxFiles 收缩（≤ 上限断言）
  *   9  病态文件扫描器 vs 全量解析器一致性（含超大/深嵌套/污染形态）
@@ -489,7 +489,7 @@ async function main() {
             check(ok === true, '阶段5: 取消后复建应成功');
         }
 
-        // ===== 阶段 6：缓存 v3 落盘/加载 =====
+        // ===== 阶段 6：缓存 v4 落盘/加载 =====
         {
             const cachePath = path.join(root, 'symbol-index.json');
             const t0 = Date.now();
@@ -501,7 +501,7 @@ async function main() {
             const t1 = Date.now();
             const loaded = await fresh.load(cachePath);
             const loadMs = Date.now() - t1;
-            check(loaded === true, '阶段6: v3 缓存加载成功');
+            check(loaded === true, '阶段6: v4 缓存加载成功');
             assertEqual(fresh.getStatus().symbolCount, index.getStatus().symbolCount, '阶段6: 加载后符号数一致');
 
             const snapshots = [];
