@@ -13,9 +13,9 @@ VS Code 扩展：解析 PL/SQL 为结构化大纲。TypeScript strict + 纯 tsc�
 
 ## 铁律
 
-1. **改动必跑全量回归**：`test:corpus`（35/35）→ `npm test`（501/501）→
+1. **改动必跑全量回归**：`test:corpus`（35/35）→ `npm test`（504/504）→
    `test:regression`（14/14）→ `test:e2e`（anonDefinition + smoke 7/7 + foldRouting 8/8
-   + indexJump 9/9）。基线变了先更新 .ai/testing.md。
+   + indexJump 11/11）。基线变了先更新 .ai/testing.md。
 2. **提交信息**：中文 Conventional Commits（`fix(parser): 描述`）；禁 `git add -A`。
 3. **死代码/无效配置删除，不补接线**（用户明确偏好）。
 4. 修复缺陷走 Issue → 分支 → PR（`Fixes #N`）；解析器每次解析必须独立实例。

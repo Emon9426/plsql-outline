@@ -15,10 +15,11 @@ const WS_INDEX = path.resolve(__dirname, 'ws-index');
 const REPO_A = path.join(WS_INDEX, 'repo_a');
 const REPO_B = path.join(WS_INDEX, 'repo_b');
 
-// repo_a（优先级 1）：包 pkg_a（get_order L2 / 成员 process_data L6）
+// repo_a（优先级 1）：包 pkg_a（游标 L2 / get_order L3 / 成员 process_data L7）
 // + 独立过程 process_data（L1）——与 repo_b 构成同名冲突
 const PKG_A = [
     'CREATE OR REPLACE PACKAGE BODY pkg_a AS',
+    '    CURSOR c_open_orders IS SELECT 1 FROM dual;',
     '    FUNCTION get_order(p_id IN NUMBER) RETURN NUMBER IS',
     '    BEGIN',
     '        RETURN p_id;',
@@ -77,6 +78,7 @@ const CALLER = [
     '    v_total := pkg_b.calc_total(200);',
     '    process_data(v_total);',
     "    pkg_b.process_data('x');",
+    '    OPEN c_open_orders;',
     'END;',
     '/'
 ].join('\n');

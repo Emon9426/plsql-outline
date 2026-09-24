@@ -660,6 +660,14 @@ export class PLSQLParser {
         return PLSQLParser.matchFunctionProcedure(line);
     }
 
+    /** 符号扫描器复用（Issue #39）：CURSOR 声明匹配（与解析器声明记录同口径，
+     *  要求尾部 IS；规格级 `CURSOR c RETURN t%ROWTYPE;` 无体形态解析器本身
+     *  不记录，扫描器保持一致） */
+    public static matchCursorDeclarationForScan(line: string): { name: string } | null {
+        const match = line.match(PATTERNS.CURSOR_DECLARATION);
+        return match ? { name: match[1] } : null;
+    }
+
     private static matchFunctionProcedure(line: string): { type: NodeType; name: string } | null {
         let match = line.match(PLSQLParser.SUB_FUNCTION_RE);
         if (match) {

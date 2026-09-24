@@ -1,5 +1,5 @@
 import { PLSQLParser } from './parser';
-import { ParseNode, ParseResult, NodeType } from './types';
+import { ParseNode, ParseResult, NodeType, DeclarationCategory } from './types';
 
 /**
  * 轻量符号扫描器（Issue #39）
@@ -11,6 +11,9 @@ import { ParseNode, ParseResult, NodeType } from './types';
  * 与全量解析的口径差异（有意为之，均有兜底或为良性差异）：
  * - 包体内嵌套子程序（成员体内的成员）会被一并提取：解析器只索引包直接
  *   子级；多出的条目行号正确，跳转仍落在真实定义行，属良性超集；
+ * - 游标声明（Emon 决策纳入 Ctrl+T 搜索）：包内带所属包、包外无所属包，
+ *   类型为 NodeType.CURSOR 的"仅搜索条目"——SymbolIndex.lookup 过滤后
+ *   不参与跳转，仅 searchSymbols（Ctrl+T）可见；
  * - 扫描零产出但文件含 CREATE 时，extractFileSymbols 退回全量解析器
  *   best-effort 提取，覆盖扫描器未识别的形态。
  */
@@ -24,7 +27,8 @@ export interface ScannedSymbol {
     line: number;
 }
 
-/** 全量解析结果 → 索引符号（兜底路径；与 SymbolIndex 的抽取口径一致） */
+/** 全量解析结果 → 索引符号（兜底路径；与 SymbolIndex 的抽取口径一致）。
+ *  游标从 variableTable 按 CURSOR 类别提取（仅搜索条目，Issue #39） */
 export function symbolsFromParseResult(result: ParseResult): ScannedSymbol[] {
     const out: ScannedSymbol[] = [];
     const walk = (node: ParseNode, pkg: string | undefined): void => {
@@ -36,6 +40,15 @@ export function symbolsFromParseResult(result: ParseResult): ScannedSymbol[] {
             node.type === NodeType.TRIGGER;
         if (isPackage || isUnit) {
             out.push({ name: node.name, type: node.type, packageName: pkg, line: node.declarationLine });
+        }
+        if (node.variableTable) {
+            // 包自身表里的游标属于该包；成员表里的游标由父级传入的 pkg 提供所属包
+            const cursorPkg = isPackage ? node.name : pkg;
+            for (const info of node.variableTable.values()) {
+                if (info.category === DeclarationCategory.CURSOR) {
+                    out.push({ name: info.name, type: NodeType.CURSOR, packageName: cursorPkg, line: info.line });
+                }
+            }
         }
         // 只递归包的直接子节点（与 SymbolIndex.extractSymbolsInto 同口径）
         if (isPackage) {
@@ -101,6 +114,21 @@ export function scanSymbols(content: string): ScanOutcome {
             }
             if (multi) {
                 i = multi.endIndex;
+            }
+            continue;
+        }
+
+        // 游标声明（Issue #39，Emon 决策纳入 Ctrl+T 搜索）：包内带所属包名，
+        // 包外（独立单元/匿名块声明区）无所属包；参数跨行时与解析器同参拼接。
+        // 游标是仅搜索条目，SymbolIndex.lookup 过滤后不参与跳转解析
+        const multiCursor = checkMultiLineCursor(cleanLines, i);
+        const cursor = multiCursor
+            ? PLSQLParser.matchCursorDeclarationForScan(multiCursor.combinedText)
+            : PLSQLParser.matchCursorDeclarationForScan(line);
+        if (cursor) {
+            result.push({ name: cursor.name, type: NodeType.CURSOR, packageName: scopePkg ?? undefined, line: lineMapping[i] });
+            if (multiCursor) {
+                i = multiCursor.endIndex;
             }
             continue;
         }
@@ -181,6 +209,33 @@ function checkMultiLineCreate(lines: string[], startIndex: number): { match: { t
         const createMatch = PLSQLParser.matchCreateForScan(combined);
         if (createMatch) {
             return { match: createMatch, endIndex };
+        }
+    }
+    return null;
+}
+
+/**
+ * 跨行 CURSOR 声明拼接（与 parser.checkMultiLineCursor 同口径）：
+ * 行首 CURSOR name( 且单行不完整时，≤10 行 / 2000 字符内拼接至完整
+ */
+function checkMultiLineCursor(lines: string[], startIndex: number): { combinedText: string; endIndex: number } | null {
+    const startLine = lines[startIndex];
+    if (!/^\s*CURSOR\s+\w+\s*\(/i.test(startLine)) {
+        return null;
+    }
+    if (PLSQLParser.matchCursorDeclarationForScan(startLine)) {
+        return null;
+    }
+
+    let combined = startLine;
+    const maxLookAhead = Math.min(10, lines.length - startIndex - 1);
+    for (let i = 1; i <= maxLookAhead; i++) {
+        combined += ' ' + lines[startIndex + i];
+        if (combined.length > 2000) {
+            return null;
+        }
+        if (PLSQLParser.matchCursorDeclarationForScan(combined)) {
+            return { combinedText: combined, endIndex: startIndex + i };
         }
     }
     return null;

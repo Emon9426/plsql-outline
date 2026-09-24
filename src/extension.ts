@@ -833,6 +833,9 @@ export class PLSQLOutlineExtension {
                 return vscode.SymbolKind.Function;
             case NodeType.TRIGGER:
                 return vscode.SymbolKind.Event;
+            // 游标（仅搜索条目）：非可执行的数据查询对象，用 Interface 图标区分
+            case NodeType.CURSOR:
+                return vscode.SymbolKind.Interface;
             default:
                 return vscode.SymbolKind.Function;
         }

@@ -63,7 +63,9 @@ extension.ts（激活/命令/事件接线，入口 activate()）
    移除；手动重建 forceFull 全量兜底），文件读取分块并行（IO_CHUNK=64）按扫描顺序
    应用保证条目顺序确定；parser 清洗层 stripLiteralsAndComments 加等价快路径
    （无 ' / -- / /* 且无跨行状态 → 跳过逐字符扫描，解析与扫描共同提速）；
-   Ctrl+T 工作区符号搜索（searchSymbols，支持 pkg.func 双重过滤）；状态栏常驻三态
+   Ctrl+T 工作区符号搜索（searchSymbols，支持 pkg.func 双重过滤；**游标为仅搜索
+   条目**——Emon 2026-09-24 决策纳入搜索：NodeType.CURSOR 进索引、lookup 过滤
+   不参与跳转、缓存 v4（提取口径变更升版）、包内游标带所属包）；状态栏常驻三态
    （extension.ts createIndexStatusBar）。
 8. **大纲交互五件套（Issue #36，v1.14.0）**：
    - 嵌套缩进改**原生树缩进**（configurationDefaults 提供 `workbench.tree.indent=16`

@@ -30,7 +30,9 @@
   索引构建中 x/y / 索引就绪 · N 符号」（点击：未配置→打开设置页，已配置→查看日志）；
   构建中未命中跳转时状态栏提示"索引构建中，跨文件跳转暂不可用"；手动重建带真实
   进度、可取消、强制全量重扫、完成落盘；**Ctrl+T 工作区符号搜索**——基于索引按名
-  搜索全仓库的包/函数/过程/触发器，支持 `pkg.func` 双重过滤。
+  搜索全仓库的包/函数/过程/触发器/**游标**（游标为仅搜索条目：包内带所属包可
+  `pkg.cursor` 双重过滤，但不参与 Ctrl+Click 跳转解析，跳转语义不变），支持
+  `pkg.func` 写法按包名+名称双重过滤。
 - **块结构代码折叠**（Issue #23，#31 补段折叠）：FoldingRangeProvider 复用解析起止
   行号，提供编辑器原生折叠箭头——Function/Procedure→END、IF→END IF（IF/ELSIF/ELSE
   兄弟链合并）、LOOP/WHILE/FOR→END LOOP、CASE→END CASE、匿名块→END、Package Body

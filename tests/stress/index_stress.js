@@ -88,8 +88,9 @@ function pad(n, w) { return String(n).padStart(w, '0'); }
 
 /** 包体：members 个成员；withCollision 追加同名冲突符号 process_order */
 function packageBody(pkg, members, withCollision) {
-    const lines = [`CREATE OR REPLACE PACKAGE BODY ${pkg} AS`];
-    let count = 1; // 包本身
+    const lines = [`CREATE OR REPLACE PACKAGE BODY ${pkg} AS`, '    CURSOR cur_pkg IS SELECT 1 FROM dual;'];
+    let count = 2; // 包本身 + 包级游标（仅搜索条目）
+    trackName('cur_pkg');
     for (let m = 1; m <= members; m++) {
         if (m % 3 === 0) {
             lines.push(`    PROCEDURE do_${pad(m, 3)}(p_x IN NUMBER) IS`, '    BEGIN', '        NULL;', `    END do_${pad(m, 3)};`);
@@ -140,7 +141,9 @@ function standalone(name, kind, withCollision) {
     if (kind === 'function') {
         src = `CREATE OR REPLACE FUNCTION ${name}(p_x IN NUMBER) RETURN NUMBER IS\nBEGIN\n    RETURN p_x;\nEND ${name};\n/\n`;
     } else {
-        src = `CREATE OR REPLACE PROCEDURE ${name}(p_x IN NUMBER) IS\nBEGIN\n    NULL;\nEND ${name};\n/\n`;
+        src = `CREATE OR REPLACE PROCEDURE ${name}(p_x IN NUMBER) IS\n    CURSOR cur_local IS SELECT 1 FROM dual;\nBEGIN\n    NULL;\nEND ${name};\n/\n`;
+        count++;
+        trackName('cur_local');
     }
     if (withCollision) {
         count++;
@@ -585,7 +588,8 @@ async function main() {
                 for (const ss of scannerSymbols) {
                     if (parserKeys.has(key(ss))) continue;
                     const lineText = (origLines[ss.line - 1] || '').toUpperCase();
-                    const benign = (ss.type === NodeType.FUNCTION || ss.type === NodeType.PROCEDURE) &&
+                    const benign = (ss.type === NodeType.FUNCTION || ss.type === NodeType.PROCEDURE ||
+                        ss.type === NodeType.CURSOR) &&
                         lineText.includes(ss.name.toUpperCase());
                     if (!benign) { badExtra++; detail.push(`${name} 非良性超集 ${key(ss)}`); }
                 }

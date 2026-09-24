@@ -141,12 +141,12 @@ module.exports.run = async () => {
     }, 30000);
     assert.ok(ready, '30 秒内索引未就绪：pkg_a.get_order 始终无 Definition');
 
-    // ---- Case 1: 高优先级仓库的包内函数（pkg_a.get_order → repo_a/pkg_a.pkb L2）----
+    // ---- Case 1: 高优先级仓库的包内函数（pkg_a.get_order → repo_a/pkg_a.pkb L3）----
     {
         const t = await definitionAt(callerDoc, 'pkg_a.get_order(100)', 'get_order');
         check(path.normalize(t?.uri.fsPath || '') === path.normalize(path.join(REPO_A, 'pkg_a.pkb')) &&
-            t.range.start.line + 1 === 2,
-            `高优先级包函数 get_order → repo_a/pkg_a.pkb L2（实际 ${fmt(t)}）`);
+            t.range.start.line + 1 === 3,
+            `高优先级包函数 get_order → repo_a/pkg_a.pkb L3（实际 ${fmt(t)}）`);
     }
 
     // ---- Case 2: 低优先级仓库的包内函数（pkg_b.calc_total → repo_b/pkg_b.pkb L2）----
@@ -228,6 +228,24 @@ module.exports.run = async () => {
             si.name.toUpperCase().includes('PKG_A.GET_ORDER') &&
             path.normalize(si.location.uri.fsPath) === path.normalize(path.join(REPO_A, 'pkg_a.pkb')));
         check(!!hit, `Ctrl+T 搜索 pkg_a.get_order 命中 repo_a/pkg_a.pkb（实际 ${arr.length} 条）`);
+    }
+
+    // ---- Case 10: Ctrl+T 搜索游标（Emon 决策纳入，Issue #39）----
+    {
+        const results = await vscode.commands.executeCommand(
+            'vscode.executeWorkspaceSymbolProvider', 'c_open_orders');
+        const arr = Array.isArray(results) ? results : [];
+        const hit = arr.find(si =>
+            si.name.toUpperCase().includes('PKG_A.C_OPEN_ORDERS') &&
+            path.normalize(si.location.uri.fsPath) === path.normalize(path.join(REPO_A, 'pkg_a.pkb')) &&
+            si.location.range.start.line + 1 === 2);
+        check(!!hit, `Ctrl+T 搜索游标 c_open_orders → repo_a/pkg_a.pkb L2（实际 ${arr.length} 条）`);
+    }
+
+    // ---- Case 11: 游标不参与 Ctrl+Click 跳转（仅搜索条目，跳转语义不变）----
+    {
+        const t = await definitionAt(callerDoc, 'OPEN c_open_orders;', 'c_open_orders');
+        check(!t, `游标名 Ctrl+Click 不应返回跨文件 Definition（实际 ${fmt(t)}）`);
     }
 
     assert.strictEqual(failures.length, 0, `${failures.length} 个双仓库跳转用例失败:\n  - ${failures.join('\n  - ')}`);

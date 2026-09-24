@@ -212,6 +212,60 @@ async function run() {
             JSON.stringify(symbols));
     }
 
+    // c12: 游标声明（仅搜索条目，Emon 决策纳入 Ctrl+T）
+    {
+        const symbols = scanSymbols([
+            'CREATE OR REPLACE PACKAGE BODY pkg_cur AS',
+            '    CURSOR c_pkg IS SELECT 1 FROM dual;',
+            '    CURSOR c_param(',
+            '        p_a IN NUMBER,',
+            '        p_b IN VARCHAR2) RETURN NUMBER IS',
+            '        SELECT p_a FROM dual;',
+            '    PROCEDURE use_cur IS',
+            '        CURSOR c_local IS SELECT 2 FROM dual;',
+            '    BEGIN',
+            '        NULL;',
+            '    END use_cur;',
+            'END pkg_cur;',
+            '/'
+        ].join('\n')).symbols;
+        const t = tuples(symbols);
+        rec.assert('c12_cursor_forms', '包级游标带所属包（含跨行参数拼接）、成员局部游标同样提取',
+            t.includes('C_PKG|' + NodeType.CURSOR + '|PKG_CUR|2') &&
+            t.includes('C_PARAM|' + NodeType.CURSOR + '|PKG_CUR|3') &&
+            t.includes('C_LOCAL|' + NodeType.CURSOR + '|PKG_CUR|8'),
+            JSON.stringify(symbols));
+
+        const standalone = scanSymbols([
+            'CREATE OR REPLACE PROCEDURE p_with_cur IS',
+            '    CURSOR c_standalone IS SELECT 1 FROM dual;',
+            'BEGIN',
+            '    NULL;',
+            'END p_with_cur;',
+            '/'
+        ].join('\n')).symbols;
+        rec.assert('c12_cursor_standalone', '独立单元/匿名块内的游标无所属包',
+            tuples(standalone).includes('C_STANDALONE|' + NodeType.CURSOR + '||2'),
+            JSON.stringify(standalone));
+
+        // 兜底路径（symbolsFromParseResult）同样产出游标（variableTable CURSOR 类别）
+        const { PLSQLParser: P } = require('../../out/parser');
+        const fallbackResult = await new P().parse([
+            'CREATE OR REPLACE PACKAGE BODY pkg_fb AS',
+            '    CURSOR c_fb IS SELECT 1 FROM dual;',
+            '    PROCEDURE m1 IS',
+            '    BEGIN',
+            '        NULL;',
+            '    END m1;',
+            'END pkg_fb;',
+            '/'
+        ].join('\n'), 'fb.pkb');
+        const fbSymbols = symbolsFromParseResult(fallbackResult);
+        rec.assert('c12_cursor_fallback', '全量解析兜底路径同样提取游标',
+            tuples(fbSymbols).some(x => x.startsWith('C_FB|' + NodeType.CURSOR + '|')),
+            JSON.stringify(fbSymbols));
+    }
+
     // ---------- corpus 一致性对照 ----------
     const CORPUS_ROOT = path.resolve(__dirname, '..', 'corpus');
     const CORPUS_EXTS = new Set(['.sql', '.pkb', '.pks', '.pck', '.typ', '.trg', '.prc', '.fnc', '.fcn']);
@@ -250,13 +304,15 @@ async function run() {
                 detailMissing.push(`${path.basename(file)} 缺 ${tupleOf(ps)}`);
             }
         }
-        // 良性超集：仅 FUNCTION/PROCEDURE，且行文本确含符号名
+        // 良性超集：仅 FUNCTION/PROCEDURE（嵌套/遗留子程序）或 CURSOR（仅搜索条目），
+        // 且行文本确含符号名
         const parserTuples = new Set(tuples(parserSymbols));
         for (const ss of scannerSymbols) {
             if (parserTuples.has(tupleOf(ss))) continue;
             extraTotal++;
             const lineText = (origLines[ss.line - 1] || '').toUpperCase();
-            const benign = (ss.type === NodeType.FUNCTION || ss.type === NodeType.PROCEDURE) &&
+            const benign = (ss.type === NodeType.FUNCTION || ss.type === NodeType.PROCEDURE ||
+                ss.type === NodeType.CURSOR) &&
                 lineText.includes(ss.name.toUpperCase());
             if (!benign) {
                 missingTotal++; // 复用失败计数：非良性超集视为不一致
@@ -267,8 +323,8 @@ async function run() {
 
     rec.assert('c10_corpus_parity', `corpus ${corpusFiles.length} 文件：解析器符号全命中且超集均良性（缺失/异常 ${missingTotal}）`,
         missingTotal === 0, detailMissing.slice(0, 10).join(' ; '));
-    rec.assert('c11_corpus_superset_size', `良性超集规模合理（额外 ${extraTotal} 条，均来自嵌套/遗留子程序）`,
-        extraTotal <= corpusFiles.length * 3, String(extraTotal));
+    rec.assert('c11_corpus_superset_size', `良性超集规模合理（额外 ${extraTotal} 条，来自嵌套子程序与游标搜索条目）`,
+        extraTotal <= corpusFiles.length * 6, String(extraTotal));
     console.log(`  [耗时] 全量解析 ${parseMs}ms vs 快速扫描 ${scanMs}ms（corpus ${corpusFiles.length} 文件）`);
 
     return { suiteName: 'symbol_scanner_test', cases: rec.cases };

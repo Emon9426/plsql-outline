@@ -328,11 +328,13 @@ export class SymbolIndex {
     }
 
     /**
-     * 查找符号
+     * 查找符号（跳转口径）。游标是仅搜索条目（Issue #39 Emon 决策纳入
+     * Ctrl+T 搜索）：在此过滤，Ctrl+Click 跳转语义保持不变。
      */
     lookup(name: string, packageName?: string): SymbolEntry[] {
         const upperName = name.toUpperCase();
-        const entries = this.symbols.get(upperName) || [];
+        const entries = (this.symbols.get(upperName) || [])
+            .filter(e => e.type !== NodeType.CURSOR);
 
         if (packageName) {
             const upperPkg = packageName.toUpperCase();
@@ -405,13 +407,14 @@ export class SymbolIndex {
     }
 
     /**
-     * 保存索引到磁盘（v3：含 fileSymbols 与文件新鲜度标记 fileStats）。
-     * 注意：version 门的是缓存格式；若未来扫描器提取口径变更，必须同步升版
+     * 保存索引到磁盘（v4：含 fileSymbols 与文件新鲜度标记 fileStats；
+     * v3→v4 因游标纳入搜索条目的提取口径变更而升版）。
+     * 注意：version 门的是缓存格式；若未来扫描器提取口径再变更，必须同步升版
      * （旧缓存按 mtime 命中会跳过重扫，仅手动重建 forceFull 可强制纠正）。
      */
     async save(storagePath: string): Promise<void> {
         const data = {
-            version: 3,
+            version: 4,
             buildTime: this.lastBuildTime,
             fileCount: this.fileSymbols.size,
             symbols: {} as Record<string, SymbolEntry[]>,
@@ -437,8 +440,8 @@ export class SymbolIndex {
     }
 
     /**
-     * 从磁盘加载索引（v3 含增量构建所需的 fileStats；
-     * v1/v2 旧格式直接失效走全量重建）
+     * 从磁盘加载索引（v4 含增量构建所需的 fileStats；
+     * v1/v2/v3 旧格式直接失效走全量重建）
      */
     async load(storagePath: string): Promise<boolean> {
         try {
@@ -447,7 +450,7 @@ export class SymbolIndex {
             const raw = fs.readFileSync(storagePath, 'utf8');
             const data = JSON.parse(raw);
 
-            if (data.version !== 3) return false;
+            if (data.version !== 4) return false;
 
             const symbols = new Map<string, SymbolEntry[]>();
             const fileSymbols = new Map<string, string[]>();
