@@ -88,6 +88,10 @@ export class PLSQLOutlineExtension {
     ]);
     // 启动时延迟构建符号索引的定时器（dispose 时取消，防止停用后仍创建 watcher）
     private indexBuildTimer: NodeJS.Timeout | null = null;
+    // 索引状态栏项（Issue #38 常驻三态：未启用 / 构建中 / 就绪）
+    private indexStatusBar: vscode.StatusBarItem | null = null;
+    // 索引磁盘缓存路径（手动重建后同样落盘；记录自 initializeSymbolIndex）
+    private indexStoragePath: string = '';
 
     private refreshDebugCache(): void {
         this.debugEnabledCache = vscode.workspace.getConfiguration('plsql-outline')
@@ -129,6 +133,9 @@ export class PLSQLOutlineExtension {
         // 初始化符号索引（共享全局唯一输出通道）
         this.outputChannel = getOutputChannel();
         this.symbolIndex = new SymbolIndex(this.outputChannel);
+        // 索引状态栏三态 + 状态订阅（Issue #38）
+        this.createIndexStatusBar(context);
+        this.symbolIndex.setStatusListener(() => this.updateIndexStatusBar());
 
         this.registerCommands(context);
         this.registerEventListeners(context);
@@ -180,6 +187,12 @@ export class PLSQLOutlineExtension {
             () => this.rebuildSymbolIndex()
         );
 
+        // 索引状态栏点击（Issue #38）：未配置→打开设置页；已配置→查看索引日志
+        const indexStatusClickCommand = vscode.commands.registerCommand(
+            'plsqlOutline.indexStatusClick',
+            () => this.onIndexStatusClick()
+        );
+
         // 刷新命令：强制重新解析当前活动文件并刷新大纲（带视图内进度提示）。
         // 旧实现在 TreeViewManager 中仅重绘旧解析结果，文件修改后点击无效（Issue #23）。
         const refreshCommand = vscode.commands.registerCommand(
@@ -194,6 +207,7 @@ export class PLSQLOutlineExtension {
             exportResultCommand,
             expandAllCommand,
             rebuildIndexCommand,
+            indexStatusClickCommand,
             refreshCommand
         );
     }
@@ -368,7 +382,9 @@ export class PLSQLOutlineExtension {
                 this.debugManager.logParseResult(parseResult, sourceFile);
                 this.lastParsedKey = { uri: document.uri.toString(), version: documentVersion };
                 this.updateParseResultCache(document.uri.toString(), documentVersion, parseResult);
-                
+                // 当前文件符号即时并入索引（Issue #38）：无需等待仓库扫描即可跳转进本文件
+                this.upsertCurrentFileIntoIndex(parseResult, document);
+
                 progress.report({ increment: 80, message: '更新视图...' });
                 
                 // 更新树视图
@@ -453,6 +469,7 @@ export class PLSQLOutlineExtension {
             this.debugManager.logParseResult(parseResult, document.fileName);
             this.lastParsedKey = { uri: document.uri.toString(), version: documentVersion };
             this.updateParseResultCache(document.uri.toString(), documentVersion, parseResult);
+            this.upsertCurrentFileIntoIndex(parseResult, document);
 
             // 同步大纲视图（树与未保存编辑保持一致）
             this.treeViewManager.updateDataProvider(new MemoryDataProvider(this.currentParseResult));
@@ -731,6 +748,10 @@ export class PLSQLOutlineExtension {
         );
 
         if (entries.length === 0) {
+            // 索引构建中未命中：明确告知原因，避免误以为跳转功能损坏（Issue #38）
+            if (this.symbolIndex.isBuilding()) {
+                vscode.window.setStatusBarMessage('PL/SQL 符号索引构建中，跨文件跳转暂不可用', 3000);
+            }
             return null;
         }
 
@@ -915,37 +936,118 @@ export class PLSQLOutlineExtension {
         const autoIndex = config.get<boolean>('codeRepository.autoIndex', true);
         const pathConfigs = config.get<PathConfig[]>('codeRepository.paths', []);
 
-        if (!autoIndex || pathConfigs.length === 0) {
-            return;
-        }
-
-        // 尝试加载缓存的索引
-        const storagePath = context.globalStorageUri
+        // 缓存路径记录下来，手动重建后同样落盘
+        this.indexStoragePath = context.globalStorageUri
             ? path.join(context.globalStorageUri.fsPath, 'symbol-index.json')
             : '';
 
-        if (storagePath) {
-            const loaded = await this.symbolIndex.load(storagePath);
+        if (!autoIndex || pathConfigs.length === 0) {
+            this.updateIndexStatusBar();
+            return;
+        }
+
+        // 尝试加载缓存的索引（影子构建下缓存可持续服务到新索引切换完成）
+        if (this.indexStoragePath) {
+            const loaded = await this.symbolIndex.load(this.indexStoragePath);
             if (loaded) {
                 this.outputChannel.appendLine('已从缓存加载符号索引');
             }
         }
+        this.updateIndexStatusBar();
 
-        // 后台构建/刷新索引
-        const fileExtensions = config.get<string[]>('codeRepository.fileExtensions',
-            [...DEFAULT_FILE_EXTENSIONS]);
-        const maxFiles = config.get<number>('codeRepository.maxFiles', 5000);
-
+        // 后台构建/刷新索引（影子写入：期间旧索引/缓存持续可查，Issue #38）
         this.indexBuildTimer = setTimeout(async () => {
             this.indexBuildTimer = null;
-            await this.symbolIndex.buildIndex(pathConfigs, fileExtensions, maxFiles);
-            this.symbolIndex.setupWatchers(pathConfigs, fileExtensions);
-
-            // 保存索引到缓存
-            if (storagePath) {
-                await this.symbolIndex.save(storagePath);
+            // 重新读取配置：激活与定时器触发之间配置可能已变化，
+            // 沿用激活时快照会用旧路径覆盖 onConfigurationChanged 触发的新索引
+            const freshConfig = vscode.workspace.getConfiguration('plsql-outline');
+            const freshPaths = freshConfig.get<PathConfig[]>('codeRepository.paths', []);
+            const freshAutoIndex = freshConfig.get<boolean>('codeRepository.autoIndex', true);
+            if (!freshAutoIndex || freshPaths.length === 0) {
+                this.updateIndexStatusBar();
+                return;
             }
+            const freshExtensions = freshConfig.get<string[]>('codeRepository.fileExtensions',
+                [...DEFAULT_FILE_EXTENSIONS]);
+            const freshMaxFiles = freshConfig.get<number>('codeRepository.maxFiles', 5000);
+
+            const completed = await this.symbolIndex.buildIndex(freshPaths, freshExtensions, freshMaxFiles);
+            this.symbolIndex.setupWatchers(freshPaths, freshExtensions);
+
+            // 保存索引到缓存（跳过/取消时不落盘，避免旧数据覆盖；
+            // 写盘异常只记日志，不应让后台任务变成未处理拒绝）
+            if (completed && this.indexStoragePath) {
+                try {
+                    await this.symbolIndex.save(this.indexStoragePath);
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    this.outputChannel.appendLine(`索引缓存写入失败: ${message}`);
+                }
+            }
+            this.updateIndexStatusBar();
         }, 3000); // 延迟3秒，避免影响启动速度
+    }
+
+    /**
+     * 创建索引状态栏项（常驻三态：未启用 / 构建中 / 就绪，Issue #38）
+     */
+    private createIndexStatusBar(context: vscode.ExtensionContext): void {
+        const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+        bar.name = 'PL/SQL 符号索引';
+        bar.command = 'plsqlOutline.indexStatusClick';
+        this.indexStatusBar = bar;
+        context.subscriptions.push(bar);
+        this.updateIndexStatusBar();
+    }
+
+    /**
+     * 刷新索引状态栏三态文案
+     */
+    private updateIndexStatusBar(): void {
+        if (!this.indexStatusBar) {
+            return;
+        }
+        const config = vscode.workspace.getConfiguration('plsql-outline');
+        const pathConfigs = config.get<PathConfig[]>('codeRepository.paths', []);
+        const autoIndex = config.get<boolean>('codeRepository.autoIndex', true);
+
+        if (pathConfigs.length === 0 || !autoIndex) {
+            this.indexStatusBar.text = '$(database) PL/SQL 跳转未启用';
+            this.indexStatusBar.tooltip = '未配置代码仓库路径（或已关闭自动索引），跨文件跳转不可用。点击打开设置';
+        } else if (this.symbolIndex.isBuilding()) {
+            const progress = this.symbolIndex.getProgress();
+            this.indexStatusBar.text = `$(sync~spin) PL/SQL 索引构建中 ${progress.indexed}/${progress.total}`;
+            this.indexStatusBar.tooltip = '正在为代码仓库构建符号索引，构建期间跨文件跳转可能不完整。点击查看日志';
+        } else {
+            const status = this.symbolIndex.getStatus();
+            this.indexStatusBar.text = `$(database) PL/SQL 索引就绪 · ${status.symbolCount} 符号`;
+            this.indexStatusBar.tooltip = `已索引 ${status.fileCount} 个文件、${status.symbolCount} 个符号。点击查看日志`;
+        }
+        this.indexStatusBar.show();
+    }
+
+    /**
+     * 状态栏点击：未配置→打开设置页；已配置→查看索引输出日志
+     */
+    private onIndexStatusClick(): void {
+        const pathConfigs = vscode.workspace.getConfiguration('plsql-outline')
+            .get<PathConfig[]>('codeRepository.paths', []);
+        if (pathConfigs.length === 0) {
+            void vscode.commands.executeCommand('plsqlOutline.openSettings');
+        } else {
+            this.outputChannel.show();
+        }
+    }
+
+    /**
+     * 当前文件解析结果即时并入符号索引（Issue #38）。
+     * 未保存的 untitled 文档无磁盘身份，不入索引。
+     */
+    private upsertCurrentFileIntoIndex(parseResult: ParseResult, document: vscode.TextDocument): void {
+        if (document.uri.scheme !== 'file') {
+            return;
+        }
+        this.symbolIndex.upsertFromParseResult(parseResult, document.uri.fsPath);
     }
 
     /**
@@ -969,16 +1071,36 @@ export class PLSQLOutlineExtension {
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
             title: '正在重建PL/SQL符号索引...',
-            cancellable: false
-        }, async (progress) => {
-            progress.report({ increment: 0, message: '扫描文件...' });
-            await this.symbolIndex.buildIndex(pathConfigs, fileExtensions, maxFiles);
-            progress.report({ increment: 100, message: '完成' });
+            cancellable: true
+        }, async (progress, token) => {
+            const completed = await this.symbolIndex.buildIndex(pathConfigs, fileExtensions, maxFiles, {
+                cancellationToken: token,
+                onProgress: (indexed, total) => {
+                    progress.report({ increment: 100 / Math.max(total, 1), message: `${indexed}/${total}` });
+                }
+            });
 
-            const status = this.symbolIndex.getStatus();
-            vscode.window.showInformationMessage(
-                `索引重建完成: ${status.fileCount} 文件, ${status.symbolCount} 符号`
-            );
+            if (completed) {
+                const status = this.symbolIndex.getStatus();
+                vscode.window.showInformationMessage(
+                    `索引重建完成: ${status.fileCount} 文件, ${status.symbolCount} 符号`
+                );
+                // 重建成功后同步刷新 watcher：此前配置变更路径后
+                // 旧 watcher 仍监视旧路径，直到重载窗口才纠正
+                this.symbolIndex.setupWatchers(pathConfigs, fileExtensions);
+                // 手动重建同样落盘，避免下次启动回退到旧缓存
+                if (this.indexStoragePath) {
+                    try {
+                        await this.symbolIndex.save(this.indexStoragePath);
+                    } catch (error) {
+                        const message = error instanceof Error ? error.message : String(error);
+                        this.outputChannel.appendLine(`索引缓存写入失败: ${message}`);
+                    }
+                }
+            } else {
+                vscode.window.setStatusBarMessage('PL/SQL 索引重建未完成（已保留旧索引）', 3000);
+            }
+            this.updateIndexStatusBar();
         });
     }
 
@@ -1074,9 +1196,15 @@ export class PLSQLOutlineExtension {
             // 刷新树视图
             this.treeViewManager.refresh();
 
-            // 如果代码仓库配置变化，重建索引
+            // 如果代码仓库配置变化，重建索引（autoIndex 已关闭时只刷新状态栏不重建）
             if (event.affectsConfiguration('plsql-outline.codeRepository')) {
-                this.rebuildSymbolIndex();
+                const autoIndex = vscode.workspace.getConfiguration('plsql-outline')
+                    .get<boolean>('codeRepository.autoIndex', true);
+                if (autoIndex) {
+                    this.rebuildSymbolIndex();
+                } else {
+                    this.updateIndexStatusBar();
+                }
             }
         }
     }

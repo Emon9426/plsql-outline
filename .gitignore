@@ -24,6 +24,7 @@ out/
 
 # E2E 运行时生成的工作区副本
 tests/e2e/ws/
+tests/e2e/ws-index/
 
 # 单元测试生成的 HTML 报告
 tests/unit/test_report.html

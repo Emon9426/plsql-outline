@@ -53,7 +53,12 @@ extension.ts（激活/命令/事件接线，入口 activate()）
 5. **解析器保持 vscode-free**：单元测试直接 `require('../../out/parser')`，
    因此 parser.ts 不得 import 'vscode'。
 6. **中文注释/中文 UI**：代码注释与用户可见文案均为中文，保持既有风格。
-7. **大纲交互五件套（Issue #36，v1.14.0）**：
+7. **符号索引影子构建（Issue #38）**：`SymbolIndex.buildIndex` 写入
+   局部 Map、完成后原子切换，构建期间旧索引持续可查（推翻"先 clear 再重建"）；
+   构建期间到达的 watcher 更新/当前文件 upsert 进待处理队列、切换前收敛式重放；
+   当前文件解析结果经 `upsertFromParseResult` 即时并入；磁盘缓存 v2 同步持久化
+   fileSymbols；状态栏常驻三态（extension.ts createIndexStatusBar）。
+8. **大纲交互五件套（Issue #36，v1.14.0）**：
    - 嵌套缩进改**原生树缩进**（configurationDefaults 提供 `workbench.tree.indent=16`
      + `renderIndentGuides=always`，用户显式配置优先），**推翻 #33 的 NBSP 标签伪缩进**
      （图标不随标签移动、参考线与文字错位，TreeItemData.displayIndent 已删除）；

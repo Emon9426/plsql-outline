@@ -16,7 +16,7 @@ npm run compile   # 所有测试直接 require out/ 编译产物，必须先编�
 | 1 | `npm run test:corpus`（= validate.js + render-validate.js） | **35/35 + 35 OK** | 143k 行语料（含 .pck / get_ddl 形态）的解析层 + 显示层 |
 | 2 | `npm test`（= compile + tests/unit/run_all.js） | **489/489（28 套件）** | 解析/渲染/导航/取消/设置/引号标识符/get_ddl/折叠/关键字配对高亮/游标SQL悬浮/逐级展开与原生缩进/搜索过滤/复制名称/悬浮聚合SQL 契约 |
 | 3 | `npm run test:regression` | **14/14 套件** | 真实世界包/超大文件/边界/光标同步/区域跟随（#22）/定义跳转/符号索引/内存/Refresh 焦点回退/激活自动解析 |
-| 4 | `npm run test:e2e` | **anonDefinition 通过 + smoke 7/7 + foldRouting 8/8** | 真实 VS Code 宿主（@vscode/test-electron）；foldRouting 锁定提供者路由（#26）+ 段折叠/配对高亮/原生回退（#31） |
+| 4 | `npm run test:e2e` | **anonDefinition 通过 + smoke 7/7 + foldRouting 8/8 + indexJump 7/7** | 真实 VS Code 宿主（@vscode/test-electron）；foldRouting 锁定提供者路由（#26）+ 段折叠/配对高亮/原生回退（#31）；indexJump 双代码仓库路径跨文件跳转（#38：独立工作区 ws-index 预置双路径 settings.json，启动自动建索引 + 高/低优先级可达 + 同名冲突优先级消解 + 包名限定优先 + 当前文件游标 + watcher 新建/修改增量） |
 
 补充：`node tests/bench.js` 输出语料大文件解析耗时基准（性能改动的证据）。
 
@@ -36,7 +36,8 @@ npm run compile   # 所有测试直接 require out/ 编译产物，必须先编�
   确定性生成（勿手编）。详见其 README（含文件矩阵与行格式约束）。
 - `tests/e2e/`：`*.e2e.test.js` 是启动器（下载/复用 `.vscode-test/` 的 VS Code），
   `*.inVS.test.js` 在宿主内运行（新宿主无 mocha 全局，用 `module.exports.run()`）。
-  运行时工作区副本 `tests/e2e/ws/` 已 gitignore。
+  运行时工作区副本 `tests/e2e/ws/`、`tests/e2e/ws-index/`（indexJump 双仓库夹，
+  启动器每次重建、结束保留供排障）已 gitignore。
 
 ## 新增用例规范
 

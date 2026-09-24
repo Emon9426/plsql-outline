@@ -64,6 +64,7 @@ const mockVscode = {
         onDidChangeActiveTextEditor: (cb) => { listeners.activeChanged = cb; return { dispose() {} }; },
         onDidChangeTextEditorSelection: (cb) => { listeners.selection = cb; return { dispose() {} }; },
         createOutputChannel: () => ({ appendLine() {}, show() {}, dispose() {} }),
+        createStatusBarItem: () => ({ text: '', tooltip: '', command: undefined, name: '', show() {}, hide() {}, dispose() {} }),
         createTreeView: () => ({
             visible: true, title: '',
             reveal: async () => {},
@@ -104,7 +105,8 @@ const mockVscode = {
     MarkdownString: class { constructor(s) { this.value = s; } },
     Hover: class { constructor(c, r) { this.contents = c; this.range = r; } },
     ViewColumn: { One: 1, Two: 2, Beside: -2 },
-    ProgressLocation: { Notification: 15, SourceControl: 1, Window: 10 }
+    ProgressLocation: { Notification: 15, SourceControl: 1, Window: 10 },
+    StatusBarAlignment: { Left: 1, Right: 2 }
 };
 const originalResolve = Module._resolveFilename;
 Module._resolveFilename = function (request) {

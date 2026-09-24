@@ -183,7 +183,17 @@ async function runTests() {
     // 验证加载后的查找功能
     const loadedEntries = newIndex.lookup('func_001');
     assert(loadedEntries.length > 0, '加载后的索引应能查找符号');
-    
+
+    // v2 缓存同时恢复 fileSymbols：加载后更新文件不得产生重复条目（Issue #38 修复点）
+    const loadedPkgFile = path.join(testDir, 'large_package_100funcs.sql');
+    const beforeReloadCount = newIndex.lookup('large_test_pkg').length;
+    await newIndex.updateFile(loadedPkgFile);
+    assertEqual(
+        newIndex.lookup('large_test_pkg').length,
+        beforeReloadCount,
+        '加载后 updateFile 不应产生重复条目'
+    );
+
     // 清理临时文件
     fs.unlinkSync(tempStorage);
     
@@ -254,6 +264,125 @@ async function runTests() {
         assert(fs.existsSync(entry.filePath), 'filePath 应指向存在的文件');
     } else {
         assert(false, 'proc_001 应被索引');
+    }
+
+    // ============ 测试13: 影子构建期间旧索引可查 ============
+    console.log('\n=== 测试13: 影子构建期间旧索引可查（Issue #38） ===');
+
+    assert(symbolIndex.isBuilding() === false, '非构建期 isBuilding 应为 false');
+    // 不 await：构建启动后立刻查询，应命中旧索引（而非清空后的部分结果）
+    const shadowBuildPromise = symbolIndex.buildIndex(pathConfigs, ['.sql'], 100);
+    assert(symbolIndex.isBuilding() === true, '构建期 isBuilding 应为 true');
+    const shadowEntries = symbolIndex.lookup('large_test_pkg');
+    assert(shadowEntries.length > 0, '构建期间旧索引应持续可查');
+    const shadowDone = await shadowBuildPromise;
+    assertEqual(shadowDone, true, '无取消时构建应成功返回 true');
+    assert(symbolIndex.isBuilding() === false, '构建结束 isBuilding 应回到 false');
+    assert(symbolIndex.lookup('large_test_pkg').length > 0, '构建结束后新索引应可查');
+
+    // ============ 测试14: 构建期间变更重放不丢失 ============
+    console.log('\n=== 测试14: 构建期间变更重放（Issue #38） ===');
+
+    const pkgFile = path.join(testDir, 'large_package_100funcs.sql');
+    const beforeReplayCount = symbolIndex.lookup('large_test_pkg').length;
+    const replayBuildPromise = symbolIndex.buildIndex(pathConfigs, ['.sql'], 100);
+    // 构建中触发 watcher 语义的更新 → 进入待处理队列，构建结束重放
+    await symbolIndex.updateFile(pkgFile);
+    await replayBuildPromise;
+    assertEqual(
+        symbolIndex.lookup('large_test_pkg').length,
+        beforeReplayCount,
+        '构建期间的更新重放后不应产生重复条目'
+    );
+
+    // ============ 测试15: 当前文件解析结果即时并入（upsert） ============
+    console.log('\n=== 测试15: upsertFromParseResult 即时并入（Issue #38） ===');
+
+    const { PLSQLParser } = require('../../out/parser');
+    const upsertIndex = new SymbolIndex(mockOutputChannel);
+    const upsertSource = fs.readFileSync(pkgFile, 'utf8');
+    const upsertResult = await new PLSQLParser().parse(upsertSource, pkgFile);
+    upsertIndex.upsertFromParseResult(upsertResult, pkgFile);
+    const upserted = upsertIndex.lookup('large_test_pkg');
+    assert(upserted.length > 0, 'upsert 后应能查到符号');
+    assertEqual(upsertIndex.getStatus().fileCount, 1, 'upsert 后文件数应为 1');
+    // 同文件重复 upsert 不产生重复条目
+    upsertIndex.upsertFromParseResult(upsertResult, pkgFile);
+    assertEqual(
+        upsertIndex.lookup('large_test_pkg').length,
+        upserted.length,
+        '重复 upsert 不应产生重复条目'
+    );
+
+    // ============ 测试16: v1 旧格式缓存拒绝 ============
+    console.log('\n=== 测试16: v1 旧格式缓存拒绝 ===');
+
+    const v1Path = path.join(testDir, '.temp_symbol_index_v1.json');
+    fs.writeFileSync(v1Path, JSON.stringify({
+        version: 1, buildTime: 0, fileCount: 0, symbols: {}
+    }), 'utf8');
+    const v1Index = new SymbolIndex(mockOutputChannel);
+    const v1Loaded = await v1Index.load(v1Path);
+    assert(v1Loaded === false, 'v1 缓存应被拒绝（触发全量重建）');
+    fs.unlinkSync(v1Path);
+
+    // ============ 测试17: 双仓库路径真实同名冲突（Issue #38 E2E 的纯逻辑对照） ============
+    console.log('\n=== 测试17: 双路径真实冲突按优先级消解 ===');
+
+    const os = require('os');
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'plsql-outline-index-'));
+    try {
+        const dirA = path.join(tmpRoot, 'repo_a');
+        const dirB = path.join(tmpRoot, 'repo_b');
+        fs.mkdirSync(dirA, { recursive: true });
+        fs.mkdirSync(dirB, { recursive: true });
+        fs.writeFileSync(path.join(dirA, 'pkg_a.pkb'),
+            'CREATE OR REPLACE PACKAGE BODY pkg_a AS\n' +
+            '    PROCEDURE process_data(p_a IN VARCHAR2) IS\n' +
+            '    BEGIN\n        NULL;\n    END process_data;\n' +
+            'END pkg_a;\n/\n', 'utf8');
+        fs.writeFileSync(path.join(dirA, 'shared_a.sql'),
+            'CREATE OR REPLACE PROCEDURE process_data(p_x IN NUMBER) IS\n' +
+            'BEGIN\n    NULL;\nEND process_data;\n/\n', 'utf8');
+        fs.writeFileSync(path.join(dirB, 'pkg_b.pkb'),
+            'CREATE OR REPLACE PACKAGE BODY pkg_b AS\n' +
+            '    PROCEDURE process_data(p_b IN VARCHAR2) IS\n' +
+            '    BEGIN\n        NULL;\n    END process_data;\n' +
+            'END pkg_b;\n/\n', 'utf8');
+        fs.writeFileSync(path.join(dirB, 'shared_b.sql'),
+            'CREATE OR REPLACE PROCEDURE process_data(p_y IN DATE) IS\n' +
+            'BEGIN\n    NULL;\nEND process_data;\n/\n', 'utf8');
+
+        const dualIndex = new SymbolIndex(mockOutputChannel);
+        await dualIndex.buildIndex(
+            [{ path: dirA, priority: 1 }, { path: dirB, priority: 2 }], ['.sql', '.pkb'], 100);
+
+        // 裸名 process_data 共 4 条（2 独立 + 2 包成员）
+        assertEqual(dualIndex.lookup('process_data').length, 4,
+            '双仓库同名符号应全部入索引');
+
+        // A 优先级高：全部结果来自 A
+        const aFirst = dualIndex.lookupWithPriority('process_data', undefined,
+            [{ path: dirA, priority: 1 }, { path: dirB, priority: 2 }]);
+        assert(aFirst.length > 0 && aFirst.every(e =>
+            path.normalize(e.filePath).toLowerCase().startsWith(path.normalize(dirA).toLowerCase())
+        ), 'A 优先时结果应全部来自 A');
+
+        // B 优先级高：全部结果来自 B
+        const bFirst = dualIndex.lookupWithPriority('process_data', undefined,
+            [{ path: dirB, priority: 1 }, { path: dirA, priority: 2 }]);
+        assert(bFirst.length > 0 && bFirst.every(e =>
+            path.normalize(e.filePath).toLowerCase().startsWith(path.normalize(dirB).toLowerCase())
+        ), 'B 优先时结果应全部来自 B');
+
+        // 包名限定优先于路径优先级
+        const qualified = dualIndex.lookup('process_data', 'pkg_b');
+        assertEqual(qualified.length, 1, '包名限定应唯一命中 pkg_b 成员');
+        assert(path.normalize(qualified[0].filePath).toLowerCase()
+            .startsWith(path.normalize(dirB).toLowerCase()),
+            'pkg_b 限定应命中 B 仓库（即使 A 优先级更高）');
+    } finally {
+        fs.rmSync(tmpRoot, { recursive: true, force: true });
     }
 
     // ============ 输出结果 ============
