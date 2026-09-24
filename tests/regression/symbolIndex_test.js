@@ -183,7 +183,17 @@ async function runTests() {
     // 验证加载后的查找功能
     const loadedEntries = newIndex.lookup('func_001');
     assert(loadedEntries.length > 0, '加载后的索引应能查找符号');
-    
+
+    // v2 缓存同时恢复 fileSymbols：加载后更新文件不得产生重复条目（Issue #38 修复点）
+    const loadedPkgFile = path.join(testDir, 'large_package_100funcs.sql');
+    const beforeReloadCount = newIndex.lookup('large_test_pkg').length;
+    await newIndex.updateFile(loadedPkgFile);
+    assertEqual(
+        newIndex.lookup('large_test_pkg').length,
+        beforeReloadCount,
+        '加载后 updateFile 不应产生重复条目'
+    );
+
     // 清理临时文件
     fs.unlinkSync(tempStorage);
     
@@ -255,6 +265,66 @@ async function runTests() {
     } else {
         assert(false, 'proc_001 应被索引');
     }
+
+    // ============ 测试13: 影子构建期间旧索引可查 ============
+    console.log('\n=== 测试13: 影子构建期间旧索引可查（Issue #38） ===');
+
+    assert(symbolIndex.isBuilding() === false, '非构建期 isBuilding 应为 false');
+    // 不 await：构建启动后立刻查询，应命中旧索引（而非清空后的部分结果）
+    const shadowBuildPromise = symbolIndex.buildIndex(pathConfigs, ['.sql'], 100);
+    assert(symbolIndex.isBuilding() === true, '构建期 isBuilding 应为 true');
+    const shadowEntries = symbolIndex.lookup('large_test_pkg');
+    assert(shadowEntries.length > 0, '构建期间旧索引应持续可查');
+    const shadowDone = await shadowBuildPromise;
+    assertEqual(shadowDone, true, '无取消时构建应成功返回 true');
+    assert(symbolIndex.isBuilding() === false, '构建结束 isBuilding 应回到 false');
+    assert(symbolIndex.lookup('large_test_pkg').length > 0, '构建结束后新索引应可查');
+
+    // ============ 测试14: 构建期间变更重放不丢失 ============
+    console.log('\n=== 测试14: 构建期间变更重放（Issue #38） ===');
+
+    const pkgFile = path.join(testDir, 'large_package_100funcs.sql');
+    const beforeReplayCount = symbolIndex.lookup('large_test_pkg').length;
+    const replayBuildPromise = symbolIndex.buildIndex(pathConfigs, ['.sql'], 100);
+    // 构建中触发 watcher 语义的更新 → 进入待处理队列，构建结束重放
+    await symbolIndex.updateFile(pkgFile);
+    await replayBuildPromise;
+    assertEqual(
+        symbolIndex.lookup('large_test_pkg').length,
+        beforeReplayCount,
+        '构建期间的更新重放后不应产生重复条目'
+    );
+
+    // ============ 测试15: 当前文件解析结果即时并入（upsert） ============
+    console.log('\n=== 测试15: upsertFromParseResult 即时并入（Issue #38） ===');
+
+    const { PLSQLParser } = require('../../out/parser');
+    const upsertIndex = new SymbolIndex(mockOutputChannel);
+    const upsertSource = fs.readFileSync(pkgFile, 'utf8');
+    const upsertResult = await new PLSQLParser().parse(upsertSource, pkgFile);
+    upsertIndex.upsertFromParseResult(upsertResult, pkgFile);
+    const upserted = upsertIndex.lookup('large_test_pkg');
+    assert(upserted.length > 0, 'upsert 后应能查到符号');
+    assertEqual(upsertIndex.getStatus().fileCount, 1, 'upsert 后文件数应为 1');
+    // 同文件重复 upsert 不产生重复条目
+    upsertIndex.upsertFromParseResult(upsertResult, pkgFile);
+    assertEqual(
+        upsertIndex.lookup('large_test_pkg').length,
+        upserted.length,
+        '重复 upsert 不应产生重复条目'
+    );
+
+    // ============ 测试16: v1 旧格式缓存拒绝 ============
+    console.log('\n=== 测试16: v1 旧格式缓存拒绝 ===');
+
+    const v1Path = path.join(testDir, '.temp_symbol_index_v1.json');
+    fs.writeFileSync(v1Path, JSON.stringify({
+        version: 1, buildTime: 0, fileCount: 0, symbols: {}
+    }), 'utf8');
+    const v1Index = new SymbolIndex(mockOutputChannel);
+    const v1Loaded = await v1Index.load(v1Path);
+    assert(v1Loaded === false, 'v1 缓存应被拒绝（触发全量重建）');
+    fs.unlinkSync(v1Path);
 
     // ============ 输出结果 ============
     console.log('\n================================');
