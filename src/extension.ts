@@ -271,6 +271,12 @@ export class PLSQLOutlineExtension {
             }
         );
 
+        // 注册工作区符号搜索（Ctrl+T，Issue #39）：基于符号索引按名搜索
+        // 全仓库的包/函数/过程/触发器，输入 pkg.func 可双重过滤
+        const workspaceSymbolProvider = vscode.languages.registerWorkspaceSymbolProvider({
+            provideWorkspaceSymbols: (query, _token) => this.provideWorkspaceSymbols(query)
+        });
+
         // 注册折叠范围提供者（块结构折叠：Function→END、IF→END IF、LOOP→END LOOP 等，
         // 复用解析器节点起止行号 + BEGIN/EXCEPTION 段折叠，Issue #23/#31）
         const foldingProvider = vscode.languages.registerFoldingRangeProvider(
@@ -301,7 +307,7 @@ export class PLSQLOutlineExtension {
             searchViewProvider
         );
 
-        context.subscriptions.push(hoverProvider, definitionProvider, foldingProvider, highlightProvider, searchViewRegistration);
+        context.subscriptions.push(hoverProvider, definitionProvider, workspaceSymbolProvider, foldingProvider, highlightProvider, searchViewRegistration);
     }
 
     /**
@@ -802,6 +808,37 @@ export class PLSQLOutlineExtension {
     }
 
     /**
+     * 工作区符号搜索（Ctrl+T，Issue #39）：索引按名检索 → SymbolInformation
+     */
+    private provideWorkspaceSymbols(query: string): vscode.SymbolInformation[] {
+        const entries = this.symbolIndex.searchSymbols(query, 512);
+        return entries.map(e => new vscode.SymbolInformation(
+            e.packageName ? `${e.packageName}.${e.name}` : e.name,
+            this.symbolKindForEntry(e.type),
+            e.packageName || '',
+            new vscode.Location(vscode.Uri.file(e.filePath), new vscode.Position(e.line - 1, 0))
+        ));
+    }
+
+    /**
+     * 索引符号类型 → VS Code 符号种类（Ctrl+T 列表图标）
+     */
+    private symbolKindForEntry(type: NodeType): vscode.SymbolKind {
+        switch (type) {
+            case NodeType.PACKAGE_BODY:
+            case NodeType.PACKAGE_HEADER:
+                return vscode.SymbolKind.Package;
+            case NodeType.FUNCTION:
+            case NodeType.FUNCTION_DECLARATION:
+                return vscode.SymbolKind.Function;
+            case NodeType.TRIGGER:
+                return vscode.SymbolKind.Event;
+            default:
+                return vscode.SymbolKind.Function;
+        }
+    }
+
+    /**
      * 解析光标处的调用格式
      * 支持: pkg_name.proc_name 或 proc_name
      */
@@ -1075,6 +1112,8 @@ export class PLSQLOutlineExtension {
         }, async (progress, token) => {
             const completed = await this.symbolIndex.buildIndex(pathConfigs, fileExtensions, maxFiles, {
                 cancellationToken: token,
+                // 手动"重建索引"= 强制全量重扫（忽略 mtime 缓存，作为扫描器升级后的逃生门）
+                forceFull: true,
                 onProgress: (indexed, total) => {
                     progress.report({ increment: 100 / Math.max(total, 1), message: `${indexed}/${total}` });
                 }

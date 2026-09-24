@@ -208,6 +208,28 @@ module.exports.run = async () => {
             `watcher 修改文件 pkg_b.new_total → repo_b/pkg_b.pkb L${expectedLine}（实际 ${fmt(t)}）`);
     }
 
+    // ---- Case 8: 工作区符号搜索（Ctrl+T，Issue #39）：按名搜 calc_tax ----
+    {
+        const results = await vscode.commands.executeCommand(
+            'vscode.executeWorkspaceSymbolProvider', 'calc_tax');
+        const arr = Array.isArray(results) ? results : [];
+        const hit = arr.find(si =>
+            si.name.toUpperCase().includes('CALC_TAX') &&
+            path.normalize(si.location.uri.fsPath) === path.normalize(path.join(REPO_B, 'new_symbols.sql')));
+        check(!!hit, `Ctrl+T 搜索 calc_tax 命中 repo_b/new_symbols.sql（实际 ${arr.length} 条）`);
+    }
+
+    // ---- Case 9: 工作区符号搜索 pkg.func 双重过滤（Issue #39）----
+    {
+        const results = await vscode.commands.executeCommand(
+            'vscode.executeWorkspaceSymbolProvider', 'pkg_a.get_order');
+        const arr = Array.isArray(results) ? results : [];
+        const hit = arr.find(si =>
+            si.name.toUpperCase().includes('PKG_A.GET_ORDER') &&
+            path.normalize(si.location.uri.fsPath) === path.normalize(path.join(REPO_A, 'pkg_a.pkb')));
+        check(!!hit, `Ctrl+T 搜索 pkg_a.get_order 命中 repo_a/pkg_a.pkb（实际 ${arr.length} 条）`);
+    }
+
     assert.strictEqual(failures.length, 0, `${failures.length} 个双仓库跳转用例失败:\n  - ${failures.join('\n  - ')}`);
     console.log(`indexJump E2E: ${passed}/${passed + failures.length} 通过`);
 };

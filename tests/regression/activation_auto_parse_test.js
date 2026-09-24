@@ -94,6 +94,7 @@ const mockVscode = {
     languages: {
         registerHoverProvider: () => ({ dispose() {} }),
         registerDefinitionProvider: () => ({ dispose() {} }),
+        registerWorkspaceSymbolProvider: () => ({ dispose() {} }),
         registerFoldingRangeProvider: () => ({ dispose() {} }),
         registerDocumentHighlightProvider: () => ({ dispose() {} })
     },
