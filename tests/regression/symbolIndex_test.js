@@ -326,6 +326,65 @@ async function runTests() {
     assert(v1Loaded === false, 'v1 缓存应被拒绝（触发全量重建）');
     fs.unlinkSync(v1Path);
 
+    // ============ 测试17: 双仓库路径真实同名冲突（Issue #38 E2E 的纯逻辑对照） ============
+    console.log('\n=== 测试17: 双路径真实冲突按优先级消解 ===');
+
+    const os = require('os');
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'plsql-outline-index-'));
+    try {
+        const dirA = path.join(tmpRoot, 'repo_a');
+        const dirB = path.join(tmpRoot, 'repo_b');
+        fs.mkdirSync(dirA, { recursive: true });
+        fs.mkdirSync(dirB, { recursive: true });
+        fs.writeFileSync(path.join(dirA, 'pkg_a.pkb'),
+            'CREATE OR REPLACE PACKAGE BODY pkg_a AS\n' +
+            '    PROCEDURE process_data(p_a IN VARCHAR2) IS\n' +
+            '    BEGIN\n        NULL;\n    END process_data;\n' +
+            'END pkg_a;\n/\n', 'utf8');
+        fs.writeFileSync(path.join(dirA, 'shared_a.sql'),
+            'CREATE OR REPLACE PROCEDURE process_data(p_x IN NUMBER) IS\n' +
+            'BEGIN\n    NULL;\nEND process_data;\n/\n', 'utf8');
+        fs.writeFileSync(path.join(dirB, 'pkg_b.pkb'),
+            'CREATE OR REPLACE PACKAGE BODY pkg_b AS\n' +
+            '    PROCEDURE process_data(p_b IN VARCHAR2) IS\n' +
+            '    BEGIN\n        NULL;\n    END process_data;\n' +
+            'END pkg_b;\n/\n', 'utf8');
+        fs.writeFileSync(path.join(dirB, 'shared_b.sql'),
+            'CREATE OR REPLACE PROCEDURE process_data(p_y IN DATE) IS\n' +
+            'BEGIN\n    NULL;\nEND process_data;\n/\n', 'utf8');
+
+        const dualIndex = new SymbolIndex(mockOutputChannel);
+        await dualIndex.buildIndex(
+            [{ path: dirA, priority: 1 }, { path: dirB, priority: 2 }], ['.sql', '.pkb'], 100);
+
+        // 裸名 process_data 共 4 条（2 独立 + 2 包成员）
+        assertEqual(dualIndex.lookup('process_data').length, 4,
+            '双仓库同名符号应全部入索引');
+
+        // A 优先级高：全部结果来自 A
+        const aFirst = dualIndex.lookupWithPriority('process_data', undefined,
+            [{ path: dirA, priority: 1 }, { path: dirB, priority: 2 }]);
+        assert(aFirst.length > 0 && aFirst.every(e =>
+            path.normalize(e.filePath).toLowerCase().startsWith(path.normalize(dirA).toLowerCase())
+        ), 'A 优先时结果应全部来自 A');
+
+        // B 优先级高：全部结果来自 B
+        const bFirst = dualIndex.lookupWithPriority('process_data', undefined,
+            [{ path: dirB, priority: 1 }, { path: dirA, priority: 2 }]);
+        assert(bFirst.length > 0 && bFirst.every(e =>
+            path.normalize(e.filePath).toLowerCase().startsWith(path.normalize(dirB).toLowerCase())
+        ), 'B 优先时结果应全部来自 B');
+
+        // 包名限定优先于路径优先级
+        const qualified = dualIndex.lookup('process_data', 'pkg_b');
+        assertEqual(qualified.length, 1, '包名限定应唯一命中 pkg_b 成员');
+        assert(path.normalize(qualified[0].filePath).toLowerCase()
+            .startsWith(path.normalize(dirB).toLowerCase()),
+            'pkg_b 限定应命中 B 仓库（即使 A 优先级更高）');
+    } finally {
+        fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
+
     // ============ 输出结果 ============
     console.log('\n================================');
     console.log(`测试结果: ${passed}/${passed + failed} 通过`);

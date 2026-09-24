@@ -378,7 +378,7 @@
     "test": "npm run compile && node tests/unit/run_all.js",
     "test:regression": "node tests/regression/run_all.js",
     "test:corpus": "node tests/corpus/validate.js && node tests/corpus/render-validate.js",
-    "test:e2e": "node tests/e2e/anonDefinition.e2e.test.js && node tests/e2e/zcodetest_smoke.e2e.js && node tests/e2e/foldRouting.e2e.test.js",
+    "test:e2e": "node tests/e2e/anonDefinition.e2e.test.js && node tests/e2e/zcodetest_smoke.e2e.js && node tests/e2e/foldRouting.e2e.test.js && node tests/e2e/indexJump.e2e.test.js",
     "package": "vsce package -o release/",
     "publish": "vsce publish",
     "lint": "eslint src/"
