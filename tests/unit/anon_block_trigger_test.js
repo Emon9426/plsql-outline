@@ -73,7 +73,7 @@ async function run() {
     rec.assert('anon_exists', '存在匿名块（ANONYMOUS_BLOCK）', !!anonItem, topItems.map(t => t.node && t.node.type).join(','));
     if (anonItem) {
         const anonTree = provider.getTreeItem(anonItem);
-        rec.assert('anon_icon', '匿名块图标 anon（数据库圆筒+</>）', iconName(anonTree.iconPath) === 'anon', iconName(anonTree.iconPath));
+        rec.assert('anon_icon', '匿名块图标 folder-anon（主结构文件夹+</>，Issue #42）', iconName(anonTree.iconPath) === 'folder-anon', iconName(anonTree.iconPath));
 
         const anonChildren = await provider.getChildren(anonItem);
         const labels = anonChildren.map(c => c.label);
