@@ -48,8 +48,13 @@ extension.ts（激活/命令/事件接线，入口 activate()）
    （expansionOverrides 覆盖表与 isTargetVisible 已删除）；用户手动折叠仍随时可收回。
    TreeItem 用稳定 `id` 保证刷新后展开/选中状态保留。
 3. **点击跳转、箭头展开**：所有可展开节点必须设置 `command`（v1.6.3 教训）。
-4. **图标**：树节点用 res/icons/ 自绘 SVG（数据库圆柱主题，P=蓝 / F=琥珀，深浅两套），
-   由 `scripts/generate_icons.js` 生成；marketplace README 不允许内联 SVG，图标表用文字。
+4. **图标（四类家族，Issue #42）**：树节点用 res/icons/ 自绘 SVG，由
+   `scripts/generate_icons.js` 生成（深浅两套）：DB 对象=数据库圆筒（P=蓝 / F=琥珀），
+   主结构=文件夹形（folder-decl/sub/body/anon/exc），分支=流程图蓝菱形 branch
+   （IF/ELSIF/ELSE/CASE/WHEN），循环=琥珀环箭头 loop（LOOP/FOR/WHILE）；
+   END 结构块保留灰⏹ 几何符号语义色（BEGIN 无叶子——语义由 Body 文件夹承载，
+   begin 图标与相关死分支已删），颜色全部复用现有调色板。
+   marketplace README 不允许内联 SVG，图标表用文字。
 5. **解析器保持 vscode-free**：单元测试直接 `require('../../out/parser')`，
    因此 parser.ts 不得 import 'vscode'。
 6. **中文注释/中文 UI**：代码注释与用户可见文案均为中文，保持既有风格。

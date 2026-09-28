@@ -34,6 +34,7 @@ const suites = [
     ['keyword_highlight_test', require('./keyword_highlight_test')],
     ['cursor_sql_hover_test', require('./cursor_sql_hover_test')],
     ['control_expand_test', require('./control_expand_test')],
+    ['control_icon_test', require('./control_icon_test')],
     ['outline_filter_test', require('./outline_filter_test')],
     ['copy_name_test', require('./copy_name_test')],
     ['node_sql_hover_test', require('./node_sql_hover_test')],

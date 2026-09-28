@@ -1538,7 +1538,10 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 获取节点图标（数据库圆筒主题；Procedure=P 蓝，Function=F 琥珀）
+     * 获取节点图标（四类视觉家族，Issue #42）
+     * - DB 对象：数据库圆筒（Procedure=P 蓝，Function=F 琥珀）
+     * - 主结构：文件夹（匿名块）
+     * - 分支：流程图菱形 / 循环：环形箭头（控制结构）
      */
     private getNodeIcon(type: NodeType): { light: vscode.Uri; dark: vscode.Uri } {
         switch (type) {
@@ -1554,31 +1557,37 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
             case NodeType.TRIGGER:
                 return this.getCustomIcon('trigger');
             case NodeType.ANONYMOUS_BLOCK:
-                return this.getCustomIcon('anon');
+                return this.getCustomIcon('folder-anon');   // 主结构文件夹家族
             case NodeType.TYPE:
             case NodeType.TYPE_BODY:
                 return this.getCustomIcon('type');       // T
             case NodeType.VIEW:
                 return this.getCustomIcon('package');     // 视图复用包图标
+            case NodeType.IF_STATEMENT:
+            case NodeType.ELSIF_BRANCH:
+            case NodeType.ELSE_BRANCH:
+            case NodeType.CASE_STATEMENT:
+            case NodeType.WHEN_BRANCH:
+                return this.getCustomIcon('branch');      // 分支：蓝菱形
+            case NodeType.LOOP_STATEMENT:
+            case NodeType.WHILE_LOOP:
+            case NodeType.FOR_LOOP:
+                return this.getCustomIcon('loop');        // 循环：琥珀环箭头
             default:
-                // 控制结构等
                 return this.getCustomIcon('variable');
         }
     }
 
     /**
-     * 获取结构块图标
+     * 获取结构块图标（EXCEPTION → 主结构文件夹；END 保留几何符号语义色。
+     * 显示层不构造 BEGIN 块叶子——BEGIN 语义由 Body 文件夹承载，无对应图标）
      */
     private getStructureBlockIcon(type: StructureBlockType): { light: vscode.Uri; dark: vscode.Uri } {
         switch (type) {
-            case StructureBlockType.BEGIN:
-                return this.getCustomIcon('begin');
             case StructureBlockType.EXCEPTION:
-                return this.getCustomIcon('exception-block');
+                return this.getCustomIcon('folder-exc');
             case StructureBlockType.END:
                 return this.getCustomIcon('end');
-            case StructureBlockType.PACKAGE_INITIALIZATION:
-                return this.getCustomIcon('begin');
             default:
                 return this.getCustomIcon('end');
         }

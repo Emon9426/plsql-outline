@@ -56,13 +56,13 @@ export interface VariableInfo {
 }
 
 /**
- * 结构块类型
+ * 结构块类型（显示层只构造 EXCEPTION/END 叶子；BEGIN 语义由 Body 文件夹承载，
+ * 'BEGIN' 字符串仍用于光标区域跟随判定）
  */
 export enum StructureBlockType {
     BEGIN = 'BEGIN',
     EXCEPTION = 'EXCEPTION',
-    END = 'END',
-    PACKAGE_INITIALIZATION = 'Package Initialization'
+    END = 'END'
 }
 
 /**
