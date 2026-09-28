@@ -206,7 +206,7 @@ code --install-extension plsql-outline-<版本>.vsix
 | | EXCEPTION 结构块 | 文件夹+红色 **!** |
 | **分支**（流程图菱形） | IF / ELSIF / ELSE / CASE / WHEN | 蓝色菱形 |
 | **循环**（环形箭头） | LOOP / FOR / WHILE | 琥珀色环形箭头 |
-| 结构块（几何符号） | BEGIN / END | 绿色播放 ▶ / 灰色方块 ⏹ |
+| 结构块（几何符号） | END | 灰色方块 ⏹ |
 | 声明项 | 变量/常量/游标/类型/命名异常 | 圆筒+v/c/箭标/T/叹号 |
 
 ## ⚙️ 配置项

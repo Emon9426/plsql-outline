@@ -52,7 +52,8 @@ extension.ts（激活/命令/事件接线，入口 activate()）
    `scripts/generate_icons.js` 生成（深浅两套）：DB 对象=数据库圆筒（P=蓝 / F=琥珀），
    主结构=文件夹形（folder-decl/sub/body/anon/exc），分支=流程图蓝菱形 branch
    （IF/ELSIF/ELSE/CASE/WHEN），循环=琥珀环箭头 loop（LOOP/FOR/WHILE）；
-   BEGIN/END 结构块保留绿▶/灰⏹ 几何符号语义色，颜色全部复用现有调色板。
+   END 结构块保留灰⏹ 几何符号语义色（BEGIN 无叶子——语义由 Body 文件夹承载，
+   begin 图标与相关死分支已删），颜色全部复用现有调色板。
    marketplace README 不允许内联 SVG，图标表用文字。
 5. **解析器保持 vscode-free**：单元测试直接 `require('../../out/parser')`，
    因此 parser.ts 不得 import 'vscode'。

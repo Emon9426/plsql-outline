@@ -8,7 +8,7 @@
  * - DB 对象：数据库圆筒锚点（Procedure=蓝"P"、Function=琥珀"F"等）
  * - 主结构：文件夹外形 + 圆筒/字母标（folder-decl/sub/body/anon/exc）
  * - 分支/循环：流程图几何符号（branch=蓝菱形判定符、loop=琥珀环形箭头）
- * - 结构块：几何符号（begin=绿▶、end=灰⏹）
+ * - 结构块：几何符号（end=灰⏹；BEGIN 无叶子无图标，语义由 Body 文件夹承载）
  * 颜色全部复用现有调色板，明暗主题下自适应。
  *
  * 运行：node scripts/generate_icons.js
@@ -171,12 +171,7 @@ function loopIcon(c) {
   <path d="M 7.6 2.5 L 11.4 3.8 L 7.6 5.1 Z" fill="${c.func}"/>`);
 }
 
-// 结构块
-function beginIcon(c) {
-    return svg(`
-  <circle cx="8" cy="8" r="5.2" fill="none" stroke="#3fb950" stroke-width="1.3"/>
-  <path d="M 6.4 5.4 L 11.0 8.0 L 6.4 10.6 Z" fill="#3fb950"/>`);
-}
+// 结构块（显示层仅有 END 叶子；BEGIN 语义由 Body 文件夹承载，无图标）
 function endIcon(c) {
     return svg(`
   <rect x="3" y="3" width="10" height="10" rx="1.5" fill="none" stroke="#888c93" stroke-width="1.3"/>
@@ -201,7 +196,6 @@ const ICONS = {
     'folder-exc': folderExc,
     branch: branchIcon,
     loop: loopIcon,
-    begin: beginIcon,
     end: endIcon
 };
 

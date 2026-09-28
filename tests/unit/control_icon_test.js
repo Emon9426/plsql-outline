@@ -169,7 +169,7 @@ async function run() {
         'proc', 'func', 'package', 'trigger', 'type', 'cursor',
         'variable', 'constant', 'exception',
         'folder-decl', 'folder-sub', 'folder-body', 'folder-anon', 'folder-exc',
-        'branch', 'loop', 'begin', 'end'
+        'branch', 'loop', 'end'
     ].sort();
     const darkIcons = fs.readdirSync(ICONS_DIR)
         .filter(f => f.endsWith('.svg') && !f.endsWith('-light.svg'))
@@ -181,7 +181,7 @@ async function run() {
             diff.push(`${EXPECTED_ICONS[i] || '(无)'} vs ${darkIcons[i] || '(无)'}`);
         }
     }
-    rec.assert('icons_full_set', 'res/icons 暗色全集 = 生成器 18 图标清单（含明暗配对）',
+    rec.assert('icons_full_set', 'res/icons 暗色全集 = 生成器 17 图标清单（含明暗配对）',
         diff.length === 0 && EXPECTED_ICONS.every(n => fs.existsSync(path.join(ICONS_DIR, `${n}-light.svg`))),
         diff.join(';'));
 

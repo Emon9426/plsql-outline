@@ -1579,18 +1579,15 @@ export class PLSQLOutlineProvider implements vscode.TreeDataProvider<TreeItemDat
     }
 
     /**
-     * 获取结构块图标（BEGIN/END 保留几何符号语义色；EXCEPTION 归入主结构文件夹家族）
+     * 获取结构块图标（EXCEPTION → 主结构文件夹；END 保留几何符号语义色。
+     * 显示层不构造 BEGIN 块叶子——BEGIN 语义由 Body 文件夹承载，无对应图标）
      */
     private getStructureBlockIcon(type: StructureBlockType): { light: vscode.Uri; dark: vscode.Uri } {
         switch (type) {
-            case StructureBlockType.BEGIN:
-                return this.getCustomIcon('begin');
             case StructureBlockType.EXCEPTION:
                 return this.getCustomIcon('folder-exc');
             case StructureBlockType.END:
                 return this.getCustomIcon('end');
-            case StructureBlockType.PACKAGE_INITIALIZATION:
-                return this.getCustomIcon('begin');
             default:
                 return this.getCustomIcon('end');
         }
