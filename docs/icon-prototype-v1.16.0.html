@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>PL/SQL Outline — 图标分类原型</title>
+<style>
+    :root {
+        --bg: #1e1e1e; --panel: #252526; --panel-head: #323233;
+        --fg: #cccccc; --fg-strong: #e7e7e7; --desc: #9d9d9d;
+        --guide: rgba(255,255,255,.14); --hover: #2a2d2e;
+        --border: #3c3c3c; --card: #2a2a2b; --accent: #4d9bff;
+        --chip-new: #3fb950; --chip-keep: #6e7681; --chip-chg: #d29922; --chip-drop: #e0556a;
+        --changed-bar: #d29922;
+    }
+    body.light {
+        --bg: #ffffff; --panel: #f8f8f8; --panel-head: #e8e8e8;
+        --fg: #3b3b3b; --fg-strong: #1f1f1f; --desc: #8e8e8e;
+        --guide: rgba(0,0,0,.16); --hover: #eaeaea;
+        --border: #d4d4d4; --card: #f3f3f3; --accent: #1f6fd6;
+        --changed-bar: #b8860b;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; background: var(--bg); color: var(--fg);
+        font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 14px;
+        transition: background .15s;
+    }
+    .wrap { max-width: 1320px; margin: 0 auto; padding: 24px 20px 60px; }
+    header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+    h1 { font-size: 20px; margin: 0; color: var(--fg-strong); }
+    h2 { font-size: 16px; margin: 34px 0 12px; color: var(--fg-strong); border-left: 3px solid var(--accent); padding-left: 10px; }
+    .sub { color: var(--desc); margin: 2px 0 0; }
+    .toggle {
+        margin-left: auto; background: var(--panel); color: var(--fg); border: 1px solid var(--border);
+        border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 13px;
+    }
+    .toggle:hover { background: var(--hover); }
+    .legend { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 4px; }
+    .chip {
+        display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;
+        background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .badge { font-size: 11px; border-radius: 4px; padding: 1px 7px; font-weight: 600; white-space: nowrap; }
+    .b-new  { background: rgba(63,185,80,.18);  color: var(--chip-new);  border: 1px solid var(--chip-new); }
+    .b-keep { background: rgba(110,118,129,.15); color: var(--fg);       border: 1px solid var(--chip-keep); }
+    .b-chg  { background: rgba(210,153,34,.15); color: var(--chip-chg);  border: 1px solid var(--chip-chg); }
+
+    /* ---- VS Code 侧栏模拟 ---- */
+    .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    @media (max-width: 1080px) { .panels { grid-template-columns: 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .panel-title {
+        display: flex; align-items: center; justify-content: space-between;
+        background: var(--panel-head); padding: 6px 12px; font-size: 11px;
+        letter-spacing: .8px; color: var(--fg); text-transform: uppercase;
+    }
+    .panel-title .tools { letter-spacing: 3px; opacity: .8; }
+    .panel-cap { padding: 7px 12px; font-size: 12.5px; font-weight: 600; border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .panel-body { padding: 6px 4px; max-height: 620px; overflow: auto; }
+    .row {
+        display: flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px 0 4px;
+        border-radius: 3px; white-space: nowrap;
+    }
+    .row:hover { background: var(--hover); }
+    .row .twist { width: 13px; text-align: center; color: var(--desc); font-size: 9px; flex: none; }
+    .row .lbl { color: var(--fg); overflow: hidden; text-overflow: ellipsis; }
+    .row .desc { margin-left: auto; color: var(--desc); font-size: 12px; padding-left: 12px; }
+    .kids { margin-left: 9px; padding-left: 7px; border-left: 1px solid var(--guide); }
+    .row.changed { box-shadow: inset 2px 0 0 var(--changed-bar); }
+    .panel.new .row.changed { background: rgba(210,153,34,.06); }
+    .s16 { width: 16px; height: 16px; flex: none; display: inline-block; }
+    .s16 svg { width: 100%; height: 100%; display: block; }
+
+    /* ---- 家族目录 ---- */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 14px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .card h3 { margin: 0 0 4px; font-size: 14.5px; color: var(--fg-strong); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .card .note { color: var(--desc); font-size: 12.5px; margin: 0 0 10px; }
+    .icons { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+    .cell { display: flex; align-items: center; gap: 9px; padding: 5px 6px; border-radius: 6px; }
+    .cell:hover { background: var(--hover); }
+    .s48 { width: 48px; height: 48px; flex: none; }
+    .s48 svg { width: 100%; height: 100%; display: block; }
+    .cell .meta { line-height: 1.35; }
+    .cell .nm { font-size: 13px; color: var(--fg-strong); font-weight: 600; }
+    .cell .use { font-size: 11.5px; color: var(--desc); }
+    .cell .mini { display: inline-flex; align-items: center; gap: 4px; color: var(--desc); font-size: 11px; }
+
+    /* ---- 双主题对照 ---- */
+    .duo { display: flex; gap: 20px; flex-wrap: wrap; }
+    .duo-cell { border-radius: 8px; padding: 10px 12px; border: 1px solid var(--border); text-align: center; }
+    .duo-cell.dk { background: #1e1e1e; } .duo-cell.lt { background: #f8f8f8; }
+    .duo-cell .t { font-size: 11.5px; margin-top: 5px; }
+    .duo-cell.dk .t { color: #cccccc; } .duo-cell.lt .t { color: #3b3b3b; }
+    .duo-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .duo-strip { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { border: 1px solid var(--border); padding: 6px 12px; text-align: left; }
+    th { background: var(--panel-head); color: var(--fg-strong); }
+    td .pair { display: inline-flex; align-items: center; gap: 6px; }
+    .foot { color: var(--desc); font-size: 12.5px; margin-top: 30px; border-top: 1px solid var(--border); padding-top: 12px; line-height: 1.8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <div>
+            <h1>PL/SQL Outline — 图标分类原型</h1>
+            <p class="sub">四类家族：DB 对象（圆筒）· 主结构（文件夹）· 分支（菱形）· 循环（环箭头）｜图标 SVG 与 scripts/generate_icons.js 同源，所见即实现所得</p>
+        </div>
+        <button class="toggle" id="themeBtn">☀️ 切换浅色主题</button>
+    </header>
+
+    <div class="legend">
+        <span class="chip"><span class="dot" style="background:#4d9bff"></span>分支 = 蓝色菱形 ◇（IF / CASE / WHEN / ELSIF / ELSE）</span>
+        <span class="chip"><span class="dot" style="background:#f0c040"></span>循环 = 琥珀环形箭头 ↻（LOOP / FOR / WHILE）</span>
+        <span class="chip"><span class="dot" style="background:#e0556a"></span>主结构 = 文件夹家族（Declaration / Body / Sub Program / Exception / 匿名块）</span>
+        <span class="chip"><span class="dot" style="background:#9d9d9d"></span>DB 对象 = 圆筒家族（保持现状）</span>
+    </div>
+
+    <h2>① 大纲树新旧对照</h2>
+    <div class="panels">
+        <div class="panel old">
+            <div class="panel-title"><span>PL/SQL OUTLINE</span><span class="tools">↻ ⇩ ⚙ ⋯</span></div>
+            <div class="panel-cap">现状 —— 控制结构全部兜底为「圆筒+v」，匿名块为圆筒，EXCEPTION 为红三角</div>
+            <div class="panel-body" id="treeOld"></div>
+        </div>
+        <div class="panel new">
+            <div class="panel-title"><span>PL/SQL OUTLINE</span><span class="tools">↻ ⇩ ⚙ ⋯</span></div>
+            <div class="panel-cap">方案 —— 橙色竖条标记图标变化的行（IF / LOOP / FOR / CASE / WHEN / WHILE / EXCEPTION / 匿名块）</div>
+            <div class="panel-body" id="treeNew"></div>
+        </div>
+    </div>
+
+    <h2>② 图标家族目录（放大 3 倍 + 实际 16px）</h2>
+    <div class="cards" id="cards"></div>
+
+    <h2>③ 新增图标 · 明暗双主题对照</h2>
+    <div class="duo" id="duo"></div>
+
+    <h2>④ 节点 → 图标映射表</h2>
+    <table id="mapTable"></table>
+
+    <div class="foot">
+        说明：本页为设计原型，不改动扩展代码。所有图标由页内脚本按 generate_icons.js 的同款几何参数实时生成
+        （明 = *-light.svg，暗 = *.svg）。分支/循环颜色复用现有调色板（蓝 #4d9bff/#1f6fd6、琥珀 #f0c040/#c8881a），
+        不引入新颜色。匿名块图标提供两个备选形态，见家族目录卡片②。
+    </div>
+</div>
+
+<script>
+/* ================= 图标生成（与 scripts/generate_icons.js 同源） ================= */
+const COLORS = {
+    dark: {
+        cylinder: '#c5c8ce', cylinderFill: 'none', label: '#e6e6e6',
+        proc: '#4d9bff', func: '#f0c040', accent: '#7fb4ff'
+    },
+    light: {
+        cylinder: '#42566b', cylinderFill: 'none', label: '#2c3e50',
+        proc: '#1f6fd6', func: '#c8881a', accent: '#1f6fd6'
+    }
+};
+function svg(inner) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">' + inner + '\n</svg>';
+}
+function cylinder(c) {
+    return `
+  <ellipse cx="8" cy="3.2" rx="5" ry="1.7" fill="${c.cylinderFill}" stroke="${c.cylinder}" stroke-width="1.1"/>
+  <path d="M 3 3.2 L 3 12.8 A 5 1.7 0 0 0 13 12.8 L 13 3.2" fill="${c.cylinderFill}" stroke="${c.cylinder}" stroke-width="1.1"/>
+  <path d="M 3 6.2 A 5 1.7 0 0 0 13 6.2" fill="none" stroke="${c.cylinder}" stroke-width="0.7" opacity="0.55"/>
+  <path d="M 3 9.0 A 5 1.7 0 0 0 13 9.0" fill="none" stroke="${c.cylinder}" stroke-width="0.7" opacity="0.4"/>`;
+}
+function txt(x, y, size, weight, fill, s) {
+    return `<text x="${x}" y="${y}" font-family="Segoe UI, Arial, sans-serif" font-size="${size}" font-weight="${weight}" text-anchor="middle" fill="${fill}">${s}</text>`;
+}
+const procIcon      = c => svg(`${cylinder(c)} ${txt(8, 11.2, 7.2, 700, c.proc, 'P')}`);
+const funcIcon      = c => svg(`${cylinder(c)} ${txt(8, 11.2, 7.2, 700, c.func, 'F')}`);
+const typeIcon      = c => svg(`${cylinder(c)} ${txt(8, 11.4, 6.6, 700, c.label, 'T')}`);
+const variableIcon  = c => svg(`${cylinder(c)} ${txt(8, 11.4, 6.4, 600, c.label, 'v')}`);
+const constantIcon  = c => svg(`${cylinder(c)} ${txt(8, 11.4, 6.4, 600, c.func, 'c')}`);
+const exceptionIcon = c => svg(`${cylinder(c)} ${txt(8, 11.6, 7.2, 700, '#e0556a', '!')}`);
+const packageIcon   = c => svg(`${cylinder(c)}
+  <rect x="5.6" y="1.0" width="4.8" height="2.2" rx="0.4" fill="${c.cylinder}" opacity="0.9"/>
+  <path d="M 7.2 1.4 L 8 2.0 L 8.8 1.4" fill="none" stroke="${c.label}" stroke-width="0.5" opacity="0.6"/>`);
+const triggerIcon   = c => svg(`${cylinder(c)}
+  <path d="M 8.6 4.5 L 6.4 8.4 L 7.9 8.4 L 7.0 11.6 L 9.6 7.4 L 8.1 7.4 Z" fill="${c.func}" stroke="${c.func}" stroke-width="0.3"/>`);
+const cursorIcon    = c => svg(`${cylinder(c)}
+  <path d="M 4.5 10.5 L 9.5 10.5 M 7.8 9.0 L 9.5 10.5 L 7.8 12.0" fill="none" stroke="${c.proc}" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>`);
+const anonIcon      = c => svg(`${cylinder(c)}
+  <path d="M 6.0 8.5 L 4.6 10.0 L 6.0 11.5" fill="none" stroke="${c.accent}" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 10.0 8.5 L 11.4 10.0 L 10.0 11.5" fill="none" stroke="${c.accent}" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>`);
+
+function folderShape(c) {
+    return `<path d="M 1.5 4.0 L 6.0 4.0 L 7.2 5.2 L 14.5 5.2 L 14.5 13.0 L 1.5 13.0 Z"
+        fill="${c.cylinder}" fill-opacity="0.18" stroke="${c.cylinder}" stroke-width="1.0" stroke-linejoin="round"/>`;
+}
+function folderIcon(c, tag, tagColor) {
+    return svg(`
+  ${folderShape(c)}
+  <ellipse cx="8" cy="9.2" rx="2.6" ry="0.9" fill="none" stroke="${c.cylinder}" stroke-width="0.7"/>
+  <path d="M 5.4 9.2 L 5.4 11.0 A 2.6 0.9 0 0 0 10.6 11.0 L 10.6 9.2" fill="none" stroke="${c.cylinder}" stroke-width="0.7"/>
+  ${tag ? txt(12.6, 11.6, 4.6, 700, tagColor || c.proc, tag) : ''}`);
+}
+const folderDecl = c => folderIcon(c, 'D');
+const folderSub  = c => folderIcon(c, 'S');
+const folderBody = c => folderIcon(c, 'B');
+
+/* ---- 新增图标（本方案） ---- */
+const branchIcon = c => svg(`
+  <path d="M 8 2.3 L 13.7 8 L 8 13.7 L 2.3 8 Z" fill="none" stroke="${c.proc}" stroke-width="1.3" stroke-linejoin="round"/>
+  <path d="M 3.4 8 L 12.6 8" stroke="${c.proc}" stroke-width="0.7" opacity="0.55"/>`);
+const loopIcon = c => svg(`
+  <path d="M 10.52 4.60 A 4.4 4.4 0 1 1 8.0 3.8" fill="none" stroke="${c.func}" stroke-width="1.4" stroke-linecap="round"/>
+  <path d="M 7.6 2.5 L 11.4 3.8 L 7.6 5.1 Z" fill="${c.func}"/>`);
+const folderAnonIcon = c => svg(`
+  ${folderShape(c)}
+  ${txt(8, 10.9, 5.4, 700, c.accent, '&lt;/&gt;')}`);
+const folderAnonAltIcon = c => folderIcon(c, 'A');          /* 备选：与 D/S/B 同构的字母标 */
+const folderExcIcon = c => folderIcon(c, '!', '#e0556a');
+
+/* ---- 结构块（保持现状 / 淘汰项） ---- */
+const beginIcon = c => svg(`
+  <circle cx="8" cy="8" r="5.2" fill="none" stroke="#3fb950" stroke-width="1.3"/>
+  <path d="M 6.4 5.4 L 11.0 8.0 L 6.4 10.6 Z" fill="#3fb950"/>`);
+const exceptionBlockIcon = c => svg(`
+  <path d="M 8 2.5 L 14 13.5 L 2 13.5 Z" fill="none" stroke="#e0556a" stroke-width="1.2" stroke-linejoin="round"/>
+  ${txt(8, 12.4, 6.4, 700, '#e0556a', '!')}`);
+const endIcon = c => svg(`
+  <rect x="3" y="3" width="10" height="10" rx="1.5" fill="none" stroke="#888c93" stroke-width="1.3"/>
+  <path d="M 5.6 5.6 L 10.4 10.4 M 10.4 5.6 L 5.6 10.4" stroke="#888c93" stroke-width="1.2" stroke-linecap="round"/>`);
+
+const ICONS = {
+    proc: procIcon, func: funcIcon, package: packageIcon, trigger: triggerIcon, type: typeIcon,
+    cursor: cursorIcon, variable: variableIcon, constant: constantIcon, exception: exceptionIcon,
+    anon: anonIcon,
+    'folder-decl': folderDecl, 'folder-sub': folderSub, 'folder-body': folderBody,
+    branch: branchIcon, loop: loopIcon, 'folder-anon': folderAnonIcon, 'folder-anon-alt': folderAnonAltIcon,
+    'folder-exc': folderExcIcon,
+    begin: beginIcon, 'exception-block': exceptionBlockIcon, end: endIcon
+};
+
+/* ================= 大纲树样例（两栏共用结构） ================= */
+const TREE = [
+    { l: 'PKG_ORDER (Package Body)', i: 'package', kids: [
+        { l: 'Declaration (6 项)', i: 'folder-decl', kids: [
+            { l: 'Variables (3)', i: 'variable', kids: [
+                { l: 'v_total : NUMBER', i: 'variable', d: '第5行' },
+                { l: 'v_count : NUMBER = 0', i: 'variable', d: '第6行' },
+            ]},
+            { l: 'Cursors (1)', i: 'cursor', collapsed: true, kids: [
+                { l: 'c_orders', i: 'cursor', d: '第8行' },
+            ]},
+        ]},
+        { l: 'get_total', i: 'func' },
+        { l: 'do_ship', i: 'proc', kids: [
+            { l: 'Sub Program (1)', i: 'folder-sub', collapsed: true, kids: [
+                { l: 'log_line', i: 'proc' },
+            ]},
+            { l: 'Body (2)', i: 'folder-body', kids: [
+                { l: 'BEGIN', i: 'begin', d: '第38行' },
+                { l: 'END', i: 'end', d: '第43行' },
+            ]},
+        ]},
+        { l: 'Body (5)', i: 'folder-body', kids: [
+            { l: 'BEGIN', i: 'begin', d: '第46行' },
+            { l: 'IF', i: 'branch', old: 'variable', d: '第48行', kids: [
+                { l: 'LOOP', i: 'loop', old: 'variable', d: '第50行', kids: [
+                    { l: 'FOR', i: 'loop', old: 'variable', d: '第52行' },
+                ]},
+            ]},
+            { l: 'CASE', i: 'branch', old: 'variable', d: '第56行', kids: [
+                { l: 'WHEN', i: 'branch', old: 'variable', d: '第57行' },
+            ]},
+            { l: 'EXCEPTION', i: 'folder-exc', old: 'exception-block', d: '第60行' },
+            { l: 'END', i: 'end', d: '第64行' },
+        ]},
+    ]},
+    { l: 'TRG_ORDER_AUDIT (Trigger)', i: 'trigger', d: '第68行' },
+    { l: 'V_ORDER_SUM (View)', i: 'package', d: '第74行', hint: '视图复用包图标（保持）' },
+    { l: 'Anonymous Block (Anonymous Block)', i: 'folder-anon', old: 'anon', kids: [
+        { l: 'Declaration (1 项)', i: 'folder-decl', kids: [
+            { l: 'v_i : PLS_INTEGER', i: 'variable', d: '第78行' },
+        ]},
+        { l: 'Body (3)', i: 'folder-body', kids: [
+            { l: 'BEGIN', i: 'begin', d: '第79行' },
+            { l: 'WHILE', i: 'loop', old: 'variable', d: '第81行' },
+            { l: 'END', i: 'end', d: '第85行' },
+        ]},
+    ]},
+];
+
+let theme = 'dark';
+function icoSvg(name) { return ICONS[name](COLORS[theme]); }
+
+function renderTree(container, useNew) {
+    const html = [];
+    (function walk(nodes) {
+        for (const n of nodes) {
+            const name = useNew ? n.i : (n.old || n.i);
+            const changed = useNew && !!n.old;
+            const twist = n.kids ? (n.collapsed ? '▸' : '▾') : '';
+            html.push(`<div class="row${changed ? ' changed' : ''}">
+                <span class="twist">${twist}</span>
+                <span class="s16">${icoSvg(name)}</span>
+                <span class="lbl">${n.l}${n.hint ? `<span class="desc" style="margin-left:8px;padding-left:0;font-weight:400">${n.hint}</span>` : ''}</span>
+                ${n.d ? `<span class="desc">${n.d}</span>` : ''}
+            </div>`);
+            if (n.kids && !n.collapsed) {
+                html.push('<div class="kids">');
+                walk(n.kids);
+                html.push('</div>');
+            }
+        }
+    })(TREE);
+    container.innerHTML = html.join('');
+}
+
+/* ================= 家族目录 ================= */
+const CARD_DEFS = [
+    { title: '🛢 DB 对象 —— 圆筒家族', badge: ['保持现状', 'b-keep'],
+      note: 'Package / Function / Procedure / Trigger / Type / View 全部维持现状不动',
+      items: [
+        ['package', 'package', '包规范 / 包体 / 视图（视图复用）'],
+        ['proc', 'proc', '过程 / 过程声明'],
+        ['func', 'func', '函数 / 函数声明'],
+        ['trigger', 'trigger', '触发器'],
+        ['type', 'type', '自定义类型 / 类型体'],
+      ]},
+    { title: '📁 主结构 —— 文件夹家族', badge: ['3 保持 + 2 新增', 'b-chg'],
+      note: 'Declaration / Sub Program / Body 保持；匿名块与 EXCEPTION 换为文件夹形态，归入主结构家族',
+      items: [
+        ['folder-decl', 'folder-decl', 'Declaration 文件夹（保持）'],
+        ['folder-sub', 'folder-sub', 'Sub Program 文件夹（保持）'],
+        ['folder-body', 'folder-body', 'Body 文件夹（保持）'],
+        ['folder-anon', 'folder-anon', '匿名块 —— 文件夹 + &lt;/&gt;（新增·推荐）'],
+        ['folder-anon-alt', 'folder-anon-alt', '匿名块备选 —— 文件夹 + A 字标（同 D/S/B 构型）'],
+        ['folder-exc', 'folder-exc', 'EXCEPTION 结构块 —— 文件夹 + 红 !（新增）'],
+      ]},
+    { title: '◇ 分支 —— 流程图判定符', badge: ['新增', 'b-new'],
+      note: 'IF / ELSIF / ELSE / CASE / WHEN 共用一枚蓝色菱形（现兜底为「圆筒+v」）',
+      items: [
+        ['branch', 'branch', 'IF / ELSIF / ELSE / CASE / WHEN'],
+      ]},
+    { title: '↻ 循环 —— 环形箭头', badge: ['新增', 'b-new'],
+      note: 'LOOP / FOR / WHILE 共用一枚琥珀环形箭头（现兜底为「圆筒+v」）',
+      items: [
+        ['loop', 'loop', 'LOOP / FOR / WHILE'],
+      ]},
+    { title: '▶ 结构块 —— 几何符号', badge: ['2 保持 + 1 淘汰', 'b-chg'],
+      note: 'BEGIN/END 保留绿▶/灰⏹ 语义色；EXCEPTION 红三角退役，由 folder-exc 接替',
+      items: [
+        ['begin', 'begin', 'BEGIN / 包初始化块（保持）'],
+        ['end', 'end', 'END（保持）'],
+        ['exception-block', 'exception-block', 'EXCEPTION 旧红三角（淘汰 → folder-exc）'],
+      ]},
+    { title: 'v 声明项 —— 圆筒家族', badge: ['保持现状', 'b-keep'],
+      note: '变量/常量/游标/类型/命名异常及其分组文件夹（Variables/Cursors…）维持现状',
+      items: [
+        ['variable', 'variable', '变量 / Variables 分组'],
+        ['constant', 'constant', '常量 / Constants 分组'],
+        ['cursor', 'cursor', '游标 / Cursors 分组'],
+        ['type', 'type', '类型声明 / Types 分组'],
+        ['exception', 'exception', '命名异常 / Exceptions 分组'],
+      ]},
+];
+
+function renderCards() {
+    const cards = CARD_DEFS.map(def => `
+        <div class="card">
+            <h3>${def.title} <span class="badge ${def.badge[1]}">${def.badge[0]}</span></h3>
+            <p class="note">${def.note}</p>
+            <div class="icons">
+                ${def.items.map(([name, , use]) => `
+                    <div class="cell">
+                        <span class="s48">${icoSvg(name)}</span>
+                        <div class="meta">
+                            <div class="nm">${name}</div>
+                            <div class="use">${use}</div>
+                            <div class="mini">16px：<span class="s16">${icoSvg(name)}</span></div>
+                        </div>
+                    </div>`).join('')}
+            </div>
+        </div>`).join('');
+    document.getElementById('cards').innerHTML = cards;
+}
+
+function renderDuo() {
+    const news = [
+        ['branch', 'branch 分支（蓝菱形）'],
+        ['loop', 'loop 循环（琥珀环箭头）'],
+        ['folder-anon', 'folder-anon 匿名块（文件夹+&lt;/&gt;）'],
+        ['folder-exc', 'folder-exc Exception（文件夹+红!）'],
+    ];
+    const cell = (t, colors, n, label) =>
+        `<div class="duo-cell ${t}"><span class="s48" style="width:44px;height:44px">${ICONS[n](colors)}</span><div class="t">${label}</div></div>`;
+    document.getElementById('duo').innerHTML = `
+        <div class="duo-strip">${news.map(([n, label]) => cell('dk', COLORS.dark, n, '暗 · ' + label)).join('')}</div>
+        <div class="duo-strip">${news.map(([n, label]) => cell('lt', COLORS.light, n, '明 · ' + label)).join('')}</div>`;
+}
+
+/* ================= 映射表 ================= */
+const MAP = [
+    ['Package Header / Package Body', 'package', 'package', '保持', 'package'],
+    ['Function / Function Declaration', 'func', 'func', '保持', 'func'],
+    ['Procedure / Procedure Declaration', 'proc', 'proc', '保持', 'proc'],
+    ['Trigger', 'trigger', 'trigger', '保持', 'trigger'],
+    ['Type / Type Body', 'type', 'type', '保持', 'type'],
+    ['View', 'package（复用）', 'package（复用）', '保持', 'package'],
+    ['Anonymous Block', 'anon（圆筒+&lt;/&gt;）', 'folder-anon（文件夹+&lt;/&gt;）', '变更', 'folder-anon'],
+    ['Declaration / Sub Program / Body 文件夹', 'folder-decl / folder-sub / folder-body', '同左', '保持', 'folder-body'],
+    ['EXCEPTION 结构块', 'exception-block（红三角）', 'folder-exc（文件夹+红!）', '变更', 'folder-exc'],
+    ['BEGIN / END 结构块', 'begin / end', '同左', '保持', 'begin'],
+    ['IF / ELSIF / ELSE / CASE / WHEN', 'variable（圆筒+v，兜底）', 'branch（蓝菱形）', '新增', 'branch'],
+    ['LOOP / FOR / WHILE', 'variable（圆筒+v，兜底）', 'loop（琥珀环箭头）', '新增', 'loop'],
+    ['声明项与类别分组', 'variable / constant / cursor / type / exception', '同左', '保持', 'variable'],
+];
+function renderMap() {
+    const cls = { '保持': 'b-keep', '变更': 'b-chg', '新增': 'b-new' };
+    document.getElementById('mapTable').innerHTML = `
+        <tr><th>节点类型</th><th>现图标</th><th>方案图标</th><th>16px 预览</th><th>变化</th></tr>
+        ${MAP.map(([n, o, w, c, preview]) => `
+            <tr>
+                <td>${n}</td>
+                <td><span class="pair">${c === '新增' ? `<span class="s16">${icoSvg('variable')}</span>` : ''}${o}</span></td>
+                <td><span class="pair"><span class="s16">${icoSvg(preview)}</span>${w}</span></td>
+                <td><span class="pair"><span class="s16">${icoSvg(preview)}</span>${preview}</span></td>
+                <td><span class="badge ${cls[c]}">${c}</span></td>
+            </tr>`).join('')}`;
+}
+
+/* ================= 渲染与主题切换 ================= */
+function renderAll() {
+    renderTree(document.getElementById('treeOld'), false);
+    renderTree(document.getElementById('treeNew'), true);
+    renderCards();
+    renderDuo();
+    renderMap();
+}
+document.getElementById('themeBtn').addEventListener('click', () => {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    document.body.classList.toggle('light', theme === 'light');
+    document.getElementById('themeBtn').textContent = theme === 'dark' ? '☀️ 切换浅色主题' : '🌙 切换深色主题';
+    renderAll();
+});
+renderAll();
+</script>
+</body>
+</html>
