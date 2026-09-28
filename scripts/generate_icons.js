@@ -1,11 +1,15 @@
 /**
- * 生成 PL/SQL Outline 大纲图标集（数据库圆筒主题 + P/F 字母区分）
+ * 生成 PL/SQL Outline 大纲图标集（四类视觉家族，Issue #42）
  *
  * 输出：res/icons/<name>.svg（dark 变体，浅色描边/字）
  *       res/icons/<name>-light.svg（light 变体，深色描边/字）
  *
- * 设计：以"数据库圆筒"为基础视觉锚点；Procedure=蓝色"P"、Function=琥珀色"F"，
- * 字母居中，明暗主题下文字颜色自适应。
+ * 家族划分：
+ * - DB 对象：数据库圆筒锚点（Procedure=蓝"P"、Function=琥珀"F"等）
+ * - 主结构：文件夹外形 + 圆筒/字母标（folder-decl/sub/body/anon/exc）
+ * - 分支/循环：流程图几何符号（branch=蓝菱形判定符、loop=琥珀环形箭头）
+ * - 结构块：几何符号（begin=绿▶、end=灰⏹）
+ * 颜色全部复用现有调色板，明暗主题下自适应。
  *
  * 运行：node scripts/generate_icons.js
  */
@@ -88,14 +92,6 @@ function triggerIcon(c) {
         fill="${c.func}" stroke="${c.func}" stroke-width="0.3"/>`);
 }
 
-function anonIcon(c) {
-    // 圆筒 + </> 代码括号
-    return svg(`
-  ${cylinder(c)}
-  <path d="M 6.0 8.5 L 4.6 10.0 L 6.0 11.5" fill="none" stroke="${c.accent}" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M 10.0 8.5 L 11.4 10.0 L 10.0 11.5" fill="none" stroke="${c.accent}" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>`);
-}
-
 function cursorIcon(c) {
     // 圆筒 + 向右箭头（游标）
     return svg(`
@@ -136,32 +132,50 @@ function exceptionIcon(c) {
         text-anchor="middle" fill="#e0556a">!</text>`);
 }
 
-// 文件夹（数据库风格的圆筒文件夹）
-function folderIcon(c, tag) {
+// 文件夹（数据库风格的圆筒文件夹）；tagColor 缺省用过程蓝，红 ! 等语义色由调用方指定
+function folderIcon(c, tag, tagColor) {
     // 文件夹外形 + 数据库圆筒小标
     return svg(`
   <path d="M 1.5 4.0 L 6.0 4.0 L 7.2 5.2 L 14.5 5.2 L 14.5 13.0 L 1.5 13.0 Z"
         fill="${c.cylinder}" fill-opacity="0.18" stroke="${c.cylinder}" stroke-width="1.0" stroke-linejoin="round"/>
   <ellipse cx="8" cy="9.2" rx="2.6" ry="0.9" fill="none" stroke="${c.cylinder}" stroke-width="0.7"/>
   <path d="M 5.4 9.2 L 5.4 11.0 A 2.6 0.9 0 0 0 10.6 11.0 L 10.6 9.2" fill="none" stroke="${c.cylinder}" stroke-width="0.7"/>
-  ${tag ? `<text x="12.6" y="11.6" font-family="Segoe UI, Arial, sans-serif" font-size="4.6" font-weight="700" text-anchor="middle" fill="${c.proc}">${tag}</text>` : ''}`);
+  ${tag ? `<text x="12.6" y="11.6" font-family="Segoe UI, Arial, sans-serif" font-size="4.6" font-weight="700" text-anchor="middle" fill="${tagColor || c.proc}">${tag}</text>` : ''}`);
 }
 
 function folderDecl(c) { return folderIcon(c, 'D'); }
 function folderSub(c) { return folderIcon(c, 'S'); }
 function folderBody(c) { return folderIcon(c, 'B'); }
+function folderExc(c) { return folderIcon(c, '!', '#e0556a'); }
+
+// 匿名块：文件夹 + </> 代码括号（主结构家族，保留原 anon 的代码语义）
+function folderAnon(c) {
+    return svg(`
+  <path d="M 1.5 4.0 L 6.0 4.0 L 7.2 5.2 L 14.5 5.2 L 14.5 13.0 L 1.5 13.0 Z"
+        fill="${c.cylinder}" fill-opacity="0.18" stroke="${c.cylinder}" stroke-width="1.0" stroke-linejoin="round"/>
+  <text x="8" y="10.9" font-family="Segoe UI, Arial, sans-serif" font-size="5.4" font-weight="700"
+        text-anchor="middle" fill="${c.accent}">&lt;/&gt;</text>`);
+}
+
+// 分支：流程图判定符（蓝菱形 + 半透明条件横线）
+function branchIcon(c) {
+    return svg(`
+  <path d="M 8 2.3 L 13.7 8 L 8 13.7 L 2.3 8 Z" fill="none" stroke="${c.proc}" stroke-width="1.3" stroke-linejoin="round"/>
+  <path d="M 3.4 8 L 12.6 8" stroke="${c.proc}" stroke-width="0.7" opacity="0.55"/>`);
+}
+
+// 循环：环形箭头（琥珀，断口处三角箭头指向右侧，↻）
+function loopIcon(c) {
+    return svg(`
+  <path d="M 10.52 4.60 A 4.4 4.4 0 1 1 8.0 3.8" fill="none" stroke="${c.func}" stroke-width="1.4" stroke-linecap="round"/>
+  <path d="M 7.6 2.5 L 11.4 3.8 L 7.6 5.1 Z" fill="${c.func}"/>`);
+}
 
 // 结构块
 function beginIcon(c) {
     return svg(`
   <circle cx="8" cy="8" r="5.2" fill="none" stroke="#3fb950" stroke-width="1.3"/>
   <path d="M 6.4 5.4 L 11.0 8.0 L 6.4 10.6 Z" fill="#3fb950"/>`);
-}
-function exceptionBlockIcon(c) {
-    return svg(`
-  <path d="M 8 2.5 L 14 13.5 L 2 13.5 Z" fill="none" stroke="#e0556a" stroke-width="1.2" stroke-linejoin="round"/>
-  <text x="8" y="12.4" font-family="Segoe UI, Arial, sans-serif" font-size="6.4" font-weight="700"
-        text-anchor="middle" fill="#e0556a">!</text>`);
 }
 function endIcon(c) {
     return svg(`
@@ -175,7 +189,6 @@ const ICONS = {
     func: funcIcon,
     package: packageIcon,
     trigger: triggerIcon,
-    anon: anonIcon,
     cursor: cursorIcon,
     variable: variableIcon,
     constant: constantIcon,
@@ -184,8 +197,11 @@ const ICONS = {
     'folder-decl': folderDecl,
     'folder-sub': folderSub,
     'folder-body': folderBody,
+    'folder-anon': folderAnon,
+    'folder-exc': folderExc,
+    branch: branchIcon,
+    loop: loopIcon,
     begin: beginIcon,
-    'exception-block': exceptionBlockIcon,
     end: endIcon
 };
 
