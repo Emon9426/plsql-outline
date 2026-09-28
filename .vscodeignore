@@ -30,3 +30,4 @@ tmp*
 temp*
 memory_test_report.json
 *.log
+.playwright-mcp/**
