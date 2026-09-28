@@ -2,8 +2,8 @@
  * GMLTest: 匿名块 + 触发器渲染测试
  *
  * 验证：
- *  - 匿名块（DECLARE...BEGIN...END）：顶层为 ANONYMOUS_BLOCK，file-code 图标
- *  - 触发器（CREATE OR REPLACE TRIGGER）：顶层为 TRIGGER，zap 图标
+ *  - 匿名块（DECLARE...BEGIN...END）：顶层为 ANONYMOUS_BLOCK，folder-anon 图标（#42 主结构文件夹家族）
+ *  - 触发器（CREATE OR REPLACE TRIGGER）：顶层为 TRIGGER，trigger 图标（圆筒+闪电）
  *  - 两者的 Declaration 包裹层、Body、Sub Program 嵌套
  *
  * 测试对象：GMLTest/anon_block_trigger.sql（1 个匿名块 + 1 个触发器）

@@ -9,8 +9,8 @@
  *  - 主结构：匿名块 = folder-anon（文件夹+</>）、EXCEPTION 结构块 = folder-exc（文件夹+红!）
  *  - 分支：IF/ELSIF/ELSE/CASE/WHEN = branch（蓝菱形）
  *  - 循环：LOOP/WHILE/FOR = loop（琥珀环箭头）
- *  - 结构块 BEGIN/END 保留几何符号语义色（begin/end）
- *  - 全树出现的每个图标在 res/icons/ 均有对应 SVG（防生成器与映射脱节）
+ *  - END 结构块保留几何符号 end；显示层不构造 BEGIN 块叶子（BEGIN 语义由 Body 文件夹承载）
+ *  - 全树出现的每个图标在 res/icons/ 均有对应 SVG；图标全集与生成器清单一一对应（防脱节）
  */
 const Module = require('module');
 const mockVscode = {
@@ -119,20 +119,24 @@ async function run() {
     const blocks = (lbl) => procWalk.filter(e => e.isStructureBlock && e.label === lbl);
     const one = (entries) => entries.length > 0 ? entries[0].icon : '(missing)';
 
-    // 分支家族：IF / CASE / WHEN → branch
+    // 分支家族：IF / CASE / WHEN → branch（length>0 前置防 every() 对空数组恒真）
     rec.assert('if_branch', 'IF 图标 = branch（蓝菱形）', byType(NodeType.IF_STATEMENT).length > 0 && byType(NodeType.IF_STATEMENT).every(e => e.icon === 'branch'), one(byType(NodeType.IF_STATEMENT)));
-    rec.assert('case_branch', 'CASE 图标 = branch', byType(NodeType.CASE_STATEMENT).every(e => e.icon === 'branch'), one(byType(NodeType.CASE_STATEMENT)));
+    rec.assert('case_branch', 'CASE 图标 = branch', byType(NodeType.CASE_STATEMENT).length > 0 && byType(NodeType.CASE_STATEMENT).every(e => e.icon === 'branch'), one(byType(NodeType.CASE_STATEMENT)));
     rec.assert('when_branch', 'WHEN 图标 = branch', byType(NodeType.WHEN_BRANCH).length > 0 && byType(NodeType.WHEN_BRANCH).every(e => e.icon === 'branch'), one(byType(NodeType.WHEN_BRANCH)));
 
     // 循环家族：LOOP / WHILE / FOR → loop
-    rec.assert('loop_icon', 'LOOP 图标 = loop（琥珀环箭头）', byType(NodeType.LOOP_STATEMENT).every(e => e.icon === 'loop'), one(byType(NodeType.LOOP_STATEMENT)));
-    rec.assert('while_icon', 'WHILE 图标 = loop', byType(NodeType.WHILE_LOOP).every(e => e.icon === 'loop'), one(byType(NodeType.WHILE_LOOP)));
-    rec.assert('for_icon', 'FOR 图标 = loop', byType(NodeType.FOR_LOOP).every(e => e.icon === 'loop'), one(byType(NodeType.FOR_LOOP)));
+    rec.assert('loop_icon', 'LOOP 图标 = loop（琥珀环箭头）', byType(NodeType.LOOP_STATEMENT).length > 0 && byType(NodeType.LOOP_STATEMENT).every(e => e.icon === 'loop'), one(byType(NodeType.LOOP_STATEMENT)));
+    rec.assert('while_icon', 'WHILE 图标 = loop', byType(NodeType.WHILE_LOOP).length > 0 && byType(NodeType.WHILE_LOOP).every(e => e.icon === 'loop'), one(byType(NodeType.WHILE_LOOP)));
+    rec.assert('for_icon', 'FOR 图标 = loop', byType(NodeType.FOR_LOOP).length > 0 && byType(NodeType.FOR_LOOP).every(e => e.icon === 'loop'), one(byType(NodeType.FOR_LOOP)));
 
-    // 主结构家族：EXCEPTION 结构块 = folder-exc；BEGIN/END 保留几何符号
+    // 主结构家族：EXCEPTION 结构块 = folder-exc；END 保留几何符号。
+    // 显示层不构造 BEGIN 结构块叶子（BEGIN 语义由 Body 文件夹承载），故无 begin 断言。
     rec.assert('exc_folder', 'EXCEPTION 结构块图标 = folder-exc（文件夹+红!）', blocks('EXCEPTION').length > 0 && blocks('EXCEPTION').every(e => e.icon === 'folder-exc'), one(blocks('EXCEPTION')));
-    rec.assert('begin_keep', 'BEGIN 结构块图标保持 begin（绿▶）', blocks('BEGIN').every(e => e.icon === 'begin'), one(blocks('BEGIN')));
-    rec.assert('end_keep', 'END 结构块图标保持 end（灰⏹）', blocks('END').every(e => e.icon === 'end'), one(blocks('END')));
+    rec.assert('end_keep', 'END 结构块图标保持 end（灰⏹）', blocks('END').length > 0 && blocks('END').every(e => e.icon === 'end'), one(blocks('END')));
+
+    // 主结构文件夹保持：Declaration / Body 文件夹图标不变（Body 承载 BEGIN 语义）
+    const bodyFolder = procWalk.find(e => e.label.startsWith('Body ('));
+    rec.assert('body_folder_keep', 'Body 文件夹图标保持 folder-body', bodyFolder && bodyFolder.icon === 'folder-body', bodyFolder ? bodyFolder.icon : '(missing)');
 
     // DB 对象家族保持现状：过程根节点 = proc（圆筒+P）
     const procRoot = procWalk.find(e => e.nodeType === NodeType.PROCEDURE);
@@ -158,6 +162,28 @@ async function run() {
     });
     rec.assert('icons_on_disk', '全树引用的图标在 res/icons/ 均存在', missing.length === 0,
         missing.map(e => `${e.label}:${e.icon}`).join(','));
+
+    // ---- 图标全集静态对照：res/icons 与 generate_icons.js 的 ICONS 清单一一对应 ----
+    // （fixture 只触达部分图标；此断言兜住"生成器误删未触达图标仍全绿"的缺口）
+    const EXPECTED_ICONS = [
+        'proc', 'func', 'package', 'trigger', 'type', 'cursor',
+        'variable', 'constant', 'exception',
+        'folder-decl', 'folder-sub', 'folder-body', 'folder-anon', 'folder-exc',
+        'branch', 'loop', 'begin', 'end'
+    ].sort();
+    const darkIcons = fs.readdirSync(ICONS_DIR)
+        .filter(f => f.endsWith('.svg') && !f.endsWith('-light.svg'))
+        .map(f => f.replace(/\.svg$/, ''))
+        .sort();
+    const diff = [];
+    for (let i = 0; i < Math.max(EXPECTED_ICONS.length, darkIcons.length); i++) {
+        if (EXPECTED_ICONS[i] !== darkIcons[i]) {
+            diff.push(`${EXPECTED_ICONS[i] || '(无)'} vs ${darkIcons[i] || '(无)'}`);
+        }
+    }
+    rec.assert('icons_full_set', 'res/icons 暗色全集 = 生成器 18 图标清单（含明暗配对）',
+        diff.length === 0 && EXPECTED_ICONS.every(n => fs.existsSync(path.join(ICONS_DIR, `${n}-light.svg`))),
+        diff.join(';'));
 
     return { suiteName: '控制结构图标分类', cases: rec.cases };
 }
