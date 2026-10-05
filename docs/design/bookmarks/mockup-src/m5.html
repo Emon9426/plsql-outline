@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { width:1200px; height:760px; background:#1e1e1e; font-family:'Segoe UI','Microsoft YaHei',sans-serif; overflow:hidden; display:flex; }
+  .titlebar { position:absolute; top:0; left:0; right:0; height:30px; background:#3c3c3c; color:#cccccc; font-size:12px; display:flex; align-items:center; padding:0 12px; z-index:5; }
+  .actbar { width:48px; background:#333333; margin-top:30px; display:flex; flex-direction:column; align-items:center; padding-top:8px; gap:4px; }
+  .act { width:48px; height:44px; display:flex; align-items:center; justify-content:center; color:#858585; font-size:20px; position:relative; }
+  .act.on { color:#ffffff; }
+  .act.on::before { content:''; position:absolute; left:0; top:8px; bottom:8px; width:2px; background:#ffffff; }
+  .sidebar { width:300px; background:#252526; margin-top:30px; border-right:1px solid #2b2b2b; display:flex; flex-direction:column; font-size:12.5px; }
+  .sec-title { color:#bbbbbb; padding:9px 14px 5px; font-size:11.5px; letter-spacing:.5px; display:flex; justify-content:space-between; align-items:center; }
+  .sec-title .acts { display:flex; gap:8px; color:#858585; font-size:13px; }
+  .view { border-top:1px solid #2b2b2b; }
+  .collapsed-hint { color:#858585; padding:3px 14px; font-size:11.5px; }
+  .tree { padding-left:6px; }
+  .node { color:#cccccc; padding:2.5px 6px; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .node .tw { color:#858585; width:13px; font-size:10px; }
+  .node .ic { width:15px; display:flex; justify-content:center; }
+  .node .desc { color:#9d9d9d; font-size:11px; margin-left:4px; }
+  .node.child { padding-left:20px; }
+  .node.sel { background:#04395e; }
+  .count-badge { background:#4d4d4d; color:#cccccc; border-radius:9px; font-size:10px; padding:0 7px; margin-left:auto; margin-right:8px; }
+  .star { width:14px; height:14px; }
+  .fileicon { width:15px; height:15px; }
+  .editor { flex:1; margin-top:30px; display:flex; flex-direction:column; }
+  .tabbar { background:#252526; padding-top:4px; }
+  .tab { display:inline-block; background:#2d2d2d; color:#fff; font-size:12px; padding:5px 14px; }
+  .code { font-family:Consolas,monospace; font-size:13.5px; line-height:19px; padding-top:10px; }
+  .ln { display:inline-block; width:44px; text-align:right; color:#858585; padding-right:14px; }
+  .gm { display:inline-block; width:26px; text-align:center; }
+  .kw { color:#569cd6; } .num { color:#b5cea8; } .fn { color:#dcdcaa; } .tp { color:#4ec9b0; }
+  .bookmark-line { background:rgba(240,192,64,0.10); }
+  .scroll { position:absolute; right:0; top:30px; bottom:0; width:14px; background:#1e1e1e; border-left:1px solid #333; }
+  .mark { position:absolute; right:2px; width:9px; height:5px; background:#f0c040cc; }
+  .hint { position:absolute; bottom:10px; right:26px; background:#252526; border:1px solid #454545; border-radius:4px; color:#cccccc; font-size:11.5px; padding:8px 12px; line-height:1.7; }
+</style>
+</head>
+<body>
+  <div class="titlebar">书签管理视图（活动栏 → PL/SQL 大纲容器）(v1.17.0 设计原型)</div>
+  <div class="actbar">
+    <div class="act">🗄</div>
+    <div class="act on">▰<div style="position:absolute;top:2px;right:4px;background:#f0c040;color:#1e1e1e;border-radius:8px;font-size:9px;padding:0 4px;">5</div></div>
+    <div class="act">🖶</div>
+    <div class="act">⑂</div>
+  </div>
+  <div class="sidebar">
+    <div class="view">
+      <div class="sec-title">▾ PLSQL OUTLINE<span class="acts">⟳ ⋯</span></div>
+      <div class="collapsed-hint" style="padding-bottom:6px;">（大纲树保持不变）</div>
+    </div>
+    <div class="view" style="flex:1;">
+      <div class="sec-title">▾ 书签（全工作区）<span class="acts" title="浏览全部（当前文件）/ 清空当前文件书签">☰ ⌫</span></div>
+      <div class="tree">
+        <div class="node"><span class="tw">▾</span><span class="ic"><svg class="fileicon" viewBox="0 0 16 16"><rect x="3" y="1.5" width="10" height="9" rx="1" fill="none" stroke="#c5c8ce" stroke-width="1.1"/><path d="M5.5 11.5 L5.5 14.5 L8 12.5 L10.5 14.5 L10.5 11.5" fill="#c5c8ce"/></svg></span>order_mgr.pkb<span class="count-badge">2</span></div>
+        <div class="node child sel"><span class="tw"></span><span class="ic"><svg class="star" viewBox="0 0 16 16"><path d="M4 1.5 h8 v13 l-4 -3.2 L4 14.5 z" fill="#f0c040" stroke="#f0c040" stroke-width="0.6"/></svg></span>主循环入口<span class="desc">L8 · calc_total</span></div>
+        <div class="node child"><span class="tw"></span><span class="ic"><svg class="star" viewBox="0 0 16 16"><path d="M4 1.5 h8 v13 l-4 -3.2 L4 14.5 z" fill="#f0c040" stroke="#f0c040" stroke-width="0.6"/></svg></span>游标定义<span class="desc">L5 · calc_total</span></div>
+        <div class="node"><span class="tw">▸</span><span class="ic"><svg class="fileicon" viewBox="0 0 16 16"><rect x="3" y="1.5" width="10" height="9" rx="1" fill="none" stroke="#c5c8ce" stroke-width="1.1"/><path d="M5.5 11.5 L5.5 14.5 L8 12.5 L10.5 14.5 L10.5 11.5" fill="#c5c8ce"/></svg></span>billing_pkg.pkb<span class="count-badge">3</span></div>
+        <div class="node" style="padding-left:20px;color:#8b8b8b;font-size:11px;">（展开后同上，按文件分组）</div>
+      </div>
+      <div class="collapsed-hint" style="margin-top:8px;border-top:1px solid #2b2b2b;padding-top:6px;">
+        右键书签项：编辑书签信息… / 删除书签 / 跳转<br>点击 = 打开文件并跳到书签行
+      </div>
+    </div>
+  </div>
+  <div class="editor">
+    <div class="tabbar"><span class="tab">order_mgr.pkb</span></div>
+    <div class="code">
+      <div><span class="ln">1</span><span class="gm"></span><span class="kw">CREATE OR REPLACE PACKAGE BODY</span> <span class="tp">order_mgr</span> <span class="kw">AS</span></div>
+      <div><span class="ln">2</span><span class="gm"></span></div>
+      <div><span class="ln">3</span><span class="gm"></span>  <span class="kw">PROCEDURE</span> <span class="fn">calc_total</span>(p_cust_id <span class="tp">NUMBER</span>) <span class="kw">IS</span></div>
+      <div><span class="ln">4</span><span class="gm"></span>    v_total   <span class="tp">NUMBER</span> := <span class="num">0</span>;</div>
+      <div><span class="ln">5</span><span class="gm"><svg class="star" viewBox="0 0 16 16"><path d="M4 1.5 h8 v13 l-4 -3.2 L4 14.5 z" fill="#f0c040"/></svg></span>    <span class="kw">CURSOR</span> c_orders <span class="kw">IS</span></div>
+      <div><span class="ln">6</span><span class="gm"></span>      <span class="kw">SELECT</span> amount <span class="kw">FROM</span> orders <span class="kw">WHERE</span> cust_id = p_cust_id;</div>
+      <div><span class="ln">7</span><span class="gm"></span>  <span class="kw">BEGIN</span></div>
+      <div class="bookmark-line"><span class="ln">8</span><span class="gm"><svg class="star" viewBox="0 0 16 16"><path d="M4 1.5 h8 v13 l-4 -3.2 L4 14.5 z" fill="#f0c040"/></svg></span>    <span class="kw">FOR</span> r <span class="kw">IN</span> c_orders <span class="kw">LOOP</span></div>
+      <div><span class="ln">9</span><span class="gm"></span>      v_total := v_total + r.amount;</div>
+      <div><span class="ln">10</span><span class="gm"></span>    <span class="kw">END LOOP</span>;</div>
+      <div><span class="ln">11</span><span class="gm"></span>    <span class="fn">dbms_output</span>.put_line(v_total);</div>
+      <div><span class="ln">12</span><span class="gm"></span>  <span class="kw">END</span> calc_total;</div>
+      <div><span class="ln">13</span><span class="gm"></span><span class="kw">END</span> order_mgr;</div>
+    </div>
+    <div class="scroll"><div class="mark" style="top:118px;"></div><div class="mark" style="top:212px;"></div></div>
+    <div class="hint">滚动条上的琥珀色短横 = 书签行标记（overviewRuler），可点击跳转</div>
+  </div>
+</body>
+</html>

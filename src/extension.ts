@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { PLSQLParser, ParseCancelledError } from './parser';
-import { TreeViewManager, MemoryDataProvider } from './treeView';
+import { MemoryDataProvider } from './treeView';
 import { DebugManager } from './debug';
 import { ParseResult, ParseNode, VariableInfo, NodeType, DeclarationCategory, LogLevel } from './types';
 import { SettingsPanel } from './settingsPanel';
@@ -10,7 +10,9 @@ import { getOutputChannel, disposeOutputChannel } from './logger';
 import { computeFoldRanges } from './folding';
 import { maskLiteralsAndComments, buildKeywordGroups, matchKeywordGroup, KeywordGroup } from './highlight';
 import { DEFAULT_FILE_EXTENSIONS, isCallableNode, buildSqlMarkdownBlock } from './shared';
-import { OutlineSearchViewProvider } from './searchBox';
+import { OutlineWebviewManager } from './outlineWebview';
+import { BookmarkManager } from './bookmarkManager';
+import { BookmarkTreeView } from './bookmarkView';
 
 /**
  * 提供者共享文档选择器（悬停/定义/折叠，Issue #26）：
@@ -45,9 +47,13 @@ function isControlStructureNodeType(type: NodeType): boolean {
  * PL/SQL大纲扩展主类 - 内存优化版本
  */
 export class PLSQLOutlineExtension {
-    private treeViewManager: TreeViewManager;
+    private treeViewManager: OutlineWebviewManager;
     private debugManager: DebugManager;
     private currentParseResult: ParseResult | null = null;
+
+    // 书签（v1.17.0）：管理器持有状态/装饰/命令，管理视图订阅其数据源
+    private bookmarkManager: BookmarkManager;
+    private bookmarkTreeView: BookmarkTreeView;
 
     // 跨文件符号索引
     private symbolIndex: SymbolIndex;
@@ -128,7 +134,7 @@ export class PLSQLOutlineExtension {
     }
 
     constructor(context: vscode.ExtensionContext) {
-        this.treeViewManager = new TreeViewManager(context);
+        this.treeViewManager = new OutlineWebviewManager(context);
         this.debugManager = new DebugManager();
         this.refreshDebugCache();
 
@@ -142,6 +148,16 @@ export class PLSQLOutlineExtension {
         this.registerCommands(context);
         this.registerEventListeners(context);
         this.registerProviders(context);
+
+        // 书签功能（v1.17.0）：所属/摘要依赖当前大纲解析结果，文档谓词与
+        // parseCurrentFile 同口径（isPLSQLFile）
+        this.bookmarkManager = new BookmarkManager(
+            context,
+            () => this.currentParseResult,
+            (doc) => this.isPLSQLFile(doc)
+        );
+        this.bookmarkTreeView = new BookmarkTreeView(this.bookmarkManager, context);
+
         this.startMemoryMonitoring();
         this.initializeSymbolIndex(context);
     }
@@ -298,18 +314,9 @@ export class PLSQLOutlineExtension {
             }
         );
 
-        // 注册大纲搜索框视图（Issue #36）：置于大纲树上方的常驻 Webview 输入框，
-        // 输入实时过滤大纲、回车跳转第一个命中项
-        const searchViewProvider = new OutlineSearchViewProvider(
-            (text) => { void this.treeViewManager.setFilter(text); },
-            () => { void this.treeViewManager.revealFirstFilterMatch(); }
-        );
-        const searchViewRegistration = vscode.window.registerWebviewViewProvider(
-            OutlineSearchViewProvider.VIEW_ID,
-            searchViewProvider
-        );
-
-        context.subscriptions.push(hoverProvider, definitionProvider, workspaceSymbolProvider, foldingProvider, highlightProvider, searchViewRegistration);
+        // 大纲视图为单 Webview（v1.17.0：搜索输入框与树同窗格渲染，
+        // 视图自身在 OutlineWebviewManager 构造时注册，此处无需额外接线）
+        context.subscriptions.push(hoverProvider, definitionProvider, workspaceSymbolProvider, foldingProvider, highlightProvider);
     }
 
     /**
@@ -394,14 +401,10 @@ export class PLSQLOutlineExtension {
                 this.upsertCurrentFileIntoIndex(parseResult, document);
 
                 progress.report({ increment: 80, message: '更新视图...' });
-                
-                // 更新树视图
+
+                // 更新大纲视图（v1.17.0 单 Webview：updateDataProvider 内部触发模型重发）
                 this.treeViewManager.updateDataProvider(new MemoryDataProvider(this.currentParseResult));
-                
-                // 更新树视图标题
-                const fileName = this.getFileName(sourceFile);
-                this.treeViewManager.setTitle(`PL/SQL大纲 - ${fileName}`);
-                
+
                 progress.report({ increment: 100, message: '完成' });
             });
 
@@ -1790,6 +1793,10 @@ export class PLSQLOutlineExtension {
         
         // 销毁树视图
         this.treeViewManager.dispose();
+
+        // 销毁书签功能（视图随 context.subscriptions 自动销毁，这里只收管理器）
+        this.bookmarkTreeView.dispose();
+        this.bookmarkManager.dispose();
         
         // 清理所有引用
         this.currentParseResult = null;

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { width:1000px; height:600px; background:#1e1e1e; font-family:'Segoe UI','Microsoft YaHei',sans-serif; overflow:hidden; }
+  .titlebar { height:30px; background:#3c3c3c; color:#cccccc; font-size:12px; display:flex; align-items:center; padding:0 12px; }
+  .tabbar { background:#252526; padding-top:4px; }
+  .tab { display:inline-block; background:#2d2d2d; color:#fff; font-size:12px; padding:5px 14px; }
+  .code { font-family:Consolas,monospace; font-size:13px; line-height:18px; padding-top:8px; }
+  .ln { display:inline-block; width:44px; text-align:right; color:#858585; padding-right:14px; }
+  .gm { display:inline-block; width:26px; text-align:center; }
+  .kw { color:#569cd6; } .num { color:#b5cea8; } .fn { color:#dcdcaa; } .tp { color:#4ec9b0; }
+  .bookmark-line { background:rgba(240,192,64,0.10); }
+  .star { width:14px; height:14px; vertical-align:-2px; }
+  .dim { opacity:.45; }
+  /* QuickPick */
+  .qp { position:absolute; left:50%; transform:translateX(-50%); top:36px; width:640px; z-index:20; }
+  .qp-input { background:#3c3c3c; border:1px solid #3794ff; border-radius:2px; color:#e7e7e7; font-size:13px; padding:6px 10px; box-shadow:0 4px 16px rgba(0,0,0,.5); }
+  .qp-input .caret { display:inline-block; width:1.5px; height:14px; background:#aeafad; vertical-align:-2px; }
+  .qp-list { margin-top:2px; background:#252526; border:1px solid #454545; border-radius:3px; box-shadow:0 6px 22px rgba(0,0,0,.6); }
+  .qi { padding:7px 12px; display:flex; gap:9px; }
+  .qi.sel { background:#04395e; }
+  .qi .ic { align-self:flex-start; margin-top:2px; }
+  .qi .label { color:#e7e7e7; font-size:13px; }
+  .qi .label .lm { color:#8b8b8b; font-size:11.5px; margin-left:8px; }
+  .qi .desc { color:#9d9d9d; font-size:11.5px; margin-top:2px; font-family:Consolas,monospace; }
+  .qi .detail { color:#7a9d54; font-size:11.5px; margin-top:1px; }
+  .qp-foot { color:#8b8b8b; font-size:11px; padding:5px 12px; border-top:1px solid #37373d; display:flex; justify-content:space-between; }
+  .kbd { border:1px solid #555; border-radius:3px; padding:0 4px; font-size:10px; }
+</style>
+</head>
+<body>
+  <div class="titlebar">order_mgr.pkb — 浏览全部书签（QuickPick）(v1.17.0 设计原型)</div>
+  <div class="tabbar"><span class="tab">order_mgr.pkb</span></div>
+  <div class="code dim">
+    <div><span class="ln">1</span><span class="gm"></span><span class="kw">CREATE OR REPLACE PACKAGE BODY</span> <span class="tp">order_mgr</span> <span class="kw">AS</span></div>
+    <div><span class="ln">2</span><span class="gm"></span></div>
+    <div><span class="ln">3</span><span class="gm"></span>  <span class="kw">PROCEDURE</span> <span class="fn">calc_total</span>(p_cust_id <span class="tp">NUMBER</span>) <span class="kw">IS</span></div>
+    <div><span class="ln">4</span><span class="gm"></span>    v_total   <span class="tp">NUMBER</span> := <span class="num">0</span>;</div>
+    <div><span class="ln">5</span><span class="gm"></span>    <span class="kw">CURSOR</span> c_orders <span class="kw">IS</span></div>
+    <div><span class="ln">6</span><span class="gm"></span>      <span class="kw">SELECT</span> amount <span class="kw">FROM</span> orders…</div>
+    <div><span class="ln">7</span><span class="gm"></span>  <span class="kw">BEGIN</span></div>
+    <div class="bookmark-line"><span class="ln">8</span><span class="gm"><svg class="star" viewBox="0 0 16 16"><path d="M4 1.5 h8 v13 l-4 -3.2 L4 14.5 z" fill="#f0c040"/></svg></span>  <span class="kw">FOR</span> r <span class="kw">IN</span> c_orders <span class="kw">LOOP</span></div>
+    <div><span class="ln">9</span><span class="gm"></span>      …</div>
+  </div>
+
+  <div class="qp">
+    <div class="qp-input">循环<span class="caret"></span></div>
+    <div class="qp-list">
+      <div class="qi sel">
+        <span class="ic"><svg width="15" height="15" viewBox="0 0 16 16"><path d="M4 1.5 h8 v13 l-4 -3.2 L4 14.5 z" fill="#f0c040" stroke="#f0c040" stroke-width="0.6"/></svg></span>
+        <div>
+          <div class="label">★ 主循环入口<span class="lm">行 8</span></div>
+          <div class="desc">FOR r IN c_orders LOOP</div>
+          <div class="detail">PROCEDURE calc_total（order_mgr 包体） · 摘要：order_mgr → calc_total → Body → LOOP · 备注：修复累计溢出从这里看起</div>
+        </div>
+      </div>
+      <div class="qi">
+        <span class="ic"><svg width="15" height="15" viewBox="0 0 16 16"><path d="M4 1.5 h8 v13 l-4 -3.2 L4 14.5 z" fill="#f0c040" stroke="#f0c040" stroke-width="0.6"/></svg></span>
+        <div>
+          <div class="label">★ 游标定义<span class="lm">行 5</span></div>
+          <div class="desc">CURSOR c_orders IS</div>
+          <div class="detail">PROCEDURE calc_total（order_mgr 包体） · DECLARE 段 · 摘要：order_mgr → calc_total → Declare → Cursors · 备注：（空）</div>
+        </div>
+      </div>
+      <div class="qp-foot">
+        <span>共 2 个书签（输入名称/内容过滤，当前已过滤"循环" → 命中 1+…）</span>
+        <span><span class="kbd">↵</span> 跳转 · <span class="kbd">Esc</span> 关闭</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

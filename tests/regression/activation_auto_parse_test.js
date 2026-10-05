@@ -37,32 +37,50 @@ function makeDoc(fileName, languageId) {
     };
 }
 function makeEditor(doc) {
-    return { document: doc };
+    // setDecorations：书签功能（v1.17.0）活动编辑器切换时重绘装饰
+    return { document: doc, setDecorations() {} };
 }
 function sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
+}
+
+/** 链式注册：书签功能（v1.17.0）扩展与主类订阅同一事件，单槽存储会互相覆盖 */
+function chainListener(key, cb) {
+    const prev = listeners[key];
+    listeners[key] = (e) => { if (prev) prev(e); cb(e); };
 }
 
 const mockVscode = {
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
     TreeItem: class { constructor(l, c) { this.label = l; this.collapsibleState = c; } },
     ThemeIcon: class { constructor(id) { this.id = id; } },
-    EventEmitter: class { constructor() { this.l = []; } event(l) { this.l.push(l); return { dispose() {} }; } fire(d) { this.l.forEach(x => x(d)); } dispose() { this.l = []; } },
+    // event 存为实例箭头函数：真实 API 允许脱离 emitter 调用（如 readonly onX = emitter.event）
+    EventEmitter: class { constructor() { this.l = []; this.event = (cb) => { this.l.push(cb); return { dispose() {} }; }; } fire(d) { this.l.forEach(x => x(d)); } dispose() { this.l = []; } },
     workspace: {
         getConfiguration: () => ({
             get: (k, d) => (k === 'fileExtensions' && configuredExts ? configuredExts : d),
             update: async () => {}
         }),
         fs: {},
-        onDidSaveTextDocument: (cb) => { listeners.save = cb; return { dispose() {} }; },
-        onDidChangeConfiguration: (cb) => { listeners.config = cb; return { dispose() {} }; },
-        onDidChangeTextDocument: (cb) => { listeners.docChange = cb; return { dispose() {} }; }
+        onDidSaveTextDocument: (cb) => { chainListener('save', cb); return { dispose() {} }; },
+        onDidChangeConfiguration: (cb) => { chainListener('config', cb); return { dispose() {} }; },
+        onDidChangeTextDocument: (cb) => { chainListener('docChange', cb); return { dispose() {} }; },
+        // 书签功能（v1.17.0）：注册即可，不在本套件驱动
+        onDidRenameFiles: () => ({ dispose() {} }),
+        onDidDeleteFiles: () => ({ dispose() {} }),
+        onDidOpenTextDocument: () => ({ dispose() {} })
     },
     window: {
         // 活动编辑器用 getter 模拟真实运行时可变性
         get activeTextEditor() { return activeTextEditor; },
-        onDidChangeActiveTextEditor: (cb) => { listeners.activeChanged = cb; return { dispose() {} }; },
-        onDidChangeTextEditorSelection: (cb) => { listeners.selection = cb; return { dispose() {} }; },
+        onDidChangeActiveTextEditor: (cb) => { chainListener('activeChanged', cb); return { dispose() {} }; },
+        onDidChangeTextEditorSelection: (cb) => { chainListener('selection', cb); return { dispose() {} }; },
+        // 书签功能（v1.17.0）：空环境即可满足构造
+        visibleTextEditors: [],
+        activeColorTheme: { kind: 2 },
+        onDidChangeVisibleTextEditors: () => ({ dispose() {} }),
+        onDidChangeActiveColorTheme: () => ({ dispose() {} }),
+        createTextEditorDecorationType: () => ({ dispose() {} }),
         createOutputChannel: () => ({ appendLine() {}, show() {}, dispose() {} }),
         createStatusBarItem: () => ({ text: '', tooltip: '', command: undefined, name: '', show() {}, hide() {}, dispose() {} }),
         createTreeView: () => ({
@@ -107,7 +125,10 @@ const mockVscode = {
     Hover: class { constructor(c, r) { this.contents = c; this.range = r; } },
     ViewColumn: { One: 1, Two: 2, Beside: -2 },
     ProgressLocation: { Notification: 15, SourceControl: 1, Window: 10 },
-    StatusBarAlignment: { Left: 1, Right: 2 }
+    StatusBarAlignment: { Left: 1, Right: 2 },
+    // 书签功能（v1.17.0）
+    OverviewRulerLane: { Left: 0, Center: 1, Right: 2, Full: 3 },
+    ColorThemeKind: { Light: 1, Dark: 2, HighContrast: 3, HighContrastLight: 4 }
 };
 const originalResolve = Module._resolveFilename;
 Module._resolveFilename = function (request) {
@@ -125,7 +146,8 @@ function assert(cond, msg) { if (cond) passed++; else { failed++; failures.push(
 async function runActivationCase() {
     executed.length = 0;
     warnings.length = 0;
-    activate({ subscriptions: [] });
+    // workspaceState：书签功能（v1.17.0）构造时读取，空存储即可
+    activate({ subscriptions: [], workspaceState: { get: () => undefined, update: async () => {} } });
     // activate() 内 setTimeout 1000ms 后才发命令，留足余量
     await sleep(1400);
 }

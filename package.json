@@ -2,7 +2,7 @@
   "name": "plsql-outline",
   "displayName": "PL/SQL Outline",
   "description": "PL/SQL代码结构解析器和大纲视图",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "publisher": "EmonZhang3438",
   "icon": "res/Icon.png",
   "engines": {
@@ -41,15 +41,39 @@
       "plsqlOutlineContainer": [
         {
           "type": "webview",
-          "id": "plsqlOutlineSearch",
-          "name": "搜索"
-        },
-        {
           "id": "plsqlOutline",
           "name": "PLSQL Outline"
+        },
+        {
+          "id": "plsqlOutlineBookmarks",
+          "name": "书签",
+          "visibility": "collapsed"
         }
       ]
     },
+    "submenus": [
+      {
+        "id": "plsqlOutline.bookmark.menu",
+        "label": "书签"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "plsqlOutline.bookmark.toggle",
+        "key": "ctrl+alt+k",
+        "when": "editorTextFocus && resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|fcn|trg|typ)$/i"
+      },
+      {
+        "command": "plsqlOutline.bookmark.next",
+        "key": "alt+pagedown",
+        "when": "editorTextFocus && resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|fcn|trg|typ)$/i"
+      },
+      {
+        "command": "plsqlOutline.bookmark.previous",
+        "key": "alt+pageup",
+        "when": "editorTextFocus && resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|fcn|trg|typ)$/i"
+      }
+    ],
     "configurationDefaults": {
       "workbench": {
         "tree": {
@@ -70,11 +94,6 @@
         "title": "刷新",
         "category": "PL/SQL Outline",
         "icon": "$(refresh)"
-      },
-      {
-        "command": "plsqlOutline.goToLine",
-        "title": "跳转到行",
-        "category": "PL/SQL Outline"
       },
       {
         "command": "plsqlOutline.toggleStructureBlocks",
@@ -125,10 +144,56 @@
         "icon": "$(database)"
       },
       {
-        "command": "plsqlOutline.copyName",
-        "title": "复制名称",
+        "command": "plsqlOutline.bookmark.toggle",
+        "title": "切换书签（当前行）",
         "category": "PL/SQL Outline",
-        "icon": "$(copy)"
+        "icon": "$(bookmark)"
+      },
+      {
+        "command": "plsqlOutline.bookmark.list",
+        "title": "浏览全部书签…",
+        "category": "PL/SQL Outline",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "plsqlOutline.bookmark.next",
+        "title": "下一处书签",
+        "category": "PL/SQL Outline",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "plsqlOutline.bookmark.previous",
+        "title": "上一处书签",
+        "category": "PL/SQL Outline",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "plsqlOutline.bookmark.edit",
+        "title": "编辑书签信息…",
+        "category": "PL/SQL Outline",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "plsqlOutline.bookmark.delete",
+        "title": "删除当前行书签",
+        "category": "PL/SQL Outline",
+        "icon": "$(close)"
+      },
+      {
+        "command": "plsqlOutline.bookmark.clearFile",
+        "title": "清除本文件全部书签",
+        "category": "PL/SQL Outline",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "plsqlOutline.bookmark.jumpTo",
+        "title": "跳转到书签",
+        "category": "PL/SQL Outline"
+      },
+      {
+        "command": "plsqlOutline.bookmark.getState",
+        "title": "获取书签状态（测试）",
+        "category": "PL/SQL Outline"
       }
     ],
     "menus": {
@@ -147,6 +212,16 @@
           "command": "plsqlOutline.openSettings",
           "when": "view == plsqlOutline",
           "group": "navigation@5"
+        },
+        {
+          "command": "plsqlOutline.bookmark.list",
+          "when": "view == plsqlOutlineBookmarks",
+          "group": "navigation@1"
+        },
+        {
+          "command": "plsqlOutline.bookmark.clearFile",
+          "when": "view == plsqlOutlineBookmarks",
+          "group": "navigation@2"
         },
         {
           "command": "plsqlOutline.toggleStructureBlocks",
@@ -171,13 +246,13 @@
       ],
       "view/item/context": [
         {
-          "command": "plsqlOutline.goToLine",
-          "when": "view == plsqlOutline",
+          "command": "plsqlOutline.bookmark.edit",
+          "when": "view == plsqlOutlineBookmarks && viewItem == bookmarkItem",
           "group": "navigation@1"
         },
         {
-          "command": "plsqlOutline.copyName",
-          "when": "view == plsqlOutline && viewItem =~ /^(function|procedure|function_declaration|procedure_declaration|package_header|package_body|trigger|type|type_body|view|declarationEntry)(_with_children)?$/",
+          "command": "plsqlOutline.bookmark.delete",
+          "when": "view == plsqlOutlineBookmarks && viewItem == bookmarkItem",
           "group": "navigation@2"
         }
       ],
@@ -186,13 +261,44 @@
           "command": "plsqlOutline.parseCurrentFile",
           "when": "resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|trg)$/i",
           "group": "plsql@1"
+        },
+        {
+          "submenu": "plsqlOutline.bookmark.menu",
+          "when": "resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|fcn|trg|typ)$/i",
+          "group": "plsql@2"
+        }
+      ],
+      "plsqlOutline.bookmark.menu": [
+        {
+          "command": "plsqlOutline.bookmark.toggle",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "plsqlOutline.bookmark.list",
+          "group": "2_navigate@1"
+        },
+        {
+          "command": "plsqlOutline.bookmark.next",
+          "group": "2_navigate@2"
+        },
+        {
+          "command": "plsqlOutline.bookmark.previous",
+          "group": "2_navigate@3"
+        },
+        {
+          "command": "plsqlOutline.bookmark.edit",
+          "group": "3_manage@1"
+        },
+        {
+          "command": "plsqlOutline.bookmark.delete",
+          "group": "3_manage@2"
+        },
+        {
+          "command": "plsqlOutline.bookmark.clearFile",
+          "group": "3_manage@3"
         }
       ],
       "commandPalette": [
-        {
-          "command": "plsqlOutline.copyName",
-          "when": "false"
-        },
         {
           "command": "plsqlOutline.parseCurrentFile",
           "when": "resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|trg)$/i"
@@ -217,6 +323,42 @@
         },
         {
           "command": "plsqlOutline.rebuildIndex"
+        },
+        {
+          "command": "plsqlOutline.bookmark.toggle",
+          "when": "resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|fcn|trg|typ)$/i"
+        },
+        {
+          "command": "plsqlOutline.bookmark.list",
+          "when": "resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|fcn|trg|typ)$/i"
+        },
+        {
+          "command": "plsqlOutline.bookmark.next",
+          "when": "resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|fcn|trg|typ)$/i"
+        },
+        {
+          "command": "plsqlOutline.bookmark.previous",
+          "when": "resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|fcn|trg|typ)$/i"
+        },
+        {
+          "command": "plsqlOutline.bookmark.edit",
+          "when": "resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|fcn|trg|typ)$/i"
+        },
+        {
+          "command": "plsqlOutline.bookmark.delete",
+          "when": "resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|fcn|trg|typ)$/i"
+        },
+        {
+          "command": "plsqlOutline.bookmark.clearFile",
+          "when": "resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|fcn|trg|typ)$/i"
+        },
+        {
+          "command": "plsqlOutline.bookmark.jumpTo",
+          "when": "false"
+        },
+        {
+          "command": "plsqlOutline.bookmark.getState",
+          "when": "false"
         }
       ]
     },
@@ -378,7 +520,7 @@
     "test": "npm run compile && node tests/unit/run_all.js",
     "test:regression": "node tests/regression/run_all.js",
     "test:corpus": "node tests/corpus/validate.js && node tests/corpus/render-validate.js",
-    "test:e2e": "node tests/e2e/anonDefinition.e2e.test.js && node tests/e2e/zcodetest_smoke.e2e.js && node tests/e2e/foldRouting.e2e.test.js && node tests/e2e/indexJump.e2e.test.js",
+    "test:e2e": "node tests/e2e/anonDefinition.e2e.test.js && node tests/e2e/zcodetest_smoke.e2e.js && node tests/e2e/foldRouting.e2e.test.js && node tests/e2e/indexJump.e2e.test.js && node tests/e2e/bookmark.e2e.test.js",
     "package": "vsce package -o release/",
     "publish": "vsce publish",
     "lint": "eslint src/"

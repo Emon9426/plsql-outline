@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { width:1000px; height:620px; background:#1e1e1e; font-family:'Segoe UI','Microsoft YaHei',sans-serif; overflow:hidden; }
+  .titlebar { height:30px; background:#3c3c3c; color:#cccccc; font-size:12px; display:flex; align-items:center; padding:0 12px; }
+  .tabbar { background:#252526; padding-top:4px; }
+  .tab { display:inline-block; background:#2d2d2d; color:#fff; font-size:12px; padding:5px 14px; }
+  .code { font-family:Consolas,monospace; font-size:14px; line-height:19px; padding-top:10px; }
+  .ln { display:inline-block; width:44px; text-align:right; color:#858585; padding-right:14px; }
+  .gm { display:inline-block; width:26px; text-align:center; }
+  .kw { color:#569cd6; } .num { color:#b5cea8; } .fn { color:#dcdcaa; } .tp { color:#4ec9b0; }
+  .bookmark-line { background:rgba(240,192,64,0.10); }
+  .star { width:15px; height:15px; vertical-align:-2px; }
+  .hover-tip { position:absolute; left:250px; top:150px; width:430px; background:#252526; border:1px solid #454545; border-radius:4px; box-shadow:0 6px 20px rgba(0,0,0,.55); font-size:12.5px; padding:12px 16px; line-height:1.85; color:#cccccc; }
+  .hover-tip .name { color:#f0c040; font-weight:600; font-size:13.5px; }
+  .hover-tip .muted { color:#9d9d9d; }
+  .hover-tip .sep { border-top:1px solid #37373d; margin:7px 0; }
+  .link { color:#3794ff; text-decoration:none; padding:2px 8px; border:1px solid #3794ff66; border-radius:3px; margin-right:6px; font-size:12px; }
+  .cursor { display:inline-block; width:2px; height:15px; background:#aeafad; vertical-align:-2px; }
+</style>
+</head>
+<body>
+  <div class="titlebar">order_mgr.pkb — 悬停信息卡 (v1.17.0 设计原型)</div>
+  <div class="tabbar"><span class="tab">order_mgr.pkb</span></div>
+  <div class="code">
+    <div><span class="ln">1</span><span class="gm"></span><span class="kw">CREATE OR REPLACE PACKAGE BODY</span> <span class="tp">order_mgr</span> <span class="kw">AS</span></div>
+    <div><span class="ln">2</span><span class="gm"></span></div>
+    <div><span class="ln">3</span><span class="gm"></span>  <span class="kw">PROCEDURE</span> <span class="fn">calc_total</span>(p_cust_id <span class="tp">NUMBER</span>) <span class="kw">IS</span></div>
+    <div><span class="ln">4</span><span class="gm"></span>    v_total   <span class="tp">NUMBER</span> := <span class="num">0</span>;</div>
+    <div><span class="ln">5</span><span class="gm"></span>    <span class="kw">CURSOR</span> c_orders <span class="kw">IS</span></div>
+    <div><span class="ln">6</span><span class="gm"></span>      <span class="kw">SELECT</span> amount <span class="kw">FROM</span> orders <span class="kw">WHERE</span> cust_id = p_cust_id;</div>
+    <div><span class="ln">7</span><span class="gm"></span>  <span class="kw">BEGIN</span></div>
+    <div class="bookmark-line"><span class="ln">8</span><span class="gm"><svg class="star" viewBox="0 0 16 16"><path d="M4 1.5 h8 v13 l-4 -3.2 L4 14.5 z" fill="#f0c040" stroke="#f0c040" stroke-width="0.6" stroke-linejoin="round"/></svg></span>    <span class="kw">FOR</span> r <span class="kw">IN</span> c_orders <span class="kw">LOOP</span><span class="cursor"></span></div>
+    <div><span class="ln">9</span><span class="gm"></span>      v_total := v_total + r.amount;</div>
+    <div><span class="ln">10</span><span class="gm"></span>    <span class="kw">END LOOP</span>;</div>
+    <div><span class="ln">11</span><span class="gm"></span>    <span class="fn">dbms_output</span>.put_line(v_total);</div>
+    <div><span class="ln">12</span><span class="gm"></span>  <span class="kw">END</span> calc_total;</div>
+    <div><span class="ln">13</span><span class="gm"></span><span class="kw">END</span> order_mgr;</div>
+  </div>
+
+  <div class="hover-tip">
+    <span class="name">★ 主循环入口</span><br>
+    <span class="muted">备注：</span>修复累计溢出从这里看起<br>
+    <span class="muted">行内容：</span><code style="color:#ce9178;">FOR r IN c_orders LOOP</code><br>
+    <span class="muted">行号：</span>8 · <span class="muted">所属：</span>PROCEDURE calc_total（order_mgr 包体）<br>
+    <span class="muted">摘要：</span>order_mgr → calc_total → Body → LOOP<br>
+    <div class="sep"></div>
+    <a class="link">✏️ 编辑书签…</a><a class="link">🗑 删除书签</a>
+    <span class="muted" style="font-size:11px;margin-left:6px;">悬停书签行（星标或正文）即显示；单击星标行也可直接编辑</span>
+  </div>
+</body>
+</html>
