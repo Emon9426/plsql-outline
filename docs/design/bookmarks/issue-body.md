@@ -1,9 +1,9 @@
-# 书签功能：行号双击切换 · 跟随编辑 · 富信息跳转 · 管理视图
+# 书签功能：行号单击切换 · 跟随编辑 · 富信息跳转 · 管理视图
 
 ## 一、背景与目标
 
 在大文件 PL/SQL（数千行包体）中定位关键逻辑 currently 全靠记忆行号或反复搜索。本功能提供**行级书签**：
-双击行号即打签，书签跟随内容移动，任何入口都能看到书签的完整上下文（名称/备注/行内容/行号/所属子程序/摘要），
+单击行号即打签，书签跟随内容移动，任何入口都能看到书签的完整上下文（名称/备注/行内容/行号/所属子程序/摘要），
 并可通过右键菜单、QuickPick、管理视图、快捷键四种方式快速跳转。
 
 **目标版本**：v1.17.0（feat）。
@@ -12,29 +12,31 @@
 
 | # | 决策点 | 结论 |
 |---|---|---|
-| 1 | 编辑入口 | 双击行号建签后**立即弹出信息表单**（名称、备注两步输入，均可留空，点击空白/Esc 取消=保留书签用默认名）；已建签的行**单击行号或悬停信息卡**进入编辑 |
+| 1 | 编辑入口 | **单击行号=切换书签（建签不弹表单）**；`Ctrl+Alt+K` 切换光标行。需要补写名称/备注时经**悬停信息卡链接、右键「书签 ▸ 编辑」、管理视图**进入两步表单（名称、备注均可留空，Esc/点击空白取消=保留书签用默认名） |
 | 2 | 跳转形态 | 右键子菜单 + QuickPick 富信息列表 + 管理视图（活动栏）+ 下一/上一书签快捷键，四入口并存；**每文件书签数不设上限** |
 | 3 | 书签行整行删除 | 书签随之删除（Ctrl+Z 撤销删除不恢复书签） |
 | 4 | 持久化 | 按工作区持久（workspaceState），重启保留，文件重命名跟随 |
+| 5 | 交互形态定案 | 原设计"双击行号切换"经三轮实现 + SendInput 真实 OS 输入实测**不可行**（平台限制，见 5.2），定稿为单击切换 + 快捷键 |
 
 ## 三、交互设计（6 张原型图）
 
-### 3.1 双击行号 → 建签 + 信息表单
+### 3.1 单击行号 → 建签
 
-![双击建签与信息表单](https://raw.githubusercontent.com/Emon9426/plsql-outline/main/docs/design/bookmarks/01-double-click-create-form.png)
+![建签与信息表单](https://raw.githubusercontent.com/Emon9426/plsql-outline/main/docs/design/bookmarks/01-double-click-create-form.png)
 
-- 双击行号（或 glyph margin 书签图标区）→ 立即建签，琥珀色缎带图标出现在行号旁。
-- 随后弹出两步表单：①书签名称（可空，回车下一步）②书签备注（可空，回车完成）。
-- Esc / 点击编辑器空白处随时取消表单：**书签保留**，名称回退默认值（行内容前 40 字符）。
-- 双击已有书签的行号 → 删除书签（不弹表单）。
+- **单击未选中行的数字行号** → 立即建签（琥珀色缎带图标出现在行号旁 + 整行淡琥珀高亮 + 滚动条标记），**不弹表单**。
+- **删除**：点击其他行使选区移开，再点回该书签行行号 = 删签（平台对同选区重复点击零事件 = 天然防手抖连点误删）。
+- `Ctrl+Alt+K` 在光标行切换书签（建/删）。
+- 编辑表单按需进入（见决策 #1）：两步输入 ①书签名称（可空，回车下一步）②书签备注（可空，回车完成）；
+  Esc / 点击编辑器空白处随时取消表单：**书签保留**，名称回退默认值（行内容前 40 字符）。
+- 注意：单击目标是**数字行号列**；琥珀图标所在的 glyph margin 列 VS Code 平台不向扩展派发点击事件，无法交互。
 
 ### 3.2 悬停信息卡（含编辑/删除链接）
 
 ![悬停信息卡](https://raw.githubusercontent.com/Emon9426/plsql-outline/main/docs/design/bookmarks/02-hover-card.png)
 
-- 悬停书签行（星标或正文任意位置）即显示完整信息：名称、备注、行内容、行号、所属子程序、摘要。
+- 悬停书签行（图标或正文任意位置）即显示完整信息：名称、备注、行内容、行号、所属子程序、摘要。
 - 卡内提供「✏️ 编辑书签…」「🗑 删除书签」命令链接（hover 命令链接，原生支持）。
-- 已建签行的行号/gutter **单击**（500ms 内无第二击）同样打开编辑表单——与双击切换天然兼容。
 
 ### 3.3 右键菜单「书签」子菜单
 
@@ -59,6 +61,7 @@
 - **全工作区**书签总览：按文件分组（文件节点带书签数徽标），子节点=书签（图标 + 名称 + `L行号 · 所属子程序` 描述）。
 - 单击书签项 = 打开文件并跳转；右键项：编辑书签信息… / 删除书签。
 - 视图标题栏：「浏览全部（当前文件）」「清空当前文件书签」；容器图标带书签总数徽标。
+- 无书签时视图默认折叠（`visibility:collapsed`，只留节头不占空间）；首个书签出现时自动展开并定位。
 - 滚动条右侧显示琥珀色书签标记（overviewRuler，点击跳转）。
 
 ### 3.6 书签跟随内容自动调整
@@ -95,27 +98,31 @@
 ```
 src/bookmarks.ts      （vscode-free 核心，单测直接 require）
   ├─ applyDocumentChanges(bookmarks, changes, lineCount)   // 3.6 规则的纯函数实现
-  ├─ DoubleClickDetector                                  // 行号双击/单击延迟判定状态机
-  ├─ findEnclosingSymbol / buildSummaryChain               // 所属与摘要（输入 ParseNode[]）
-  └─ BookmarkStore 序列化模型（与 vscode 无关的纯数据）
-src/bookmarkView.ts   管理视图 TreeDataProvider（跨文件分组）
-extension.ts          接线：装饰器、事件监听、QuickPick、两步 InputBox 表单、workspaceState 读写
+  └─ findEnclosingSymbol / buildSummaryChain               // 所属与摘要（输入 ParseNode[]）
+src/bookmarkManager.ts 装饰器/选区事件/命令/QuickPick/两步表单/持久化（workspaceState v1）
+src/bookmarkView.ts    管理视图 TreeDataProvider（跨文件分组）
 res/icons/bookmark(-light).svg   琥珀缎带形（#f0c040 / #c8881a，scripts/generate_icons.js 扩展）
 package.json          commands / keybindings / submenus / views
 ```
 
-### 5.2 双击/单击判定（VS Code 无鼠标事件的启发式）
+（原设计的 GutterClickDetector 双击/单击判定状态机随双击方案证伪而删除。）
 
-- 监听 `onDidChangeTextEditorSelection`，仅处理 `kind === Mouse` 且**单行整行选中**的事件
-  （点击行号/gutter 的原生效果；正文双击选词、三击前的事件均为非整行，不误触）。
-- 同一行两次整行 Mouse 选中间隔 < 500ms → 判定双击 → 切换书签。
-- 已建签行：单击后 500ms 无第二击 → 打开编辑表单（决策 #1 的"单击编辑"）。
-- 已知极限：快速连点两次行号（本意两次单击）会被判定为双击——主流书签扩展同样接受此权衡。
+### 5.2 单击切换契约（含平台限制实证）
+
+- 监听 `onDidChangeTextEditorSelection`，仅处理 `kind === Mouse` 且**单行整行选中**事件
+  （`[L,0) → [L+1,0)`，点击行号的原生效果；正文双击选词、三击、拖选均为非整行，不误触）。
+- **平台限制（SendInput + 事件轨迹实测实锤）**：双击的第二击落在已选中行上时，VS Code 对
+  "同值选区"**不派发任何事件**——双击在 API 层不可检测；唯一可靠信号是点击**未选中**行号
+  产生的整行选中事件。故交互定稿为：收到整行选中事件 → 直接切换书签。
+  同选区重复点击零事件 = 天然防手抖连点误删（删除 = 点其他行后再点回）。
+- **幽灵切换防护（实机捕获）**：窗口失焦/关闭瞬间 VS Code 偶发**重放**整行 Mouse 选区事件
+  （两次捕获：WM_CLOSE 关窗时、前台切换空档），凭空建签——仅在 `window.state.focused`
+  为真时接受整行切换（真实点击必在聚焦窗口）。
 
 ### 5.3 装饰器
 
-- glyph margin 图标（琥珀缎带）+ 行背景淡琥珀高亮 + overviewRuler 标记 + hoverMessage 信息卡（MarkdownString 命令链接）。
-- `editor.glyphMargin` VS Code 默认已开启；若用户手动关闭，首次建签时通知一次并提供「启用」按钮（workspace 级）。
+- glyph margin 图标（琥珀缎带）+ 行背景淡琥珀高亮（`isWholeLine: true`）+ overviewRuler 标记 + hoverMessage 信息卡（MarkdownString 命令链接）。
+- 装饰区间必须**行起点零宽区间** `Range(line,0,line,0)`：区间吞换行符（`rangeIncludingLineBreak`）时终点触下一行行首，VS Code 会把 gutter 图标**渗染到下一行**（装机实测一次点击双图标，已修复并有回归契约锁定）。
 
 ### 5.4 持久化与生命周期
 
@@ -127,7 +134,7 @@ package.json          commands / keybindings / submenus / views
 
 | 命令 | 标题 | 键位（默认，可改） |
 |---|---|---|
-| plsqlOutline.bookmark.toggle | 切换书签（当前行） | ——（双击行号） |
+| plsqlOutline.bookmark.toggle | 切换书签（当前行） | **Ctrl+Alt+K**（或单击行号） |
 | plsqlOutline.bookmark.list | 浏览全部书签… | ——（右键菜单） |
 | plsqlOutline.bookmark.next | 下一处书签 | Alt+PgDn |
 | plsqlOutline.bookmark.previous | 上一处书签 | Alt+PgUp |
@@ -135,27 +142,32 @@ package.json          commands / keybindings / submenus / views
 | plsqlOutline.bookmark.delete | 删除当前行书签 | —— |
 | plsqlOutline.bookmark.clearFile | 清除本文件全部书签 | —— |
 
-不新增设置项（保持零配置开箱即用；后续按反馈再加）。
+不新增设置项（保持零配置开箱即用；`plsql-outline.debug.enabled` 已有的调试轨迹会记录选区事件形态与
+`focused=` 状态供交互问题定位）。
 
-## 七、测试计划
+## 七、测试计划（实施结果）
 
-- **单元**（tests/unit/ 新增 bookmark.test.js）：
-  - 跟随算法 ≥12 用例：用户示例（aaa/bbb/ccc）、上方增/删、行首插入带/不带换行、行内改、整行删、跨行替换、多 change 降序、undo 语义、clamp；
-  - 双击状态机：单击/双击/慢双击/三击/跨行/非整行；
-  - 所属与摘要：基于真实 parser 输出（含嵌套子程序、包体、匿名块、顶层）。
-- **E2E**（tests/e2e/bookmark.e2e.test.js，沿用现有驱动模式）：toggle 建签/删签 → 装饰与视图反映；applyEdit 插入行 → 书签行号迁移；workspaceState 重启保留。
-- **铁律全量回归**：test:corpus 35/35 → npm test → test:regression → test:e2e 全部通过，.ai/testing.md 基线同步。
+- **单元**（tests/unit/bookmark.test.js，26 用例）：跟随算法 16（用户示例 aaa/bbb/ccc、上方增/删、
+  行首插入带/不带换行、行内改、整行删、跨行替换、多 change 降序、clamp）；所属与摘要 5（真实 parser
+  输出：嵌套子程序、包体、匿名块、顶层）；文本预览辅助 5。
+- **回归**（tests/regression/bookmark_interaction_test.js，11 断言）：单击建签不弹表单 / 塌陷与拖选
+  不误删 / 点开点回删签 / 键盘事件忽略 / 已建签行切换删除 / **装饰区间行起点零宽契约** /
+  **失焦重放不建签**。
+- **E2E**（tests/e2e/）：命令建删签 / 编辑跟随迁移（用户示例）/ 整行删签 / 环绕跳转（getState 快照断言）。
+- **铁律全量回归**：corpus 35/35 → 单元 551/551(32) → 回归 15/15 → e2e 全绿，.ai/testing.md 基线同步。
+- **实机 SendInput 验证**：单击建签 ×10、点开点回删签、Ctrl+Alt+K 建删签，事件追踪日志 ↔ 持久化
+  memento ↔ 截图三重证据闭环；装机反馈的两个渲染/时序缺陷（图标渗染、幽灵建签）修复后复验通过。
 
-## 八、验收清单
+## 八、验收清单（已全部通过）
 
-- [ ] 双击行号建签（图标+高亮+滚动条标记），再双击删签
-- [ ] 建签后自动弹两步表单，Esc/点空白取消后书签保留且名称回退行内容预览
-- [ ] 已建签行单击行号 / 悬停信息卡 → 编辑名称与备注
-- [ ] 悬停信息卡五字段齐全 + 编辑/删除链接可用
-- [ ] 右键子菜单七项全部可用，浏览徽标数字正确
-- [ ] QuickPick：过滤、回车跳转、总数显示；跨行内容截断正常
-- [ ] 管理视图：按文件分组、点击跳转、右键编辑/删除、总数徽标
-- [ ] Alt+PgDn / Alt+PgUp 循环跳转（文件内环绕）
-- [ ] 跟随规则表全部用例单测通过（含用户示例 2→3）
-- [ ] 整行删除书签消失；重命名文件书签跟随；重启 VS Code 书签保留
-- [ ] 全量回归四件套绿 + .ai 基线更新 + README/CHANGELOG 同步
+- [x] 单击行号建签（图标+高亮+滚动条标记，仅此一行，不渗染邻行）；点开点回删签
+- [x] Ctrl+Alt+K 切换光标行书签（建/删）
+- [x] 建签不弹表单；按需经悬停卡/右键/管理视图进入两步表单，Esc/点空白取消后书签保留
+- [x] 悬停信息卡五字段齐全 + 编辑/删除链接可用
+- [x] 右键子菜单七项全部可用，浏览徽标数字正确
+- [x] QuickPick：过滤、回车跳转、总数显示；跨行内容截断正常
+- [x] 管理视图：按文件分组、点击跳转、右键编辑/删除、总数徽标、空态折叠首签自展
+- [x] Alt+PgDn / Alt+PgUp 循环跳转（文件内环绕）
+- [x] 跟随规则表全部用例单测通过（含用户示例 2→3）
+- [x] 整行删除书签消失；重命名文件书签跟随；重启 VS Code 书签保留
+- [x] 全量回归四件套绿 + .ai 基线更新 + README/CHANGELOG 同步
