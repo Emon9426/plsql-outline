@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { width:1000px; height:660px; background:#1e1e1e; font-family:'Segoe UI','Microsoft YaHei',sans-serif; overflow:hidden; }
+  .titlebar { height:30px; background:#3c3c3c; display:flex; align-items:center; padding:0 12px; color:#cccccc; font-size:12px; }
+  .titlebar .dot { width:10px; height:10px; border-radius:50%; background:#666; margin-right:6px; }
+  .tab { display:inline-block; background:#2d2d2d; color:#ffffff; font-size:12px; padding:5px 14px; border-right:1px solid #252526; }
+  .tabbar { background:#252526; padding-top:4px; }
+  .tab .x { color:#858585; margin-left:8px; }
+  .code { font-family:Consolas,'Courier New',monospace; font-size:14px; line-height:19px; padding:10px 0 0 0; position:relative; }
+  .ln { display:inline-block; width:44px; text-align:right; color:#858585; padding-right:14px; user-select:none; }
+  .gm { display:inline-block; width:26px; text-align:center; }
+  .active .ln { color:#c6c6c6; }
+  .kw { color:#569cd6; } .str { color:#ce9178; } .num { color:#b5cea8; } .fn { color:#dcdcaa; } .tp { color:#4ec9b0; } .cm { color:#6a9955; }
+  .bookmark-line { background:rgba(240,192,64,0.10); }
+  .star { width:15px; height:15px; vertical-align:-2px; }
+  /* 输入框（VS Code 顶部 InputBox 风格） */
+  .inputbox { position:absolute; left:50%; transform:translateX(-50%); width:520px; background:#252526; border:1px solid #454545; border-radius:3px; box-shadow:0 4px 16px rgba(0,0,0,.5); z-index:10; }
+  .ib-prompt { color:#cccccc; font-size:12px; padding:6px 10px 2px; }
+  .ib-input { margin:2px 10px 8px; background:#3c3c3c; border:1px solid #3794ff; padding:5px 8px; color:#e7e7e7; font-size:13px; border-radius:2px; }
+  .ib-input .caret { display:inline-block; width:1.5px; height:14px; background:#aeafad; vertical-align:-2px; }
+  .ib-hint { color:#8b8b8b; font-size:11px; padding:0 10px 7px; }
+  .ghost { opacity:.55; }
+  .step-tag { display:inline-block; background:#3794ff22; color:#7fb4ff; font-size:10px; border-radius:8px; padding:1px 8px; margin-left:8px; vertical-align:1px; }
+  .callout { position:absolute; right:26px; top:96px; width:300px; background:#252526; border:1px solid #454545; border-radius:4px; padding:12px 14px; font-size:12px; color:#cccccc; line-height:1.7; box-shadow:0 4px 16px rgba(0,0,0,.5); }
+  .callout b { color:#f0c040; }
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot"></span>order_mgr.pkb — 书签 (v1.17.0 设计原型)</div>
+  <div class="tabbar"><span class="tab">order_mgr.pkb<span class="x">✕</span></span></div>
+  <div class="code">
+    <div><span class="ln">1</span><span class="gm"></span><span class="kw">CREATE OR REPLACE PACKAGE BODY</span> <span class="tp">order_mgr</span> <span class="kw">AS</span></div>
+    <div><span class="ln">2</span><span class="gm"></span></div>
+    <div><span class="ln">3</span><span class="gm"></span>  <span class="kw">PROCEDURE</span> <span class="fn">calc_total</span>(p_cust_id <span class="tp">NUMBER</span>) <span class="kw">IS</span></div>
+    <div><span class="ln">4</span><span class="gm"></span>    v_total   <span class="tp">NUMBER</span> := <span class="num">0</span>;</div>
+    <div><span class="ln">5</span><span class="gm"></span>    <span class="kw">CURSOR</span> c_orders <span class="kw">IS</span></div>
+    <div><span class="ln">6</span><span class="gm"></span>      <span class="kw">SELECT</span> amount <span class="kw">FROM</span> orders <span class="kw">WHERE</span> cust_id = p_cust_id;</div>
+    <div><span class="ln">7</span><span class="gm"></span>  <span class="kw">BEGIN</span></div>
+    <div class="active bookmark-line"><span class="ln" style="outline:2px dotted #f0c040; outline-offset:-2px;">8</span><span class="gm"><svg class="star" viewBox="0 0 16 16"><path d="M4 1.5 h8 v13 l-4 -3.2 L4 14.5 z" fill="#f0c040" stroke="#f0c040" stroke-width="0.6" stroke-linejoin="round"/></svg></span>    <span class="kw">FOR</span> r <span class="kw">IN</span> c_orders <span class="kw">LOOP</span></div>
+    <div><span class="ln">9</span><span class="gm"></span>      v_total := v_total + r.amount;</div>
+    <div><span class="ln">10</span><span class="gm"></span>    <span class="kw">END LOOP</span>;</div>
+    <div><span class="ln">11</span><span class="gm"></span>    <span class="fn">dbms_output</span>.put_line(v_total);</div>
+    <div><span class="ln">12</span><span class="gm"></span>  <span class="kw">END</span> calc_total;</div>
+    <div><span class="ln">13</span><span class="gm"></span><span class="kw">END</span> order_mgr;</div>
+  </div>
+
+  <!-- 第 1 步：书签名称 -->
+  <div class="inputbox" style="top:120px;">
+    <div class="ib-prompt">书签名称（第 1/2 步 · 可留空）<span class="step-tag">双击行号 8 已创建书签</span></div>
+    <div class="ib-input">主循环入口<span class="caret"></span></div>
+    <div class="ib-hint">回车 → 下一步（备注） · Esc / 点击编辑器空白处 = 取消并使用默认名称（行内容前 40 字符）</div>
+  </div>
+  <!-- 第 2 步：备注（回车后出现） -->
+  <div class="inputbox ghost" style="top:262px;">
+    <div class="ib-prompt">书签备注（第 2/2 步 · 可留空）</div>
+    <div class="ib-input" style="border-color:#3c3c3c;">修复累计溢出从这里看起…</div>
+    <div class="ib-hint">回车 = 完成并保存 · Esc = 取消，保留已填名称</div>
+  </div>
+
+  <div class="callout">
+    <b>① 双击行号 → 立即建签</b><br>
+    书签星标出现在行号旁 glyph margin，随后自动弹出信息表单（两步输入框）。<br><br>
+    <b>名称与备注均非必填</b>：Esc 或点击空白处随时关闭，书签保留、名称回退为行内容预览。
+  </div>
+</body>
+</html>

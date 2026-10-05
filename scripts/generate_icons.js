@@ -178,6 +178,13 @@ function endIcon(c) {
   <path d="M 5.6 5.6 L 10.4 10.4 M 10.4 5.6 L 5.6 10.4" stroke="#888c93" stroke-width="1.2" stroke-linecap="round"/>`);
 }
 
+// 书签：缎带形（琥珀，gutter 星标 + 管理视图节点共用；与 loop 环形同色系、形状区分）
+function bookmarkIcon(c) {
+    return svg(`
+  <path d="M 4 1.5 L 12 1.5 L 12 14.5 L 8 11.3 L 4 14.5 Z"
+        fill="${c.func}" fill-opacity="0.22" stroke="${c.func}" stroke-width="1.2" stroke-linejoin="round"/>`);
+}
+
 // 图标清单
 const ICONS = {
     proc: procIcon,
@@ -196,7 +203,8 @@ const ICONS = {
     'folder-exc': folderExc,
     branch: branchIcon,
     loop: loopIcon,
-    end: endIcon
+    end: endIcon,
+    bookmark: bookmarkIcon
 };
 
 // 写入

@@ -38,7 +38,8 @@ const suites = [
     ['outline_filter_test', require('./outline_filter_test')],
     ['copy_name_test', require('./copy_name_test')],
     ['node_sql_hover_test', require('./node_sql_hover_test')],
-    ['symbol_scanner_test', require('./symbol_scanner_test')]
+    ['symbol_scanner_test', require('./symbol_scanner_test')],
+    ['bookmark_test', require('./bookmark.test')]
 ].map(([name, mod]) => ({ name, mod }));
 
 function escapeHtml(s) {

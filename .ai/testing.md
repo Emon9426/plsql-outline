@@ -14,9 +14,9 @@ npm run compile   # 所有测试直接 require out/ 编译产物，必须先编�
 | # | 命令 | 基线 | 覆盖 |
 |---|---|---|---|
 | 1 | `npm run test:corpus`（= validate.js + render-validate.js） | **35/35 + 35 OK** | 143k 行语料（含 .pck / get_ddl 形态）的解析层 + 显示层 |
-| 2 | `npm test`（= compile + tests/unit/run_all.js） | **518/518（30 套件）** | 解析/渲染/导航/取消/设置/引号标识符/get_ddl/折叠/关键字配对高亮/游标SQL悬浮/逐级展开与原生缩进/搜索过滤/复制名称/悬浮聚合SQL/符号扫描器（corpus 一致性对照 + 游标搜索条目，#39）/图标四类家族（#42） 契约 |
-| 3 | `npm run test:regression` | **14/14 套件** | 真实世界包/超大文件/边界/光标同步/区域跟随（#22）/定义跳转/符号索引/内存/Refresh 焦点回退/激活自动解析 |
-| 4 | `npm run test:e2e` | **anonDefinition 通过 + smoke 7/7 + foldRouting 8/8 + indexJump 11/11** | 真实 VS Code 宿主（@vscode/test-electron）；foldRouting 锁定提供者路由（#26）+ 段折叠/配对高亮/原生回退（#31）；indexJump 双代码仓库路径跨文件跳转（#38：独立工作区 ws-index 预置双路径 settings.json，启动自动建索引 + 高/低优先级可达 + 同名冲突优先级消解 + 包名限定优先 + 当前文件游标 + watcher 新建/修改增量；#39：Ctrl+T 工作区符号搜索 + 游标搜索且不参与跳转） |
+| 2 | `npm test`（= compile + tests/unit/run_all.js） | **551/551（32 套件）** | 解析/渲染/导航/取消/设置/引号标识符/get_ddl/折叠/关键字配对高亮/游标SQL悬浮/逐级展开与原生缩进/搜索过滤/复制名称/悬浮聚合SQL/符号扫描器（corpus 一致性对照 + 游标搜索条目，#39）/图标四类家族（#42）/书签核心（跟随算法 + 所属摘要，v1.17.0） 契约 |
+| 3 | `npm run test:regression` | **15/15 套件** | 真实世界包/超大文件/边界/光标同步/区域跟随（#22）/定义跳转/符号索引/内存/Refresh 焦点回退/激活自动解析/书签行号单击切换契约（塌陷/同选区不误触、点开点回删签、键盘忽略，bookmark_interaction） |
+| 4 | `npm run test:e2e` | **anonDefinition 通过 + smoke 7/7 + foldRouting 8/8 + indexJump 11/11 + bookmark 通过** | 真实 VS Code 宿主（@vscode/test-electron）；foldRouting 锁定提供者路由（#26）+ 段折叠/配对高亮/原生回退（#31）；indexJump 双代码仓库路径跨文件跳转（#38：独立工作区 ws-index 预置双路径 settings.json，启动自动建索引 + 高/低优先级可达 + 同名冲突优先级消解 + 包名限定优先 + 当前文件游标 + watcher 新建/修改增量；#39：Ctrl+T 工作区符号搜索 + 游标搜索且不参与跳转）；bookmark 命令建签/删签 + 编辑跟随迁移（用户示例）+ 整行删签 + 环绕跳转（v1.17.0，经 getState 快照断言） |
 
 补充：`node tests/bench.js` 输出语料大文件解析耗时基准（性能改动的证据）；
 `node tests/stress/index_stress.js` 符号索引压力测试（#38/#39，独立脚本不进
@@ -36,6 +36,11 @@ npm run compile   # 所有测试直接 require out/ 编译产物，必须先编�
 - `tests/regression/`：14 个可独立运行的脚本（`node tests/regression/<name>.js`），
   `run_all.js` 依次 spawn 聚合退出码。`parser_test.js` 使用 expected/ golden 文件
   （12 组 JSON 对比）。**不要运行 generate_*.js**（生成确定性 fixture，勿覆盖）。
+  构造扩展实例的套件（refresh_focus / activation_auto_parse）vscode mock 须含
+  书签 API（OverviewRulerLane/ColorThemeKind/createTextEditorDecorationType/
+  visibleTextEditors/activeColorTheme/onDidRename·Delete·Open/workspaceState），
+  且事件注册走 chainListener 链式（书签管理器与主类订阅同一事件，单槽会覆盖）、
+  mock 编辑器带 setDecorations、EventEmitter.event 为绑定箭头函数（v1.17.0）。
 - `tests/corpus/`：33 个 PL/SQL 文件（7 类对象 × simple/complex/long/long+complex，
   long ≥10k 行）。19 个手写（文件头注释写明期望大纲）、14 个由 `generate-long.js`
   确定性生成（勿手编）。详见其 README（含文件矩阵与行格式约束）。

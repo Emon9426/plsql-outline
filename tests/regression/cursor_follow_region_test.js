@@ -18,12 +18,12 @@ const Module = require('module');
 const mockVscode = {
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
     TreeItem: class { constructor(l, c) { this.label = l; this.collapsibleState = c; } },
-    ThemeIcon: class { constructor(id) { this.id = id; } },
+    ThemeIcon: class ThemeIcon { constructor(id) { this.id = id; } },
     EventEmitter: class { constructor() { this.l = []; } event(l) { this.l.push(l); return { dispose() {} }; } fire(d) { this.l.forEach(x => x(d)); } dispose() { this.l = []; } },
     workspace: { getConfiguration: () => ({ get: (k, d) => d }), fs: {}, createFileSystemWatcher: () => ({ onDidCreate() {}, onDidChange() {}, onDidDelete() {}, dispose() {} }) },
     window: {
-        createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
-        createTreeView: () => treeViewSpy,
+        createOutputChannel: () => ({ appendLine(m) { if (process.env.DBG_OUTLINE) { console.error('[out]', m); } }, dispose() {} }),
+        registerWebviewViewProvider: (id, provider) => { mockVscode.__webviewProvider = provider; return { dispose() {} }; },
         showQuickPick: async () => undefined, showInformationMessage() {}, showWarningMessage() {}, showErrorMessage() {}
     },
     commands: { registerCommand: () => ({ dispose() {} }) },
@@ -37,13 +37,18 @@ const mockVscode = {
     ViewColumn: { One: 1, Two: 2, Beside: -2 }
 };
 
-// createTreeView 的 mock 对象：捕获 reveal 调用供断言
-const revealCalls = [];
-const treeViewSpy = {
+// webview 视图 mock：捕获 select 消息（v1.17.0 单 Webview：selectAndRevealTarget
+// 改为向 webview 发 {type:'select', id}，测试按 id 反解 TreeItemData 断言）
+const postedMessages = [];
+const webViewSpy = {
     visible: true,
-    title: '',
-    reveal: async (element, options) => { revealCalls.push({ element, options }); },
-    dispose() {}
+    webview: {
+        cspSource: 'vscode-webview-test:',
+        posted: postedMessages,
+        postMessage: async (msg) => { postedMessages.push(msg); return true; },
+        onDidReceiveMessage: () => ({ dispose() {} })
+    },
+    onDidDispose: () => ({ dispose() {} })
 };
 
 const o = Module._resolveFilename;
@@ -52,7 +57,8 @@ require.cache['vscode_mock'] = { exports: mockVscode };
 
 const { PLSQLParser } = require('../../out/parser');
 const { PLSQLOutlineExtension } = require('../../out/extension');
-const { TreeViewManager, MemoryDataProvider } = require('../../out/treeView');
+const { MemoryDataProvider } = require('../../out/treeView');
+const { OutlineWebviewManager } = require('../../out/outlineWebview');
 
 let passed = 0, failed = 0;
 const failures = [];
@@ -180,16 +186,37 @@ async function main() {
     assert(tExc && tExc.type === 'structureBlock' && tExc.blockType === 'EXCEPTION' && tExc.node === proc,
         `异常区内部 L24 定位到 EXCEPTION 区域（实际 ${tExc && tExc.blockType}）`);
 
-    // ---- reveal 目标（selectAndRevealTarget → 捕获 createTreeView().reveal 调用）----
+    // ---- reveal 目标（selectAndRevealTarget → select 消息 + id 反解元素）----
     console.log('\n--- reveal 目标构造 ---');
-    const manager = new TreeViewManager({ subscriptions: [] });
+    const manager = new OutlineWebviewManager({ subscriptions: [] });
     manager.updateDataProvider(new MemoryDataProvider(result));
     const provider = manager.getProvider();
+    mockVscode.__webviewProvider.resolveWebviewView(webViewSpy, {}, { isCancellationRequested: false });
+    // 预热文件标签（生产路径由模型发布时的 getChildren 完成；缓存键含文件前缀）
+    await provider.getChildren();
+
+    /** 按缓存键在当前模型树中反解 TreeItemData（等价于 webview 端按 id 定位行） */
+    async function elementById(id) {
+        async function walk(elements) {
+            for (const el of elements) {
+                if (provider.generateCacheKey(el) === id) { return el; }
+                const hit = await walk(await provider.getChildren(el));
+                if (hit) { return hit; }
+            }
+            return undefined;
+        }
+        return walk(await provider.getChildren());
+    }
 
     async function revealAndLast(target) {
-        revealCalls.length = 0;
+        postedMessages.length = 0;
         await manager.selectAndRevealTarget(target);
-        return revealCalls[revealCalls.length - 1];
+        const msg = [...postedMessages].reverse().find(m => m.type === 'select');
+        if (process.env.DBG_OUTLINE) { console.error('[dbg] select msg:', JSON.stringify(msg)); }
+        if (!msg) { return null; }
+        const element = await elementById(msg.id);
+        if (process.env.DBG_OUTLINE) { console.error('[dbg] resolved element:', element ? element.label : 'null'); }
+        return element ? { element, options: { select: true, focus: false } } : null;
     }
 
     /**
@@ -264,12 +291,12 @@ async function main() {
         if (call) { await assertRevealChain(call.element, 'ELSIF 内 FOR（父级应为所属 IF）'); }
     }
 
-    // 面板不可见 → 不 reveal（静默跳过）
-    treeViewSpy.visible = false;
-    revealCalls.length = 0;
+    // 面板不可见 → 不发 select（静默跳过）
+    webViewSpy.visible = false;
+    postedMessages.length = 0;
     await manager.selectAndRevealTarget({ type: 'structureBlock', node: proc, blockType: 'BEGIN' });
-    assert(revealCalls.length === 0, '面板不可见时不调用 reveal');
-    treeViewSpy.visible = true;
+    assert(!postedMessages.some(m => m.type === 'select'), '面板不可见时不发送 select');
+    webViewSpy.visible = true;
 
     // ---- 无声明项过程：DECLARE 跟随回退宿主节点 ----
     console.log('\n--- Declaration 文件夹不可渲染时回退 ---');
@@ -278,10 +305,12 @@ async function main() {
     const tNoDecl = noDecl && callFindTarget(noDeclResult.nodes, 2);
     assert(tNoDecl && tNoDecl.type === 'structureBlock' && tNoDecl.blockType === 'DECLARE',
         `无声明项过程 L2 仍定位到 DECLARE 区域（实际 ${tNoDecl && tNoDecl.blockType}）`);
-    revealCalls.length = 0;
+    postedMessages.length = 0;
     manager.updateDataProvider(new MemoryDataProvider(noDeclResult));
+    await provider.getChildren();
     await manager.selectAndRevealTarget({ type: 'structureBlock', node: noDecl, blockType: 'DECLARE' });
-    const fbCall = revealCalls[revealCalls.length - 1];
+    const fbMsg = [...postedMessages].reverse().find(m => m.type === 'select');
+    const fbCall = fbMsg ? { element: await elementById(fbMsg.id) } : null;
     assert(fbCall && fbCall.element.node === noDecl && !fbCall.element.isProgramGroup && !fbCall.element.isDeclarationSection,
         `Declaration 不可渲染时回退 reveal 宿主节点（实际 ${fbCall && fbCall.element.label}）`);
     if (fbCall) { await assertRevealChain(fbCall.element, '回退宿主节点'); }
@@ -296,10 +325,12 @@ async function main() {
     assert(tTrgIf && tTrgIf.type === 'node' && tTrgIf.node.type === 'IF_STATEMENT',
         `触发器 IF 体内 L7 跟随到 IF 节点（实际 ${tTrgIf && tTrgIf.node && tTrgIf.node.type}）`);
     if (anonChild && anonChild.beginLine) {
-        revealCalls.length = 0;
+        postedMessages.length = 0;
         manager.updateDataProvider(new MemoryDataProvider(triggerResult));
+        await provider.getChildren();
         await manager.selectAndRevealTarget({ type: 'structureBlock', node: anonChild, blockType: 'BEGIN' });
-        const trgCall = revealCalls[revealCalls.length - 1];
+        const trgMsg = [...postedMessages].reverse().find(m => m.type === 'select');
+        const trgCall = trgMsg ? { element: await elementById(trgMsg.id) } : null;
         assert(trgCall && trgCall.element.isProgramGroup === true && trgCall.element.programGroupKind === 'body' &&
             trgCall.element.parentNode === anonChild,
             '触发器 BEGIN 区域 reveal 到匿名块的 Body 文件夹');

@@ -1,12 +1,15 @@
 /**
- * GMLTest: 大纲右键复制名称测试（Issue #36）
+ * GMLTest: 大纲右键复制名称测试（Issue #36；v1.17.0 起走单 Webview 消息路径）
  *
- * 背景：大纲视图右键「复制名称」把方法/过程名（干净标识符）写入剪贴板。
+ * 背景：大纲为单 Webview 视图（outlineWebview.ts），右键「复制名称」由
+ * webview 发送 {type:'copy', id} 消息 → copyNameById → 剪贴板。
  *
- * 锁定契约（plsqlOutline.copyName 命令处理器）：
- *  - 子程序/包节点 → 复制 node.name（不带类型后缀、不带行号描述）
- *  - 声明项（变量/游标等）→ 复制 entry.name（不带 ": TYPE = 值" 描述）
- *  - 控制结构（IF/LOOP 等关键字占位名）、文件夹、结构块 → 提示不可复制，不写剪贴板
+ * 锁定契约：
+ *  - 子程序/包节点 → 模型节点带 copyName=node.name；复制干净 node.name
+ *    （不带类型后缀、不带行号描述）
+ *  - 声明项（变量/游标等）→ copyName=entry.name（不带 ": TYPE = 值" 描述）
+ *  - 控制结构（IF/LOOP 等关键字占位名）、文件夹、结构块 → copyName 为空，
+ *    复制时提示不可复制，不写剪贴板
  */
 const Module = require('module');
 let copiedText = null;
@@ -22,35 +25,60 @@ const mockVscode = {
     workspace: { getConfiguration: () => ({ get: (k, def) => def }) },
     window: {
         createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
-        createTreeView: () => ({ visible: true, title: '', message: undefined, reveal: async () => {}, dispose() {} }),
+        registerWebviewViewProvider: (id, provider) => {
+            mockVscode.__webviewProvider = provider;
+            return { dispose() {} };
+        },
         showInformationMessage: (m) => { infoMessages.push(m); },
         showWarningMessage: (m) => { warnMessages.push(m); },
         showErrorMessage() {},
         showQuickPick: async () => undefined
     },
-    commands: {},
+    commands: { registerCommand: () => ({ dispose() {} }) },
     RelativePattern: class RelativePattern { constructor(b, p) { this.base = b; this.pattern = p; } },
     Uri: { file: (f) => ({ fsPath: f }) }
 };
-// 注册命令捕获：记录 id → 回调，供测试直接调用 copyName 处理器
-const registeredCommands = {};
-mockVscode.commands.registerCommand = (id, cb) => { registeredCommands[id] = cb; return { dispose() {} }; };
 
 const originalResolve = Module._resolveFilename;
 Module._resolveFilename = function (request) { if (request === 'vscode') return 'vscode_mock'; return originalResolve.apply(this, arguments); };
 require.cache['vscode_mock'] = { exports: mockVscode };
 
 const { PLSQLParser } = require('../../out/parser');
-// 本套件构造 TreeViewManager 并捕获命令注册：run_all 单进程共享 vscode_mock
-// 缓存——删除 treeView 编译产物缓存后以本套件 mock（含 registerCommand 捕获、
-// clipboard）重新加载，拿到独立模块实例
+// run_all 单进程共享 vscode_mock 缓存：删除编译产物缓存后以本套件 mock 重新加载
 delete require.cache[require.resolve('../../out/treeView')];
-const { MemoryDataProvider, TreeViewManager } = require('../../out/treeView');
+delete require.cache[require.resolve('../../out/outlineWebview')];
+const { MemoryDataProvider } = require('../../out/treeView');
+const { OutlineWebviewManager } = require('../../out/outlineWebview');
 
 function makeRecorder() {
     const cases = [];
     function assert(name, desc, cond, actual) { cases.push({ name, desc, passed: !!cond, actual: String(actual) }); }
     return { cases, assert };
+}
+
+/** 构造 mock webview 视图：捕获 postMessage 与消息处理器 */
+function makeMockView() {
+    const view = {
+        visible: true,
+        webview: {
+            cspSource: 'vscode-webview-test:',
+            options: undefined,
+            html: '',
+            posted: [],
+            postMessage: async (msg) => { view.webview.posted.push(msg); return true; },
+            onDidReceiveMessage: (cb) => { view.__messageHandler = cb; return { dispose() {} }; }
+        },
+        onDidDispose: () => ({ dispose() {} })
+    };
+    return view;
+}
+
+/** 深度遍历模型节点 */
+function* walkNodes(nodes) {
+    for (const n of nodes || []) {
+        yield n;
+        yield* walkNodes(n.children);
+    }
 }
 
 const CODE = [
@@ -71,48 +99,67 @@ async function run() {
     rec.assert('proc_parsed', '解析出 p_copy', !!proc, !!proc);
     if (!proc) { return { suiteName: '复制名称', cases: rec.cases }; }
 
-    const manager = new TreeViewManager({ subscriptions: { push() {} } });
+    const manager = new OutlineWebviewManager({ subscriptions: { push() {} } });
     manager.updateDataProvider(new MemoryDataProvider(result));
-    const copyName = registeredCommands['plsqlOutline.copyName'];
-    rec.assert('command_registered', 'copyName 命令已注册', typeof copyName === 'function', typeof copyName);
-    if (typeof copyName !== 'function') { return { suiteName: '复制名称', cases: rec.cases }; }
+    const view = makeMockView();
+    mockVscode.__webviewProvider.resolveWebviewView(view, {}, { isCancellationRequested: false });
+    view.__messageHandler({ type: 'ready' });
+    await new Promise(r => setTimeout(r, 100));
 
-    // ---- 子程序节点：复制干净 node.name ----
+    const models = view.webview.posted.filter(m => m.type === 'model');
+    rec.assert('model_posted', 'ready 后发布树模型', models.length >= 1, models.length);
+    if (models.length === 0) { return { suiteName: '复制名称', cases: rec.cases }; }
+    const all = [...walkNodes(models[models.length - 1].nodes)];
+
+    // ---- 子程序节点：模型带干净 copyName，复制 node.name ----
+    const procNode = all.find(n => n.copyName === 'p_copy');
+    rec.assert('model_proc_copy_name', '模型中子程序节点带 copyName=p_copy', !!procNode,
+        all.map(n => n.copyName).filter(Boolean).join(','));
     copiedText = null; infoMessages = []; warnMessages = [];
-    await copyName({ node: proc, isStructureBlock: false, label: 'p_copy', line: proc.declarationLine });
-    rec.assert('copy_node_name', '子程序节点复制 node.name',
-        copiedText === 'p_copy', copiedText);
+    if (procNode) {
+        await view.__messageHandler({ type: 'copy', id: procNode.id });
+        rec.assert('copy_node_name', '子程序节点复制 node.name',
+            copiedText === 'p_copy', copiedText);
+    }
 
-    // ---- 声明项：复制 entry.name（不带类型/初值描述）----
-    const cursorEntry = proc.variableTable ? proc.variableTable.get('c_demo') : undefined;
-    rec.assert('cursor_entry_exists', '游标声明项存在', !!cursorEntry, !!cursorEntry);
-    if (cursorEntry) {
-        copiedText = null;
-        await copyName({ isStructureBlock: false, label: 'c_demo', line: cursorEntry.line, isDeclarationEntry: true, declarationEntry: cursorEntry });
+    // ---- 声明项：copyName=entry.name（不带类型/初值描述）----
+    const entryNode = all.find(n => n.copyName === 'c_demo');
+    rec.assert('model_entry_copy_name', '模型中游标声明项带 copyName=c_demo', !!entryNode,
+        all.map(n => n.copyName).filter(Boolean).join(','));
+    copiedText = null;
+    if (entryNode) {
+        await view.__messageHandler({ type: 'copy', id: entryNode.id });
         rec.assert('copy_entry_name', '声明项复制 entry.name（不带 ": TYPE" 描述）',
             copiedText === 'c_demo', copiedText);
     }
 
-    // ---- 控制结构 / 文件夹：提示不可复制 ----
-    const procChildren = await manager.getProvider().getChildren({ node: proc, isStructureBlock: false, label: 'p_copy', line: proc.declarationLine });
-    const bodyGroup = procChildren.find(c => c.isProgramGroup && c.programGroupKind === 'body');
-    copiedText = null;
-    await copyName(bodyGroup);
-    rec.assert('folder_no_copy', '文件夹不写剪贴板并提示', copiedText === null && warnMessages.length > 0,
-        `${copiedText} / ${warnMessages.join(';')}`);
+    // ---- 文件夹（Body）：copyName 为空 → 提示不可复制 ----
+    const bodyNode = all.find(n => typeof n.label === 'string' && /BODY/i.test(n.label) && n.collapsible !== 0);
+    copiedText = null; warnMessages = [];
+    if (bodyNode) {
+        rec.assert('model_folder_no_name', '文件夹节点不带 copyName', bodyNode.copyName === undefined, String(bodyNode.copyName));
+        await view.__messageHandler({ type: 'copy', id: bodyNode.id });
+        rec.assert('folder_no_copy', '文件夹不写剪贴板并提示', copiedText === null && warnMessages.length > 0,
+            `${copiedText} / ${warnMessages.join(';')}`);
+    } else {
+        rec.assert('model_folder_no_name', '文件夹节点不带 copyName（Body 缺失，跳过）', true, 'skipped');
+    }
 
-    const ifNode = (proc.children || []).find(c => c.type === 'IF_STATEMENT');
+    // ---- 控制结构（IF 占位名）：copyName 为空 → 提示 ----
+    const ifNode = all.find(n => n.label === 'IF');
     if (ifNode) {
+        rec.assert('model_control_no_name', '控制结构节点不带 copyName', ifNode.copyName === undefined, String(ifNode.copyName));
         copiedText = null; warnMessages = [];
-        await copyName({ node: ifNode, isStructureBlock: false, label: 'IF', line: ifNode.declarationLine });
+        await view.__messageHandler({ type: 'copy', id: ifNode.id });
         rec.assert('control_no_copy', '控制结构（占位名）不写剪贴板并提示', copiedText === null && warnMessages.length > 0,
             `${copiedText} / ${warnMessages.join(';')}`);
     } else {
-        rec.assert('control_no_copy', '控制结构（占位名）不写剪贴板并提示（IF 节点缺失，跳过）', true, 'skipped');
+        rec.assert('model_control_no_name', '控制结构节点不带 copyName（IF 缺失，跳过）', true, 'skipped');
     }
 
     rec.assert('copy_feedback', '复制成功给出反馈提示', infoMessages.some(m => String(m).includes('p_copy')), infoMessages.join(';'));
 
+    manager.dispose();
     return { suiteName: '复制名称', cases: rec.cases };
 }
 

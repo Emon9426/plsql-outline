@@ -21,7 +21,10 @@ const mockVscode = {
     workspace: { getConfiguration: () => ({ get: (k, def) => def }) },
     window: {
         createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
-        createTreeView: () => ({ visible: true, title: '', message: undefined, reveal: async () => {}, dispose() {} }),
+        registerWebviewViewProvider: (id, provider) => {
+            mockVscode.__webviewProvider = provider;
+            return { dispose() {} };
+        },
         showInformationMessage() {}, showWarningMessage() {}, showErrorMessage() {},
         showQuickPick: async () => undefined
     },
@@ -34,11 +37,13 @@ Module._resolveFilename = function (request) { if (request === 'vscode') return 
 require.cache['vscode_mock'] = { exports: mockVscode };
 
 const { PLSQLParser } = require('../../out/parser');
-// 本套件构造 TreeViewManager（createTreeView/命令注册）：run_all 单进程共享
-// vscode_mock 缓存，先加载套件的 mock 缺 createTreeView——删除 treeView 编译
-// 产物缓存后以本套件 mock 重新加载，拿到独立模块实例
+// 本套件构造 OutlineWebviewManager（v1.17.0 单 Webview 大纲视图；命令注册/
+// 消息协议）：run_all 单进程共享 vscode_mock 缓存，先加载套件的 mock 缺
+// registerWebviewViewProvider——删除编译产物缓存后以本套件 mock 重新加载
 delete require.cache[require.resolve('../../out/treeView')];
-const { PLSQLOutlineProvider, MemoryDataProvider, TreeViewManager } = require('../../out/treeView');
+delete require.cache[require.resolve('../../out/outlineWebview')];
+const { PLSQLOutlineProvider, MemoryDataProvider } = require('../../out/treeView');
+const { OutlineWebviewManager } = require('../../out/outlineWebview');
 
 const COLLAPSED = mockVscode.TreeItemCollapsibleState.Collapsed;
 const EXPANDED = mockVscode.TreeItemCollapsibleState.Expanded;
@@ -161,14 +166,72 @@ async function run() {
     const bodyCount = await provider.countFilterMatches();
     rec.assert('folder_not_matchable', '文件夹 Body 不参与匹配（计数 0）', bodyCount === 0, bodyCount);
 
-    // ---- TreeViewManager：过滤提示消息 + 光标跟随暂停标记 ----
-    const manager = new TreeViewManager({ subscriptions: { push() {} } });
+    // ---- OutlineWebviewManager（v1.17.0 单 Webview）：过滤经消息路径生效 ----
+    const manager = new OutlineWebviewManager({ subscriptions: { push() {} } });
     manager.updateDataProvider(new MemoryDataProvider(result));
+    const view = {
+        visible: true,
+        webview: {
+            cspSource: 'vscode-webview-test:',
+            posted: [],
+            postMessage: async (msg) => { view.webview.posted.push(msg); return true; },
+            onDidReceiveMessage: (cb) => { view.__messageHandler = cb; return { dispose() {} }; }
+        },
+        onDidDispose: () => ({ dispose() {} })
+    };
+    mockVscode.__webviewProvider.resolveWebviewView(view, {}, { isCancellationRequested: false });
+    view.__messageHandler({ type: 'ready' });
+    await new Promise(r => setTimeout(r, 80));
     await manager.setFilter('inner');
     rec.assert('manager_filter_active', '管理器过滤生效（光标跟随暂停依据）', manager.isFilterActive(), manager.isFilterActive());
-    rec.assert('manager_message', '标题栏提示含命中数', /inner/.test(String(manager.getTreeView().message)) && /2/.test(String(manager.getTreeView().message)), manager.getTreeView().message);
+    const filteredModel = view.webview.posted.filter(m => m.type === 'model').pop();
+    rec.assert('manager_filter_count', '模型携带命中数（inner → 2）',
+        filteredModel && filteredModel.filterCount === 2, filteredModel && filteredModel.filterCount);
+    const modelRoots = (filteredModel && filteredModel.nodes) || [];
+    rec.assert('manager_model_filtered', '模型根只保留命中祖先链（pb_filter）',
+        modelRoots.length === 1 && String(modelRoots[0].label).startsWith('pb_filter'),
+        modelRoots.map(n => n.label).join(','));
     await manager.setFilter('');
-    rec.assert('manager_message_cleared', '清空后提示复位', manager.getTreeView().message === undefined, manager.getTreeView().message);
+    rec.assert('manager_filter_cleared', '清空后过滤复位', !manager.isFilterActive(), manager.isFilterActive());
+    const clearedModel = view.webview.posted.filter(m => m.type === 'model').pop();
+    rec.assert('manager_count_cleared', '清空后模型不带命中数', clearedModel && clearedModel.filterCount === undefined,
+        clearedModel && clearedModel.filterCount);
+    manager.dispose();
+
+    // ---- 解析晚于 webview 就绪：updateDataProvider 必须重发模型 ----
+    // （装机实测缺陷回归：webview 先 ready 收到空模型，parseCurrentFile 完成后
+    //   若不重发模型，视图将一直显示"暂无解析结果"）
+    {
+        const lateManager = new OutlineWebviewManager({ subscriptions: { push() {} } });
+        const lateView = {
+            visible: true,
+            webview: {
+                cspSource: 'vscode-webview-test:',
+                posted: [],
+                postMessage: async (msg) => { lateView.webview.posted.push(msg); return true; },
+                onDidReceiveMessage: (cb) => { lateView.__messageHandler = cb; return { dispose() {} }; }
+            },
+            onDidDispose: () => ({ dispose() {} })
+        };
+        mockVscode.__webviewProvider.resolveWebviewView(lateView, {}, { isCancellationRequested: false });
+        lateView.__messageHandler({ type: 'ready' });
+        await new Promise(r => setTimeout(r, 60));
+        const beforeCount = lateView.webview.posted.filter(m => m.type === 'model').length;
+        const emptyModel = lateView.webview.posted.filter(m => m.type === 'model').pop();
+        rec.assert('late_ready_empty_model', '就绪早于解析：初始模型为空（无数据源）',
+            beforeCount >= 1 && (!emptyModel.nodes || emptyModel.nodes.length === 0),
+            JSON.stringify(emptyModel && emptyModel.nodes && emptyModel.nodes.length));
+        // 解析完成后 → 必须收到带数据的新模型
+        lateManager.updateDataProvider(new MemoryDataProvider(result));
+        await new Promise(r => setTimeout(r, 100));
+        const afterModels = lateView.webview.posted.filter(m => m.type === 'model');
+        const lastModel = afterModels[afterModels.length - 1];
+        rec.assert('late_parse_reposts_model', '解析完成后重发模型（装机缺陷修复）',
+            afterModels.length > beforeCount && lastModel && lastModel.nodes &&
+            lastModel.nodes.length === 1 && String(lastModel.nodes[0].label).startsWith('pb_filter'),
+            `${beforeCount}→${afterModels.length} / ${lastModel && lastModel.nodes && lastModel.nodes.map(n => n.label).join(',')}`);
+        lateManager.dispose();
+    }
 
     // ---- 过滤期间根级折叠状态：未命中子树的文件夹行为不受影响（默认折叠语义由无过滤场景锁定）----
     const plainProvider = new PLSQLOutlineProvider();

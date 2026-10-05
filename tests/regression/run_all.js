@@ -21,6 +21,7 @@ const suites = [
     'ui_structure_test.js',
     'refresh_focus_test.js',
     'activation_auto_parse_test.js',
+    'bookmark_interaction_test.js',
     'test_memory_optimization.js'
 ];
 
