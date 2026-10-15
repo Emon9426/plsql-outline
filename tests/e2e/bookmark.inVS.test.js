@@ -4,6 +4,7 @@
  * 通过扩展命令驱动书签管理器，断言 getState 返回的状态快照：
  *  - toggle：光标行建签（返回该文件书签列表）/ 再切删除
  *  - 编辑跟随：上方插入行 → 行号迁移（用户示例）；整行删除 → 删签
+ *  - 末行删除 → 删签（#46：真实 deleteLines 的 [(L-1,len),(L,len)] 形态）
  *  - delete：按 (uri, line) 参数删除
  *  - next/previous：环绕跳转（光标落到书签行首）
  */
@@ -105,6 +106,22 @@ async function main() {    // 等扩展激活（onStartupFinished/onLanguage）�
     await setCursor(editor, 2);
     const afterRemove = await vscode.commands.executeCommand('plsqlOutline.bookmark.toggle');
     assert.strictEqual(afterRemove.length, 0, `再次 toggle 应删除书签，实际 ${JSON.stringify(afterRemove)}`);
+
+    // 7. 末行删除 → 删签（#46）：缓冲区现为 aaa/aaa/ccc（无结尾换行，ccc 为
+    //    非空末行）。真实 editor.action.deleteLines（Ctrl+L）删末行的变更形态
+    //    为 [(L-1,len),(L,len)]（吞换行+整行内容），末行规则 g' 应删签——
+    //    v1.17.0 旧行为误判"尾部上移"致书签残留且跳到上一行
+    await setCursor(editor, 2);
+    await vscode.commands.executeCommand('plsqlOutline.bookmark.toggle');  // 末行建签
+    await sleep(100);
+    state = await getState();
+    assert.ok(state[key] && state[key].length === 1 && state[key][0].line === 2,
+        `末行建签应恰有 1 个书签在行 2，实际 ${JSON.stringify(state[key] || null)}`);
+    await vscode.commands.executeCommand('editor.action.deleteLines');
+    await sleep(300);
+    state = await getState();
+    assert.ok(!state[key] || state[key].length === 0,
+        `末行删除后书签应随之删除（#46），实际 ${JSON.stringify(state)}`);
 
     // 收尾清理状态，避免影响其他套件
     await vscode.commands.executeCommand('plsqlOutline.bookmark.delete', key, 0).catch(() => {});

@@ -10,7 +10,8 @@
  *   - Ctrl+Alt+K 在光标行切换（键绑定，命令路径）
  *
  * 本套件以 mock vscode 直接驱动 BookmarkManager.onSelectionChanged 的真实
- * 事件形态，锁定交互契约。
+ * 事件形态，锁定交互契约。末行签名形态 [L,0)→[L,len) 来自 2026-10-16
+ * SendInput+trace 实测（sel=2:0-2:3），仅做删除（#46）。
  */
 const Module = require('module');
 
@@ -226,6 +227,53 @@ async function main() {
     state = manager.getStateSnapshot();
     assert(state[key] && state[key].length === 1 && state[key][0].line === 7,
         `失焦重放整行事件不建签（实际 ${JSON.stringify(state[key])}）`);
+
+    // ---- Case 8-11: 末行整行签名（#46）——末行无换行符，行号单击选区止于
+    //      行尾 [L,0)→[L,len)（2026-10-16 SendInput+trace 实测），仅做删除 ----
+    // mock 文档 22 行，末行 = 行 21，lineAt(21).text = 'line-22 content'（15 列）
+    function lastLineEvent(editor0, line0, lineLen) {
+        const P = vscodeMock.Position, S = vscodeMock.Selection;
+        return {
+            textEditor: editor0, kind: vscodeMock.TextEditorSelectionChangeKind.Mouse,
+            selections: [new S(new P(line0, 0), new P(line0, lineLen))]
+        };
+    }
+
+    // Case 8: 末行整行选 + 已有书签 → 删除（末行书签此前无法单击删除，#46 主诉）
+    manager.toggle(editor, 21);                          // 行 21 建签（setup）
+    await sleep(80);
+    listeners.selection(lastLineEvent(editor, 21, 15));
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(!state[key] || state[key].every(b => b.line !== 21),
+        `末行整行选应删除末行书签（实际 ${JSON.stringify(state[key])}）`);
+
+    // Case 9: 末行整行选 + 无书签 → 不建签（防双击末行整词/三击选行误建）
+    listeners.selection(lastLineEvent(editor, 21, 15));
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(!state[key] || state[key].every(b => b.line !== 21),
+        `末行整行选在无签时不得建签（实际 ${JSON.stringify(state[key])}）`);
+
+    // Case 10: 非末行的 [L,0)→[L,len) 形态 → 不触发（中间行行号点击必产生
+    // 整行签名；此形态 = 拖选整行文本/双击整词，不得误删）
+    manager.clearFile(uri);                              // setup：重置为恰一个行 7 书签
+    manager.toggle(editor, 7);
+    await sleep(80);
+    listeners.selection(lastLineEvent(editor, 7, 14));   // 'line-8 content' 14 列
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(state[key] && state[key].length === 1 && state[key][0].line === 7,
+        `非末行整行文本选区不得误删书签（实际 ${JSON.stringify(state[key])}）`);
+
+    // Case 11: 失焦期间的末行整行事件 → 忽略（幽灵删除防护，同 Case 7 机理）
+    vscodeMock.window.state.focused = false;
+    listeners.selection(lastLineEvent(editor, 21, 15));
+    await sleep(80);
+    vscodeMock.window.state.focused = true;
+    state = manager.getStateSnapshot();
+    assert(state[key] && state[key].length === 1 && state[key][0].line === 7,
+        `失焦末行整行事件不改变书签（实际 ${JSON.stringify(state[key])}）`);
 
     console.log(`\n结果: ${passed}/${passed + failed} 通过`);
     process.exitCode = failed === 0 ? 0 : 1;
