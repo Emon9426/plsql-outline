@@ -111,6 +111,33 @@ async function run() {
         migrate(2, ch(0, 0, 2, 4, ''), 5) === 0,
         migrate(2, ch(0, 0, 2, 4, ''), 5));
 
+    // ---- 末行规则 g'（#46）：删末行 → 删签，不再误判"尾部上移"残留 ----
+    // 末行整行删除（Ctrl+L/剪切/选中删的变更形态 [(L-1,len),(L,len)]）→ 删签
+    rec.assert('m_lastline_whole_delete', '末行整行删除 → 删签（#46）',
+        migrate(1, ch(0, 3, 1, 3, ''), 1) === -1,
+        migrate(1, ch(0, 3, 1, 3, ''), 1));
+
+    // 上行删除止于末行行首（E 恰为 (L,0)）→ 末行整体上移，书签跟行（规则 e 先于 g'）
+    rec.assert('m_lastline_shift_up', '上行删除止于末行行首 → 书签上移',
+        migrate(1, ch(0, 1, 1, 0, ''), 1) === 0,
+        migrate(1, ch(0, 1, 1, 0, ''), 1));
+
+    // 跨行删除止于末行中部 → 删签（#46 取舍：末行尾部并入上行的罕见形态
+    // 与整行删除同判——删签可重建、残留不可删更痛）
+    rec.assert('m_lastline_mid_span', '跨行删除止于末行中部 → 删签（#46 取舍）',
+        migrate(1, ch(0, 1, 1, 1, ''), 1) === -1,
+        migrate(1, ch(0, 1, 1, 1, ''), 1));
+
+    // 末行行内编辑（行仍在）→ 书签保留（规则 c）
+    rec.assert('m_lastline_inline_edit', '末行行内编辑 → 书签保留',
+        migrate(1, ch(1, 0, 1, 1, 'x'), 2) === 1,
+        migrate(1, ch(1, 0, 1, 1, 'x'), 2));
+
+    // 末行上方插行 → 书签下移（规则 e；末行身份随 preLines 判定不误删）
+    rec.assert('m_lastline_insert_above', '末行上方插入一行 → 书签 +1',
+        migrate(1, ch(0, 0, 0, 0, 'new\n'), 3) === 2,
+        migrate(1, ch(0, 0, 0, 0, 'new\n'), 3));
+
     // 多变更（多光标）：VS Code 天然降序 [下方先、上方后]，书签上方两处插入 → +2
     {
         const r = applyDocumentChanges(
@@ -132,12 +159,14 @@ async function run() {
         migrate(1, ch(3, 0, 3, 0, 'a\nb\nc'), 6) === 1,
         migrate(1, ch(3, 0, 3, 0, 'a\nb\nc'), 6));
 
-    // 全选替换：书签行被完全覆盖 → 删签；末行书签（E 止于行中）→ 上移到 0
+    // 全选替换：书签行被完全覆盖 → 删签；末行书签同删（#46 末行规则 g'——
+    // 旧版末行书签"并到首行"的行为随 g' 变更为删签：行内容已被整体替换，
+    // 无内容可锚定）
     {
         const r = applyDocumentChanges(
             [bm(2), bm(3)], [ch(0, 0, 3, 5, 'new content')], 1);
-        rec.assert('m_select_all_replace', '全选替换：中间行删签、末行书签并到首行',
-            r.kept.length === 1 && r.kept[0].line === 0 && r.removedCount === 1,
+        rec.assert('m_select_all_replace', '全选替换：中间行与末行书签均删签',
+            r.kept.length === 0 && r.removedCount === 2,
             JSON.stringify(r));
     }
 

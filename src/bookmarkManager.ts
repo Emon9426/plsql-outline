@@ -11,6 +11,10 @@
  * 书签**（无签→建、有签→删；建签不弹表单，名称默认行内容）；编辑走悬停卡/
  * 右键菜单/书签视图/命令。同选区重复点击零事件=无操作（天然防误触）。
  *
+ * 末行例外（#46，2026-10-16 实测补充）：末行（无换行符）行号单击的选区止于
+ * 行尾 [line,0)→[line,len)，永不满足整行签名——末行书签无法单击删除。
+ * 该形态可识别但与双击整词/三击选行同形 → 仅做删除（有签→删，无签不建）。
+ *
  * 纯逻辑（跟随算法 / 所属与摘要）在 src/bookmarks.ts（vscode-free，单测直连）。
  *
  * 行号口径：BookmarkData.line 为 0-based，显示时 +1。
@@ -467,24 +471,45 @@ export class BookmarkManager implements vscode.Disposable {
         }
         const a = selection.start;
         const b = selection.end;
-        // 整行选中签名：[line,0) → [line+1,0)（点击行号/gutter 的原生效果）
-        const isFullLineSelection = b.line === a.line + 1 && b.character === 0;
-        if (!isFullLineSelection) {
-            this.traceSelection('other', selection.active.line, event);
-            return;
-        }
-
         // 幽灵切换防护：窗口失焦/关闭瞬间 VS Code 偶发重放整行选区事件
         // （kind=Mouse，实机两次捕获：窗口 WM_CLOSE 时、前台切换空档），会凭空
         // 建签。真实行号点击必然发生在聚焦窗口 → 失焦期间一律忽略
-        if (vscode.window.state && vscode.window.state.focused === false) {
-            this.traceSelection('full-line-unfocused', a.line, event);
+        const unfocused = vscode.window.state && vscode.window.state.focused === false;
+
+        // 整行选中签名：[line,0) → [line+1,0)（点击行号/gutter 的原生效果）
+        if (b.line === a.line + 1 && b.character === 0) {
+            if (unfocused) {
+                this.traceSelection('full-line-unfocused', a.line, event);
+                return;
+            }
+            // 单击未选中的行号 → 必产生此事件（实测唯一可靠信号）→ 直接切换书签
+            this.traceSelection('full-line', a.line, event);
+            this.toggle(event.textEditor, a.line);
             return;
         }
 
-        // 单击未选中的行号 → 必产生此事件（实测唯一可靠信号）→ 直接切换书签
-        this.traceSelection('full-line', a.line, event);
-        this.toggle(event.textEditor, a.line);
+        // 末行整行签名（#46）：末行无换行符，行号单击的选区止于行尾——
+        // [line,0) → [line,len)（2026-10-16 SendInput+trace 实测 sel=2:0-2:3），
+        // 永不满足上面的整行签名 → 末行书签此前无法单击删除。该形态与双击
+        // 末行整词/三击选行同形、不可区分 → 仅做删除（有签→删，无签不建，
+        // 防幽灵建签；末行建签走 Ctrl+Alt+K）。空末行（len=0）与正文点击
+        // 同形，无法识别，同样走 Ctrl+Alt+K/悬停卡/右键菜单。
+        const doc = event.textEditor.document;
+        if (a.line === b.line && a.character === 0 &&
+            a.line === doc.lineCount - 1 && b.character > 0 &&
+            b.character === doc.lineAt(a.line).text.length) {
+            if (unfocused) {
+                this.traceSelection('last-line-unfocused', a.line, event);
+                return;
+            }
+            this.traceSelection('last-line', a.line, event);
+            if (this.findBookmark(doc.uri, a.line)) {
+                this.removeAt(doc.uri, a.line);
+            }
+            return;
+        }
+
+        this.traceSelection('other', selection.active.line, event);
     }
 
     /** 调试轨迹（plsql-outline.debug.enabled 时把选区事件形态追加写入临时日志，

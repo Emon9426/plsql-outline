@@ -53,7 +53,7 @@ export interface BookmarkChangeResult {
  *
  * 书签锚定"行内容"而非行号（用户示例：bbb 行书签，其上插入一行 → 书签 2→3）。
  * 规则（0-based 行号 L，变更区间 [S,E)，新文本含 newLines 个换行，
- * delta = newLines - (E.line - S.line)）：
+ * delta = newLines - (E.line - S.line)，preLines = 变更前总行数）：
  *  a. 变更起点在锚点 (L,0) 之后（同行列 >0 或更靠下的行）      → 不变
  *  b. 恰在 (L,0) 纯插入：新文本以 \n 结尾（推挤本行内容）      → L += newLines
  *  c. 恰在 (L,0) 行内编辑/整行文本替换（E 与 S 同行）           → 不变（行仍在）
@@ -62,6 +62,12 @@ export interface BookmarkChangeResult {
  *  f. S 在上方且 E.line > L（区间整体吞掉本行）                 → 删签
  *  g. S 在上方且 E 落在本行中部（上行删除 + 本行头部被吞）       → L = S.line + newLines
  *     （本行尾部内容上移合并到该行，书签跟内容走）
+ *  g'. 末行特例（#46）：L 为末行（L === preLines-1，末行无换行符）
+ *     且 E 落在末行内部（E.line === L 且 E.char > 0）           → 删签
+ *     （删末行的常规操作——Ctrl+L/剪切/选中删——变更区间为
+ *      [(L-1,len),(L,len)]，旧行为落入 g 误判"尾部上移"→ 书签残留
+ *      且跳到上一行；取舍：罕见的跨行删除止于末行中部同样删签，
+ *      删签可重建、残留不可删更痛）
  *
  * "整行删除"判定口径：变更区间吞掉了本行的换行符（行作为一整行消失）。
  * 只删行内文本（不含换行）时行仍存在（可能变空行），书签保留。
@@ -69,7 +75,9 @@ export interface BookmarkChangeResult {
  * 多变更（多光标）：内部按起点位置降序归一后逐个应用——下方变更先调整其下方
  * 书签，不影响上方变更的坐标；对 VS Code 给定的天然降序数组为恒等变换。
  *
- * @param lineCount 变更后的文档总行数（防御性裁剪：越界书签丢弃）
+ * @param lineCount 变更后的文档总行数（防御性裁剪：越界书签丢弃）；
+ *   变更前总行数由此内部推导（lineCount + Σ(删行数) - Σ(增行数)，多变更
+ *   同为变更前坐标系可直加），供规则 g' 判定"书签行是否为变更前的末行"
  */
 export function applyDocumentChanges(
     bookmarks: BookmarkData[],
@@ -82,6 +90,10 @@ export function applyDocumentChanges(
     const sorted = [...changes].sort((a, b) =>
         b.startLine - a.startLine || b.startChar - a.startChar);
 
+    // 变更前总行数（规则 g' 的末行判定基准）
+    const lineCountBefore = lineCount + sorted.reduce(
+        (n, c) => n + (c.endLine - c.startLine) - countNewlines(c.text), 0);
+
     let kept = bookmarks.map(b => ({ ...b }));
     let removedCount = 0;
 
@@ -89,7 +101,7 @@ export function applyDocumentChanges(
         const newLines = countNewlines(change.text);
         const next: BookmarkData[] = [];
         for (const bm of kept) {
-            const r = translateBookmark(bm.line, change, newLines);
+            const r = translateBookmark(bm.line, change, newLines, lineCountBefore);
             if (r === 'removed') {
                 removedCount++;
             } else {
@@ -107,7 +119,8 @@ export function applyDocumentChanges(
 function translateBookmark(
     line: number,
     change: BookmarkContentChange,
-    newLines: number
+    newLines: number,
+    lineCountBefore: number
 ): number | 'removed' {
     const { startLine: sl, startChar: sc, endLine: el, endChar: ec, text } = change;
 
@@ -139,6 +152,11 @@ function translateBookmark(
     }
     if (el > line) {
         // (f) 区间吞掉整个本行
+        return 'removed';
+    }
+    if (line === lineCountBefore - 1) {
+        // (g') 末行特例（规则表见 applyDocumentChanges 文档）：末行无换行符，
+        //      E 落在末行内部即本行内容已部分/全部被吞 → 删签
         return 'removed';
     }
     // (g) E 落在本行中部：本行尾部内容合并到 sl + newLines 行
