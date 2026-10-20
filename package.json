@@ -186,6 +186,12 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "plsqlOutline.bookmark.clearAll",
+        "title": "清除全部书签（工作区）",
+        "category": "PL/SQL Outline",
+        "icon": "$(clear-all)"
+      },
+      {
         "command": "plsqlOutline.bookmark.jumpTo",
         "title": "跳转到书签",
         "category": "PL/SQL Outline"
@@ -219,7 +225,7 @@
           "group": "navigation@1"
         },
         {
-          "command": "plsqlOutline.bookmark.clearFile",
+          "command": "plsqlOutline.bookmark.clearAll",
           "when": "view == plsqlOutlineBookmarks",
           "group": "navigation@2"
         },
@@ -351,6 +357,9 @@
         {
           "command": "plsqlOutline.bookmark.clearFile",
           "when": "resourceExtname =~ /\\.(sql|pks|pkb|pck|prc|fnc|fcn|trg|typ)$/i"
+        },
+        {
+          "command": "plsqlOutline.bookmark.clearAll"
         },
         {
           "command": "plsqlOutline.bookmark.jumpTo",
