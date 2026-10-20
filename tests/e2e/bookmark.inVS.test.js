@@ -123,6 +123,24 @@ async function main() {    // 等扩展激活（onStartupFinished/onLanguage）�
     assert.ok(!state[key] || state[key].length === 0,
         `末行删除后书签应随之删除（#46），实际 ${JSON.stringify(state)}`);
 
+    // 8. 全清命令（#48）：建签 → 关闭编辑器（还原并关，无脏缓冲弹窗；此后无
+    //    活动 PL/SQL 编辑器）→ clearAll（传 true 跳过确认——模态框默认焦点
+    //    按钮不可程序化控制，确认门语义由回归 mock 锁定）→ 全空。锁定书签
+    //    视图标题栏按钮不依赖活动编辑器/文件存在性的契约
+    await setCursor(editor, 0);
+    await vscode.commands.executeCommand('plsqlOutline.bookmark.toggle');
+    await sleep(100);
+    state = await getState();
+    assert.ok(state[key] && state[key].length === 1,
+        `全清前应恰有 1 个书签，实际 ${JSON.stringify(state)}`);
+    await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+    await sleep(300);
+    await vscode.commands.executeCommand('plsqlOutline.bookmark.clearAll', true);
+    await sleep(300);
+    state = await getState();
+    assert.ok(Object.keys(state).length === 0,
+        `关闭编辑器后 clearAll 应清空全部书签（#48），实际 ${JSON.stringify(state)}`);
+
     // 收尾清理状态，避免影响其他套件
     await vscode.commands.executeCommand('plsqlOutline.bookmark.delete', key, 0).catch(() => {});
 

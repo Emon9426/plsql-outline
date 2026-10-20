@@ -11,13 +11,18 @@
  *
  * 本套件以 mock vscode 直接驱动 BookmarkManager.onSelectionChanged 的真实
  * 事件形态，锁定交互契约。末行签名形态 [L,0)→[L,len) 来自 2026-10-16
- * SendInput+trace 实测（sel=2:0-2:3），仅做删除（#46）。
+ * SendInput+trace 实测（sel=2:0-2:3），仅做删除（#46）。全清命令
+ * （书签视图标题栏按钮）不依赖活动编辑器/文件存在性（#48）。
  */
 const Module = require('module');
 
 const listeners = {};
 let activeTextEditor = undefined;
 const decoTypes = [];
+/** 命令处理器捕获（#48 全清契约要驱动命令层而非仅方法层） */
+const commandHandlers = {};
+/** showWarningMessage 模态确认的可编程应答（undefined = Esc 取消） */
+let warnChoice = undefined;
 
 function makeDoc() {
     return {
@@ -74,11 +79,16 @@ const vscodeMock = {
         createTextEditorDecorationType: (opts) => { decoTypes.push(opts); return { dispose() {} }; },
         createTreeView: () => ({ badge: undefined, dispose() {} }),
         showInputBox: async () => { inputBoxCalls++; return undefined; },
-        showWarningMessage() {},
+        showWarningMessage: async () => warnChoice,
         showInformationMessage: async () => undefined,
         showQuickPick: async () => undefined
     },
-    commands: { registerCommand: () => ({ dispose() {} }) },
+    commands: {
+        registerCommand: (id, handler) => {
+            commandHandlers[id] = handler;
+            return { dispose() {} };
+        }
+    },
     Uri: {
         file: (f) => ({ fsPath: f, toString: () => 'file:///' + f }),
         parse: (s) => ({ toString: () => s, fsPath: s })
@@ -274,6 +284,40 @@ async function main() {
     state = manager.getStateSnapshot();
     assert(state[key] && state[key].length === 1 && state[key][0].line === 7,
         `失焦末行整行事件不改变书签（实际 ${JSON.stringify(state[key])}）`);
+
+    // ---- Case 12-13: 全清命令（#48）——书签视图标题栏按钮不依赖活动编辑器 ----
+    // 场景：书签属于"已删除文件"（deleted_file.pkb——状态层存在、磁盘无此文件，
+    // 永远无法打开）+ 无任何活动编辑器 → clearAll 命令仍可全清
+    const doc2 = {
+        fileName: 'deleted_file.pkb', version: 1, languageId: 'plsql',
+        uri: { toString: () => 'file:///deleted_file.pkb', fsPath: 'deleted_file.pkb' },
+        lineCount: 5,
+        lineAt: () => ({ text: 'gone', rangeIncludingLineBreak: {} })
+    };
+    const editor2 = { document: doc2, setDecorations() {} };
+    manager.toggle(editor2, 3);
+    await sleep(80);
+    let snap = manager.getStateSnapshot();
+    assert(Object.keys(snap).length === 2,
+        `全清前应有两个文件的书签（实际 ${JSON.stringify(Object.keys(snap))}）`);
+
+    activeTextEditor = undefined;                        // 无任何活动编辑器
+    warnChoice = '全部清除';
+    await commandHandlers['plsqlOutline.bookmark.clearAll']();
+    await sleep(80);
+    snap = manager.getStateSnapshot();
+    assert(Object.keys(snap).length === 0,
+        `无活动编辑器时 clearAll 应清空包括已删除文件在内的全部书签（#48，实际 ${JSON.stringify(snap)}）`);
+
+    // Case 13: 模态确认取消 → 书签保留
+    manager.toggle(editor2, 2);
+    await sleep(80);
+    warnChoice = undefined;                              // 模拟 Esc 取消
+    await commandHandlers['plsqlOutline.bookmark.clearAll']();
+    await sleep(80);
+    snap = manager.getStateSnapshot();
+    assert(Object.keys(snap).length === 1,
+        `确认弹窗取消时不得清除（实际 ${JSON.stringify(snap)}）`);
 
     console.log(`\n结果: ${passed}/${passed + failed} 通过`);
     process.exitCode = failed === 0 ? 0 : 1;

@@ -116,6 +116,11 @@ extension.ts（激活/命令/事件接线，入口 activate()）
    止于行尾 [L,0)-[L,len)（SendInput+trace 实测 sel=2:0-2:3），永不满足整行
    签名；该形态可识别但与双击整词/三击选行同形 → **仅删除不建签**（防幽灵建签，
    末行建签走 Ctrl+Alt+K；空末行与正文点击同形不可识别，走 Ctrl+Alt+K/悬停卡/
-   右键）。所属/摘要实时从 currentParseResult
+   右键）。**视图标题栏清除按钮（#48，v1.17.2）**：原「清除本文件」经
+   resolveTarget 回落活动编辑器——无活动 PL/SQL 编辑器（文件已关/已删/非
+   PL/SQL）时弹警告零删除，且书签所属文件已删时永远无法打开=死路；升级为
+   「清除全部书签（工作区）」（clearAll 命令，纯状态层、模态确认、args[0]
+   ===true 跳过确认供 E2E）；per-file 清除保留在编辑器右键子菜单/命令面板。
+   所属/摘要实时从 currentParseResult
    计算（sourceFile 同源校验），不落盘。持久化 workspaceState v1 结构，文件
    重命名/删除跟随。设计原型图与 Issue 文案归档在 docs/design/bookmarks/。

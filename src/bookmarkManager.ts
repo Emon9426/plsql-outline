@@ -259,6 +259,23 @@ export class BookmarkManager implements vscode.Disposable {
         return removed;
     }
 
+    /**
+     * 清除工作区全部书签（#48）——纯状态层操作，不依赖任何编辑器/文件/行的
+     * 存在性（书签所属文件已删除、行号越界等场景一律可清）。
+     * @returns 清除的书签总数
+     */
+    clearAll(): number {
+        let removed = 0;
+        for (const list of this.files.values()) {
+            removed += list.length;
+        }
+        this.files.clear();
+        if (removed > 0) {
+            this.afterChange();
+        }
+        return removed;
+    }
+
     /** 变更后统一收口：落盘 + 刷新装饰 + 通知视图 */
     private afterChange(): void {
         this.save();
@@ -704,6 +721,29 @@ export class BookmarkManager implements vscode.Disposable {
                 }
             });
 
+        // 全清（书签视图标题栏按钮，#48）：不解析编辑器目标——文件已删除/行号
+        // 越界/无活动编辑器一律可清，纯状态层操作。args[0]===true 跳过确认
+        // （E2E/脚本直清，同 getState 的测试诊断口径；按钮/命令面板不传参）
+        const clearAllCommand = vscode.commands.registerCommand(
+            'plsqlOutline.bookmark.clearAll',
+            async (...args: unknown[]) => {
+                const snapshot = this.getFileSnapshot();
+                const total = snapshot.reduce((n, f) => n + f.bookmarks.length, 0);
+                if (total === 0) {
+                    vscode.window.showInformationMessage('工作区没有书签');
+                    return;
+                }
+                if (args[0] !== true) {
+                    const choice = await vscode.window.showWarningMessage(
+                        `确定清除全部 ${total} 个书签（${snapshot.length} 个文件）？`,
+                        { modal: true }, '全部清除');
+                    if (choice !== '全部清除') {
+                        return;
+                    }
+                }
+                this.clearAll();
+            });
+
         const listCommand = vscode.commands.registerCommand(
             'plsqlOutline.bookmark.list',
             () => this.showQuickPick());
@@ -729,7 +769,8 @@ export class BookmarkManager implements vscode.Disposable {
 
         context.subscriptions.push(
             toggleCommand, editCommand, deleteCommand, clearFileCommand,
-            listCommand, nextCommand, previousCommand, jumpToCommand, getStateCommand);
+            clearAllCommand, listCommand, nextCommand, previousCommand,
+            jumpToCommand, getStateCommand);
     }
 
     /** E2E 断言用状态快照（URI → 书签数组拷贝） */
