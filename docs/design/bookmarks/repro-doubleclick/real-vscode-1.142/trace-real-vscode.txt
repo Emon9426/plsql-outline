@@ -1,0 +1,20 @@
+﻿---- MARKER 23:51:42.550 R1 :: dblclick-linenumber-L3-expect-CREATE
+---- MARKER 23:53:20.693 R1 :: dblclick-linenumber-L3-expect-CREATE
+[bookmark-sel] 2026-11-15T15:53:22.126Z gutter-line line=3 focused=1 sel=2:0-3:0 n=1 all=2:0-3:0 anchor=2:0 active=3:0
+---- MARKER 23:53:23.879 R2 :: tripleclick-text-L5-expect-NONE
+[bookmark-sel] 2026-11-15T15:53:25.285Z collapse line=5 focused=1 sel=4:9-4:9 n=1 all=4:9-4:9 anchor=4:9 active=4:9
+[bookmark-sel] 2026-11-15T15:53:25.453Z other line=5 focused=1 sel=4:4-4:9 n=1 all=4:4-4:9 anchor=4:4 active=4:9
+[bookmark-sel] 2026-11-15T15:53:25.623Z text-gesture line=5 focused=1 sel=4:0-5:0 n=1 all=4:0-5:0 anchor=4:0 active=5:0
+---- MARKER 23:53:27.121 R3 :: dblclick-word-L8-then-drag-to-L9-start-expect-NONE
+[bookmark-sel] 2026-11-15T15:53:28.517Z collapse line=8 focused=1 sel=7:10-7:10 n=1 all=7:10-7:10 anchor=7:10 active=7:10
+[bookmark-sel] 2026-11-15T15:53:28.640Z other line=8 focused=1 sel=7:8-7:11 n=1 all=7:8-7:11 anchor=7:8 active=7:11
+[bookmark-sel] 2026-11-15T15:53:28.686Z text-gesture line=8 focused=1 sel=7:0-8:0 n=1 all=7:0-8:0 anchor=7:0 active=8:0
+[bookmark-sel] 2026-11-15T15:53:28.701Z other line=10 focused=1 sel=7:0-9:0 n=1 all=7:0-9:0 anchor=7:0 active=9:0
+[bookmark-sel] 2026-11-15T15:53:28.883Z text-gesture line=8 focused=1 sel=7:0-8:0 n=1 all=7:0-8:0 anchor=7:0 active=8:0
+---- MARKER 23:53:30.500 R4 :: click-midline-L21-then-gutter-L21-expect-CREATE
+[bookmark-sel] 2026-11-15T15:53:31.886Z collapse line=21 focused=1 sel=20:13-20:13 n=1 all=20:13-20:13 anchor=20:13 active=20:13
+[bookmark-sel] 2026-11-15T15:53:32.248Z gutter-line line=21 focused=1 sel=20:0-21:0 n=1 all=20:0-21:0 anchor=20:0 active=21:0
+---- MARKER 23:53:33.720 R5 :: tripleclick-text-L10-expect-NONE
+[bookmark-sel] 2026-11-15T15:53:35.153Z collapse line=10 focused=1 sel=9:13-9:13 n=1 all=9:13-9:13 anchor=9:13 active=9:13
+[bookmark-sel] 2026-11-15T15:53:35.322Z other line=10 focused=1 sel=9:12-9:23 n=1 all=9:12-9:23 anchor=9:12 active=9:23
+[bookmark-sel] 2026-11-15T15:53:35.493Z text-gesture line=10 focused=1 sel=9:0-10:0 n=1 all=9:0-10:0 anchor=9:0 active=10:0
