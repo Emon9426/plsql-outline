@@ -10,6 +10,10 @@
  * 一个整行选事件）；双击不可检测——VS Code 对同选区点击零事件，双击第二击
  * 完全不可见（GutterClickDetector 状态机已随双击方案删除）。
  *
+ * Issue #50（2026-11-15）：整行选区形状并非行号点击独占（三击正文、拖选整行、
+ * 双击词后拖拽同形），判定已收紧为"精确整行形状 + 本轮鼠标手势首事件"，
+ * 判定逻辑在 src/bookmarkManager.ts onSelectionChanged，本文件不含交互代码。
+ *
  * 行号口径：内部一律 0-based（bookmark.line），显示层 +1。
  */
 import { ParseNode, NodeType } from './types';

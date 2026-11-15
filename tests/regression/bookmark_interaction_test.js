@@ -100,7 +100,14 @@ const vscodeMock = {
             this.end = c === undefined ? b : { line: c, character: d };
         }
     },
-    Selection: class { constructor(a, b) { this.anchor = a; this.active = b; this.start = a; this.end = b; } },
+    Selection: class {
+        constructor(a, b) {
+            this.anchor = a; this.active = b; this.start = a; this.end = b;
+            // 真实 vscode.Selection 有 isEmpty（锚点与活动点重合）；#50 的塌陷/拖选
+            // 起点判定依赖它，mock 早先缺失导致零宽选区被当成非空区间分类
+            this.isEmpty = a.line === b.line && a.character === b.character;
+        }
+    },
     MarkdownString: class { constructor(s) { this.value = s; } },
     OverviewRulerLane: { Left: 0, Center: 1, Right: 2, Full: 3 },
     ColorThemeKind: { Light: 1, Dark: 2 },
@@ -138,6 +145,17 @@ function keyboardEvent(editor, line0) {
     return {
         textEditor: editor, kind: vscodeMock.TextEditorSelectionChangeKind.Keyboard,
         selections: [new S(new P(line0, 0), new P(line0 + 1, 0))]
+    };
+}
+/**
+ * 任意 Mouse 选区事件（Issue #50：按 2026-11-15 SendInput 实测的真实形态构造）
+ * @param {{line:number,char:number}[]} pair 起点/终点（0-based 行、列）
+ */
+function mouseEvent(editor, startLine, startChar, endLine, endChar) {
+    const P = vscodeMock.Position, S = vscodeMock.Selection;
+    return {
+        textEditor: editor, kind: vscodeMock.TextEditorSelectionChangeKind.Mouse,
+        selections: [new S(new P(startLine, startChar), new P(endLine, endChar))]
     };
 }
 
@@ -180,6 +198,8 @@ async function main() {
         `塌陷/同区二次操作不误删书签（实际 ${JSON.stringify(state[key])}）`);
 
     // ---- Case 3: 先点别行再点回 → 删除（可靠删除路径）----
+    // 越过鼠标突发窗口（Case 2 的塌陷属正文手势，窗口内的整行事件按 #50 契约忽略）
+    await sleep(600);
     listeners.selection(fullLineEvent(editor, 12));      // 点行 13（建第二个签）
     await sleep(60);
     listeners.selection(fullLineEvent(editor, 7));       // 选区已变 → 事件必发 → 切换=删除
@@ -285,6 +305,152 @@ async function main() {
     assert(state[key] && state[key].length === 1 && state[key][0].line === 7,
         `失焦末行整行事件不改变书签（实际 ${JSON.stringify(state[key])}）`);
 
+    // ---- Case 14-22: Issue #50 正文手势误触契约 ----
+    // 根因：切换条件只看"选区形状"，而 [L,0)→[L+1,0) 并非行号点击独占——三击正文、
+    // 拖选整行、双击词后拖拽都会产生同一形状。2026-11-15 SendInput 实测的 33 个
+    // 手势事件序列见 docs/design/bookmarks/repro-doubleclick/trace-before-fix.txt。
+    // 契约：整行事件必须是本轮鼠标手势的第一个事件（前面不得有 500ms 内的
+    // 非行号 Mouse 选区事件），且形状必须是精确的 [L,0)→[L+1,0)。
+    manager.clearFile(uri);
+    await sleep(600);
+
+    // Case 14: 三击正文（塌陷 → 词选区 → 整行）→ 不得建签
+    // 实测 P9：[9:13 空] → [9:4-9:13] → [9:0-10:0]
+    listeners.selection(mouseEvent(editor, 9, 13, 9, 13));
+    await sleep(30);
+    listeners.selection(mouseEvent(editor, 9, 4, 9, 13));
+    await sleep(30);
+    listeners.selection(fullLineEvent(editor, 9));
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(!state[key] || state[key].length === 0,
+        `三击正文不得建签（实际 ${JSON.stringify(state[key])}）`);
+
+    // Case 15: 拖选止于下一行行首（起点不在列 0）→ 不得建签
+    // 实测 P10：[11:7-11:7] → … → [11:7-12:0]（形状含 a.char≠0）
+    listeners.selection(mouseEvent(editor, 11, 7, 11, 7));
+    await sleep(30);
+    listeners.selection(mouseEvent(editor, 11, 6, 11, 7));
+    await sleep(30);
+    listeners.selection(mouseEvent(editor, 11, 7, 12, 0));
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(!state[key] || state[key].length === 0,
+        `拖选止于下一行行首不得建签（实际 ${JSON.stringify(state[key])}）`);
+
+    // Case 16: 从行首拖到下一行行首（选中整行的常规手势）→ 不得建签
+    // 实测 D5：[4:0 空] → [4:0-5:0]（形状与行号点击完全相同，只能靠突发判定）
+    await sleep(600);
+    listeners.selection(mouseEvent(editor, 4, 0, 4, 0));
+    await sleep(30);
+    listeners.selection(fullLineEvent(editor, 4));
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(!state[key] || state[key].length === 0,
+        `正文拖选整行不得建签（实际 ${JSON.stringify(state[key])}）`);
+
+    // Case 17: 双击词后拖拽到下一行行首 → 既不得建签也不得删已有签
+    // 实测 D1：[10:9 空] → [10:8-10:9] → [10:0-11:0]（现版本建签后又删签）
+    manager.clearFile(uri);
+    manager.toggle(editor, 10);                             // 行 10 先有签
+    await sleep(600);                                       // 越过突发窗口，建立干净基线
+    listeners.selection(mouseEvent(editor, 10, 9, 10, 9));
+    await sleep(30);
+    listeners.selection(mouseEvent(editor, 10, 8, 10, 9));
+    await sleep(30);
+    listeners.selection(fullLineEvent(editor, 10));
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(state[key] && state[key].length === 1 && state[key][0].line === 10,
+        `双击词后拖拽不得删掉既有书签（实际 ${JSON.stringify(state[key])}）`);
+
+    // Case 18: 双击词后 Shift+点击下一行行首 → 不得建签
+    // 实测 D2：[12:8-12:12] 词 → [12:8-13:0]（簇内间隔 460ms，靠"列 0"形状层兜住）
+    manager.clearFile(uri);
+    listeners.selection(mouseEvent(editor, 12, 8, 12, 12));
+    await sleep(500);
+    listeners.selection(mouseEvent(editor, 12, 8, 13, 0));
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(!state[key] || state[key].length === 0,
+        `Shift+点击扩选到下一行行首不得建签（实际 ${JSON.stringify(state[key])}）`);
+
+    // Case 19: 行号建签后，紧接着三击另一行正文 → 原签保留、新签不建
+    manager.clearFile(uri);
+    await sleep(600);
+    listeners.selection(fullLineEvent(editor, 3));          // 点行 4 行号建签
+    await sleep(80);
+    listeners.selection(mouseEvent(editor, 9, 13, 9, 13));  // 三击行 10 正文
+    await sleep(30);
+    listeners.selection(mouseEvent(editor, 9, 4, 9, 13));
+    await sleep(30);
+    listeners.selection(fullLineEvent(editor, 9));
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(state[key] && state[key].length === 1 && state[key][0].line === 3,
+        `行号建签后正文三击不得增删书签（实际 ${JSON.stringify(state[key])}）`);
+
+    // Case 20: 连续点击多个行号（间隔小于突发窗口）→ 逐个建签，不被突发判定误杀
+    manager.clearFile(uri);
+    await sleep(600);
+    listeners.selection(fullLineEvent(editor, 12));
+    await sleep(60);
+    listeners.selection(fullLineEvent(editor, 13));
+    await sleep(60);
+    listeners.selection(fullLineEvent(editor, 14));
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(state[key] && state[key].length === 3 &&
+           state[key].map(b => b.line).join(',') === '12,13,14',
+        `连续点三个行号应建三个签（实际 ${JSON.stringify(state[key])}）`);
+
+    // Case 21: 末行三击正文 → 不得误删末行书签（#46 语义保留）
+    // 实测 V13b 真实序列：塌陷 → 词选区 [L,0)-[L,3) → 整行 [L,0)-[L,len)
+    manager.clearFile(uri);
+    manager.toggle(editor, 21);                             // 末行建签
+    await sleep(600);
+    listeners.selection(mouseEvent(editor, 21, 5, 21, 5));   // 三击第一击：光标落位
+    await sleep(30);
+    listeners.selection(mouseEvent(editor, 21, 0, 21, 3));   // 第二击：选中词 END
+    await sleep(30);
+    listeners.selection(lastLineEvent(editor, 21, 15));      // 第三击：整行
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(state[key] && state[key].length === 1 && state[key][0].line === 21,
+        `末行三击正文不得误删末行书签（实际 ${JSON.stringify(state[key])}）`);
+
+    // Case 22: 末行行号单击（无簇内前导事件）→ 仍可删签（#46 主路径不回归）
+    await sleep(600);
+    listeners.selection(lastLineEvent(editor, 21, 15));     // 末行行号单击 → 删签
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(state[key] && state[key].every(b => b.line !== 21),
+        `末行行号单击仍应删除末行书签（实际 ${JSON.stringify(state[key])}）`);
+
+    // Case 23: 点正文中部（塌陷列 >0，仅光标落位）后立刻点行号 → 仍应建签
+    // （突发判定不得把"点一下代码再点行号"这种正常连击误杀）
+    manager.clearFile(uri);
+    await sleep(600);
+    listeners.selection(mouseEvent(editor, 8, 12, 8, 12));   // 行 9 中部单击
+    await sleep(120);                                        // 远在突发窗口内
+    listeners.selection(fullLineEvent(editor, 8));           // 紧接着点行 9 行号
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(state[key] && state[key].length === 1 && state[key][0].line === 8,
+        `正文单击后紧接行号点击仍应建签（实际 ${JSON.stringify(state[key])}）`);
+
+    // Case 24: 点正文行首（塌陷列 =0，= 拖选起点特征）后立刻点同一行行号 → 不建签
+    // 与 Case 16 同形：列 0 塌陷是"从行首起拖"的实测特征，必须计为正文手势
+    manager.clearFile(uri);
+    await sleep(600);
+    listeners.selection(mouseEvent(editor, 8, 0, 8, 0));     // 行 9 行首单击
+    await sleep(120);
+    listeners.selection(fullLineEvent(editor, 8));
+    await sleep(80);
+    state = manager.getStateSnapshot();
+    assert(!state[key] || state[key].length === 0,
+        `行首塌陷后 500ms 内的整行事件仍按拖选起点抑制（实际 ${JSON.stringify(state[key])}）`);
+
     // ---- Case 12-13: 全清命令（#48）——书签视图标题栏按钮不依赖活动编辑器 ----
     // 场景：书签属于"已删除文件"（deleted_file.pkb——状态层存在、磁盘无此文件，
     // 永远无法打开）+ 无任何活动编辑器 → clearAll 命令仍可全清
@@ -295,6 +461,7 @@ async function main() {
         lineAt: () => ({ text: 'gone', rangeIncludingLineBreak: {} })
     };
     const editor2 = { document: doc2, setDecorations() {} };
+    manager.toggle(editor, 5);                              // setup：主文件也留有书签
     manager.toggle(editor2, 3);
     await sleep(80);
     let snap = manager.getStateSnapshot();
