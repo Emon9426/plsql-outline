@@ -19,6 +19,10 @@ out/
 # ZCode session artifacts
 .zcode/
 
+# Qoder 本地生成物（RepoWiki 知识卡 / 额度报告），非源码、非发布物
+.qoder/
+.qoder-credits/
+
 # VS Code E2E 测试下载的 VS Code 实例（tests/e2e）
 .vscode-test/
 
