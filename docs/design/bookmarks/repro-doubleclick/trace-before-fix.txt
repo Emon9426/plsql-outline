@@ -1,0 +1,194 @@
+==== diag start 2026-11-15T14:51:10.935Z ====
+
+kind-enum {"1":"Keyboard","2":"Mouse","3":"Command","NaN":"fromValue"}
+seq=0 t=22:51:54.471 MARKER E1 :: 鍗曞嚮琛屽彿 L3 :: x=128 y=183 clicks=1 dragTo=-1 focused=True
+seq=1 t=14:51:54.795 SEL kind=Mouse(2) n=1 [2:0-3:0] anchor=2:0 active=3:0 file=diag_demo.pkb
+seq=2 t=14:51:54.797 BRANCH full-line -> TOGGLE line=3
+seq=3 t=14:51:54.810 TOGGLE CREATE line=3 total=1
+seq=4 t=14:51:54.829 SEL kind=Mouse(2) n=1 [2:0-4:0] anchor=2:0 active=4:0 file=diag_demo.pkb
+seq=0 t=22:51:56.373 MARKER E1 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E1.png
+seq=5 t=14:51:56.895 SEL kind=Keyboard(1) n=1 [4:0-4:0(empty)] anchor=4:0 active=4:0 file=diag_demo.pkb
+seq=0 t=22:51:57.342 MARKER E2 :: 鍙屽嚮琛屽彿 L4 :: x=128 y=221 clicks=2 dragTo=-1 focused=True
+seq=6 t=14:51:57.592 SEL kind=Mouse(2) n=1 [3:0-4:0] anchor=3:0 active=4:0 file=diag_demo.pkb
+seq=7 t=14:51:57.593 BRANCH full-line -> TOGGLE line=4
+seq=8 t=14:51:57.594 TOGGLE CREATE line=4 total=2
+seq=9 t=14:51:58.667 SEL kind=Keyboard(1) n=1 [4:0-4:0(empty)] anchor=4:0 active=4:0 file=diag_demo.pkb
+seq=0 t=22:51:59.261 MARKER E2 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E2.png
+seq=0 t=22:52:00.221 MARKER E3 :: 涓夊嚮琛屽彿 L5 :: x=128 y=259 clicks=3 dragTo=-1 focused=True
+seq=10 t=14:52:00.472 SEL kind=Mouse(2) n=1 [4:0-5:0] anchor=4:0 active=5:0 file=diag_demo.pkb
+seq=11 t=14:52:00.473 BRANCH full-line -> TOGGLE line=5
+seq=12 t=14:52:00.475 TOGGLE CREATE line=5 total=3
+seq=13 t=14:52:01.654 SEL kind=Keyboard(1) n=1 [5:0-5:0(empty)] anchor=5:0 active=5:0 file=diag_demo.pkb
+seq=0 t=22:52:02.215 MARKER E3 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E3.png
+seq=0 t=22:52:03.174 MARKER E4 :: 鍗曞嚮glyph鍒?L6 :: x=70 y=297 clicks=1 dragTo=-1 focused=True
+seq=0 t=22:52:04.946 MARKER E4 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E4.png
+seq=0 t=22:52:05.903 MARKER E5 :: 鍙屽嚮glyph鍒?L7 :: x=70 y=335 clicks=2 dragTo=-1 focused=True
+seq=0 t=22:52:07.796 MARKER E5 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E5.png
+seq=0 t=22:52:08.763 MARKER E6 :: 鍙屽嚮姝ｆ枃璇?L8 END :: x=298 y=373 clicks=2 dragTo=-1 focused=True
+seq=14 t=14:52:09.011 SEL kind=Mouse(2) n=1 [7:10-7:10(empty)] anchor=7:10 active=7:10 file=diag_demo.pkb
+seq=15 t=14:52:09.128 SEL kind=Mouse(2) n=1 [7:8-7:11] anchor=7:8 active=7:11 file=diag_demo.pkb
+seq=16 t=14:52:10.093 SEL kind=Keyboard(1) n=1 [7:11-7:11(empty)] anchor=7:11 active=7:11 file=diag_demo.pkb
+seq=0 t=22:52:10.678 MARKER E6 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E6.png
+seq=0 t=22:52:11.647 MARKER E7 :: 鍙屽嚮姝ｆ枃璇?L17 BEGIN :: x=196 y=715 clicks=2 dragTo=-1 focused=True
+seq=17 t=14:52:11.911 SEL kind=Mouse(2) n=1 [16:3-16:3(empty)] anchor=16:3 active=16:3 file=diag_demo.pkb
+seq=18 t=14:52:12.028 SEL kind=Mouse(2) n=1 [16:0-16:5] anchor=16:0 active=16:5 file=diag_demo.pkb
+seq=19 t=14:52:12.979 SEL kind=Keyboard(1) n=1 [16:5-16:5(empty)] anchor=16:5 active=16:5 file=diag_demo.pkb
+seq=0 t=22:52:13.542 MARKER E7 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E7.png
+seq=0 t=22:52:14.488 MARKER E8 :: 涓夊嚮姝ｆ枃 L18 NULL :: x=225 y=753 clicks=3 dragTo=-1 focused=True
+seq=20 t=14:52:14.742 SEL kind=Mouse(2) n=1 [17:5-17:5(empty)] anchor=17:5 active=17:5 file=diag_demo.pkb
+seq=21 t=14:52:14.853 SEL kind=Mouse(2) n=1 [17:4-17:8] anchor=17:4 active=17:8 file=diag_demo.pkb
+seq=22 t=14:52:14.962 SEL kind=Mouse(2) n=1 [17:0-18:0] anchor=17:0 active=18:0 file=diag_demo.pkb
+seq=23 t=14:52:14.964 BRANCH full-line -> TOGGLE line=18
+seq=24 t=14:52:14.966 TOGGLE CREATE line=18 total=4
+seq=25 t=14:52:15.914 SEL kind=Keyboard(1) n=1 [18:0-18:0(empty)] anchor=18:0 active=18:0 file=diag_demo.pkb
+seq=0 t=22:52:16.486 MARKER E8 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E8.png
+seq=0 t=22:52:17.430 MARKER E9 :: 鍙屽嚮琛屽熬鍙充晶绌虹櫧 L12 :: x=780 y=525 clicks=2 dragTo=-1 focused=True
+seq=26 t=14:52:17.692 SEL kind=Mouse(2) n=1 [11:40-11:40(empty)] anchor=11:40 active=11:40 file=diag_demo.pkb
+seq=0 t=22:52:19.322 MARKER E9 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E9.png
+seq=0 t=22:52:20.269 MARKER E10 :: 鍗曞嚮姝ｆ枃 L13 END IF :: x=298 y=563 clicks=1 dragTo=-1 focused=True
+seq=27 t=14:52:20.516 SEL kind=Mouse(2) n=1 [12:10-12:10(empty)] anchor=12:10 active=12:10 file=diag_demo.pkb
+seq=0 t=22:52:22.061 MARKER E10 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E10.png
+seq=0 t=22:52:23.005 MARKER E11 :: 鍙屽嚮姝ｆ枃璇?L9 IF :: x=298 y=411 clicks=2 dragTo=-1 focused=True
+seq=28 t=14:52:23.270 SEL kind=Mouse(2) n=1 [8:10-8:10(empty)] anchor=8:10 active=8:10 file=diag_demo.pkb
+seq=29 t=14:52:23.390 SEL kind=Mouse(2) n=1 [8:8-8:10] anchor=8:8 active=8:10 file=diag_demo.pkb
+seq=30 t=14:52:24.347 SEL kind=Keyboard(1) n=1 [8:10-8:10(empty)] anchor=8:10 active=8:10 file=diag_demo.pkb
+seq=0 t=22:52:24.920 MARKER E11 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E11.png
+seq=0 t=22:52:25.870 MARKER E12 :: 鍙屽嚮姝ｆ枃璇?L19 END :: x=182 y=791 clicks=2 dragTo=-1 focused=True
+seq=31 t=14:52:26.113 SEL kind=Mouse(2) n=1 [18:2-18:2(empty)] anchor=18:2 active=18:2 file=diag_demo.pkb
+seq=32 t=14:52:26.218 SEL kind=Mouse(2) n=1 [18:0-18:3] anchor=18:0 active=18:3 file=diag_demo.pkb
+seq=33 t=14:52:27.187 SEL kind=Keyboard(1) n=1 [18:3-18:3(empty)] anchor=18:3 active=18:3 file=diag_demo.pkb
+seq=0 t=22:52:27.756 MARKER E12 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E12.png
+seq=0 t=22:52:28.743 MARKER E13 :: 鍙屽嚮琛屽彿 L26 鏈 :: x=128 y=1057 clicks=2 dragTo=-1 focused=True
+seq=34 t=14:52:29.010 SEL kind=Mouse(2) n=1 [25:0-25:14] anchor=25:0 active=25:14 file=diag_demo.pkb
+seq=35 t=14:52:30.107 SEL kind=Keyboard(1) n=1 [25:14-25:14(empty)] anchor=25:14 active=25:14 file=diag_demo.pkb
+seq=0 t=22:52:30.688 MARKER E13 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E13.png
+seq=0 t=22:52:31.645 MARKER E14 :: 鍙屽嚮姝ｆ枃璇?L6 SELECT :: x=444 y=297 clicks=2 dragTo=-1 focused=True
+seq=36 t=14:52:31.891 SEL kind=Mouse(2) n=1 [5:20-5:20(empty)] anchor=5:20 active=5:20 file=diag_demo.pkb
+seq=37 t=14:52:32.011 SEL kind=Mouse(2) n=1 [5:20-5:50] anchor=5:20 active=5:50 file=diag_demo.pkb
+seq=38 t=14:52:32.959 SEL kind=Keyboard(1) n=1 [5:50-5:50(empty)] anchor=5:50 active=5:50 file=diag_demo.pkb
+seq=0 t=22:52:33.546 MARKER E14 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E14.png
+seq=0 t=22:52:34.502 MARKER E15 :: 鍗曞嚮琛屽彿 L21 :: x=128 y=867 clicks=1 dragTo=-1 focused=True
+seq=39 t=14:52:34.745 SEL kind=Mouse(2) n=1 [20:0-21:0] anchor=20:0 active=21:0 file=diag_demo.pkb
+seq=40 t=14:52:34.746 BRANCH full-line -> TOGGLE line=21
+seq=41 t=14:52:34.749 TOGGLE CREATE line=21 total=5
+seq=42 t=14:52:35.705 SEL kind=Keyboard(1) n=1 [21:0-21:0(empty)] anchor=21:0 active=21:0 file=diag_demo.pkb
+seq=0 t=22:52:36.284 MARKER E15 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\E15.png
+seq=43 t=14:55:16.066 SEL kind=fromValue(NaN) n=1 [16:13-16:13(empty)] anchor=16:13 active=16:13 file=diag_demo.pkb
+==== diag start 2026-11-15T14:56:51.347Z ====
+
+kind-enum {"1":"Keyboard","2":"Mouse","3":"Command","NaN":"fromValue"}
+seq=0 t=22:59:27.552 MARKER P1 :: dblclick-blankline-L3-prev-has-code :: x=196 y=183 clicks=2 dragEnd=-1,-1 focused=True
+seq=1 t=14:59:27.811 SEL kind=Mouse(2) n=1 [2:0-2:0(empty)] anchor=2:0 active=2:0 file=diag_demo.pkb
+seq=0 t=22:59:29.495 MARKER P1 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\P1.png
+seq=0 t=22:59:30.455 MARKER P2 :: dblclick-spaceonlyline-L5-col5 :: x=240 y=259 clicks=2 dragEnd=-1,-1 focused=True
+seq=2 t=14:59:30.702 SEL kind=Mouse(2) n=1 [4:6-4:6(empty)] anchor=4:6 active=4:6 file=diag_demo.pkb
+seq=3 t=14:59:30.819 SEL kind=Mouse(2) n=1 [4:0-4:10] anchor=4:0 active=4:10 file=diag_demo.pkb
+seq=4 t=14:59:31.770 SEL kind=Keyboard(1) n=1 [4:10-4:10(empty)] anchor=4:10 active=4:10 file=diag_demo.pkb
+seq=0 t=22:59:32.364 MARKER P2 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\P2.png
+seq=0 t=22:59:33.322 MARKER P3 :: dblclick-spaceonlyline-L16-col5 :: x=240 y=677 clicks=2 dragEnd=-1,-1 focused=True
+seq=5 t=14:59:33.572 SEL kind=Mouse(2) n=1 [15:6-15:6(empty)] anchor=15:6 active=15:6 file=diag_demo.pkb
+seq=6 t=14:59:33.682 SEL kind=Mouse(2) n=1 [15:0-15:10] anchor=15:0 active=15:10 file=diag_demo.pkb
+seq=7 t=14:59:34.632 SEL kind=Keyboard(1) n=1 [15:10-15:10(empty)] anchor=15:10 active=15:10 file=diag_demo.pkb
+seq=0 t=22:59:35.190 MARKER P3 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\P3.png
+seq=0 t=22:59:36.154 MARKER P4 :: dblclick-blankline-L9-col0 :: x=165 y=411 clicks=2 dragEnd=-1,-1 focused=True
+seq=8 t=14:59:36.391 SEL kind=Mouse(2) n=1 [8:0-8:0(empty)] anchor=8:0 active=8:0 file=diag_demo.pkb
+seq=0 t=22:59:38.032 MARKER P4 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\P4.png
+seq=0 t=22:59:38.977 MARKER P5 :: dblclick-word-at-col0-L2-x :: x=167 y=145 clicks=2 dragEnd=-1,-1 focused=True
+seq=9 t=14:59:39.217 SEL kind=Mouse(2) n=1 [1:1-1:1(empty)] anchor=1:1 active=1:1 file=diag_demo.pkb
+seq=10 t=14:59:39.328 SEL kind=Mouse(2) n=1 [1:0-1:1] anchor=1:0 active=1:1 file=diag_demo.pkb
+seq=11 t=14:59:40.282 SEL kind=Keyboard(1) n=1 [1:1-1:1(empty)] anchor=1:1 active=1:1 file=diag_demo.pkb
+seq=0 t=22:59:40.843 MARKER P5 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\P5.png
+seq=0 t=22:59:41.804 MARKER P6 :: dblclick-indent-ws-L7-col3 :: x=211 y=335 clicks=2 dragEnd=-1,-1 focused=True
+seq=12 t=14:59:42.060 SEL kind=Mouse(2) n=1 [6:4-6:4(empty)] anchor=6:4 active=6:4 file=diag_demo.pkb
+seq=13 t=14:59:42.199 SEL kind=Mouse(2) n=1 [6:0-6:8] anchor=6:0 active=6:8 file=diag_demo.pkb
+seq=14 t=14:59:43.167 SEL kind=Keyboard(1) n=1 [6:8-6:8(empty)] anchor=6:8 active=6:8 file=diag_demo.pkb
+seq=0 t=22:59:43.742 MARKER P6 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\P6.png
+seq=0 t=22:59:44.707 MARKER P7 :: dblclick-ws-between-words-L11-col14 :: x=371 y=487 clicks=2 dragEnd=-1,-1 focused=True
+seq=15 t=14:59:44.945 SEL kind=Mouse(2) n=1 [10:15-10:15(empty)] anchor=10:15 active=10:15 file=diag_demo.pkb
+seq=16 t=14:59:45.055 SEL kind=Mouse(2) n=1 [10:15-10:16] anchor=10:15 active=10:16 file=diag_demo.pkb
+seq=17 t=14:59:46.005 SEL kind=Keyboard(1) n=1 [10:16-10:16(empty)] anchor=10:16 active=10:16 file=diag_demo.pkb
+seq=0 t=22:59:46.581 MARKER P7 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\P7.png
+seq=0 t=22:59:47.540 MARKER P8 :: dblclick-linenumber-L4-control :: x=128 y=221 clicks=2 dragEnd=-1,-1 focused=True
+seq=18 t=14:59:47.794 SEL kind=Mouse(2) n=1 [3:0-4:0] anchor=3:0 active=4:0 file=diag_demo.pkb
+seq=19 t=14:59:47.795 BRANCH full-line -> TOGGLE line=4
+seq=20 t=14:59:47.804 TOGGLE CREATE line=4 total=1
+seq=21 t=14:59:48.869 SEL kind=Keyboard(1) n=1 [4:0-4:0(empty)] anchor=4:0 active=4:0 file=diag_demo.pkb
+seq=0 t=22:59:49.452 MARKER P8 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\P8.png
+seq=0 t=22:59:50.395 MARKER P9 :: trippleclick-text-L10-control :: x=342 y=449 clicks=3 dragEnd=-1,-1 focused=True
+seq=22 t=14:59:50.633 SEL kind=Mouse(2) n=1 [9:13-9:13(empty)] anchor=9:13 active=9:13 file=diag_demo.pkb
+seq=23 t=14:59:50.742 SEL kind=Mouse(2) n=1 [9:4-9:13] anchor=9:4 active=9:13 file=diag_demo.pkb
+seq=24 t=14:59:50.851 SEL kind=Mouse(2) n=1 [9:0-10:0] anchor=9:0 active=10:0 file=diag_demo.pkb
+seq=25 t=14:59:50.853 BRANCH full-line -> TOGGLE line=10
+seq=26 t=14:59:50.855 TOGGLE CREATE line=10 total=2
+seq=27 t=14:59:51.806 SEL kind=Keyboard(1) n=1 [10:0-10:0(empty)] anchor=10:0 active=10:0 file=diag_demo.pkb
+seq=0 t=22:59:52.382 MARKER P9 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\P9.png
+seq=0 t=22:59:53.340 MARKER P10 :: drag-L12mid-to-L13col0 :: x=255 y=525 clicks=0 dragEnd=165,563 focused=True
+seq=28 t=14:59:53.577 SEL kind=Mouse(2) n=1 [11:7-11:7(empty)] anchor=11:7 active=11:7 file=diag_demo.pkb
+seq=29 t=14:59:53.679 SEL kind=Mouse(2) n=1 [11:6-11:7] anchor=11:7 active=11:6 file=diag_demo.pkb
+seq=30 t=14:59:53.719 SEL kind=Mouse(2) n=1 [11:5-11:7] anchor=11:7 active=11:5 file=diag_demo.pkb
+seq=31 t=14:59:53.820 SEL kind=Mouse(2) n=1 [11:4-11:7] anchor=11:7 active=11:4 file=diag_demo.pkb
+seq=32 t=14:59:53.859 SEL kind=Mouse(2) n=1 [11:7-12:4] anchor=11:7 active=12:4 file=diag_demo.pkb
+seq=33 t=14:59:53.909 SEL kind=Mouse(2) n=1 [11:7-12:3] anchor=11:7 active=12:3 file=diag_demo.pkb
+seq=34 t=14:59:53.959 SEL kind=Mouse(2) n=1 [11:7-12:2] anchor=11:7 active=12:2 file=diag_demo.pkb
+seq=35 t=14:59:54.048 SEL kind=Mouse(2) n=1 [11:7-12:1] anchor=11:7 active=12:1 file=diag_demo.pkb
+seq=36 t=14:59:54.099 SEL kind=Mouse(2) n=1 [11:7-12:0] anchor=11:7 active=12:0 file=diag_demo.pkb
+seq=37 t=14:59:54.101 BRANCH full-line -> TOGGLE line=12
+seq=38 t=14:59:54.103 TOGGLE CREATE line=12 total=3
+seq=39 t=14:59:55.059 SEL kind=Keyboard(1) n=1 [12:0-12:0(empty)] anchor=12:0 active=12:0 file=diag_demo.pkb
+seq=0 t=22:59:55.653 MARKER P10 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\P10.png
+seq=0 t=22:59:56.599 MARKER P11 :: dblclick-linenumber-L17-lastline :: x=128 y=715 clicks=2 dragEnd=-1,-1 focused=True
+seq=40 t=14:59:56.837 SEL kind=Mouse(2) n=1 [16:0-16:13] anchor=16:0 active=16:13 file=diag_demo.pkb
+seq=41 t=14:59:57.908 SEL kind=Keyboard(1) n=1 [16:13-16:13(empty)] anchor=16:13 active=16:13 file=diag_demo.pkb
+seq=0 t=22:59:58.473 MARKER P11 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\P11.png
+seq=0 t=22:59:59.426 MARKER P12 :: dblclick-word-L17-END-col0 :: x=182 y=715 clicks=2 dragEnd=-1,-1 focused=True
+seq=42 t=14:59:59.662 SEL kind=Mouse(2) n=1 [16:2-16:2(empty)] anchor=16:2 active=16:2 file=diag_demo.pkb
+seq=43 t=14:59:59.771 SEL kind=Mouse(2) n=1 [16:0-16:3] anchor=16:0 active=16:3 file=diag_demo.pkb
+seq=44 t=15:00:00.721 SEL kind=Keyboard(1) n=1 [16:3-16:3(empty)] anchor=16:3 active=16:3 file=diag_demo.pkb
+seq=0 t=23:00:01.284 MARKER P12 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\P12.png
+seq=0 t=23:00:02.228 MARKER P13 :: drag-linenumber-L14-to-L16 :: x=128 y=601 clicks=0 dragEnd=128,677 focused=True
+seq=45 t=15:00:02.479 SEL kind=Mouse(2) n=1 [13:0-14:0] anchor=13:0 active=14:0 file=diag_demo.pkb
+seq=46 t=15:00:02.481 BRANCH full-line -> TOGGLE line=14
+seq=47 t=15:00:02.483 TOGGLE CREATE line=14 total=4
+seq=48 t=15:00:02.678 SEL kind=Mouse(2) n=1 [13:0-15:0] anchor=13:0 active=15:0 file=diag_demo.pkb
+seq=49 t=15:00:02.917 SEL kind=Mouse(2) n=1 [13:0-16:0] anchor=13:0 active=16:0 file=diag_demo.pkb
+seq=50 t=15:00:03.945 SEL kind=Keyboard(1) n=1 [16:0-16:0(empty)] anchor=16:0 active=16:0 file=diag_demo.pkb
+seq=0 t=23:00:04.513 MARKER P13 :: shot C:\Users\Emon\AppData\Local\Temp\plsql-bm-diag\shots\P13.png
+seq=0 t=23:03:09.272 MARKER D1 :: dblclick-word-then-drag-to-next-line-start :: shift=False
+seq=51 t=15:03:10.482 SEL kind=Mouse(2) n=1 [10:9-10:9(empty)] anchor=10:9 active=10:9 file=diag_demo.pkb
+seq=52 t=15:03:10.609 SEL kind=Mouse(2) n=1 [10:8-10:9] anchor=10:8 active=10:9 file=diag_demo.pkb
+seq=53 t=15:03:10.790 SEL kind=Mouse(2) n=1 [10:0-11:0] anchor=10:0 active=11:0 file=diag_demo.pkb
+seq=54 t=15:03:10.792 BRANCH full-line -> TOGGLE line=11
+seq=55 t=15:03:10.793 TOGGLE CREATE line=11 total=5
+seq=56 t=15:03:10.810 SEL kind=Mouse(2) n=1 [10:0-12:0] anchor=10:0 active=12:0 file=diag_demo.pkb
+seq=57 t=15:03:10.991 SEL kind=Mouse(2) n=1 [10:0-11:0] anchor=10:0 active=11:0 file=diag_demo.pkb
+seq=58 t=15:03:10.993 BRANCH full-line -> TOGGLE line=11
+seq=59 t=15:03:10.995 TOGGLE REMOVE line=11 left=4
+seq=60 t=15:03:12.090 SEL kind=Keyboard(1) n=1 [11:0-11:0(empty)] anchor=11:0 active=11:0 file=diag_demo.pkb
+seq=0 t=23:03:12.666 MARKER D1 :: shot done
+seq=0 t=23:03:12.668 MARKER D2 :: dblclick-word-then-shiftclick-next-line-start :: shift=False
+seq=61 t=15:03:13.841 SEL kind=Mouse(2) n=1 [12:9-12:9(empty)] anchor=12:9 active=12:9 file=diag_demo.pkb
+seq=62 t=15:03:13.978 SEL kind=Mouse(2) n=1 [12:8-12:12] anchor=12:8 active=12:12 file=diag_demo.pkb
+seq=63 t=15:03:14.438 SEL kind=Mouse(2) n=1 [12:8-13:0] anchor=12:8 active=13:0 file=diag_demo.pkb
+seq=64 t=15:03:14.440 BRANCH full-line -> TOGGLE line=13
+seq=65 t=15:03:14.442 TOGGLE CREATE line=13 total=5
+seq=66 t=15:03:15.403 SEL kind=Keyboard(1) n=1 [13:0-13:0(empty)] anchor=13:0 active=13:0 file=diag_demo.pkb
+seq=0 t=23:03:15.939 MARKER D2 :: shot done
+seq=0 t=23:03:15.940 MARKER D3 :: dblclick-linenumber-L10-gap160ms :: shift=False
+seq=67 t=15:03:17.104 SEL kind=Mouse(2) n=1 [9:0-10:0] anchor=9:0 active=10:0 file=diag_demo.pkb
+seq=68 t=15:03:17.106 BRANCH full-line -> TOGGLE line=10
+seq=69 t=15:03:17.107 TOGGLE REMOVE line=10 left=4
+seq=70 t=15:03:18.276 SEL kind=Keyboard(1) n=1 [10:0-10:0(empty)] anchor=10:0 active=10:0 file=diag_demo.pkb
+seq=0 t=23:03:18.811 MARKER D3 :: shot done
+seq=0 t=23:03:18.813 MARKER D4 :: tripleclick-linenumber-L7-gap160ms :: shift=False
+seq=71 t=15:03:19.975 SEL kind=Mouse(2) n=1 [6:0-7:0] anchor=6:0 active=7:0 file=diag_demo.pkb
+seq=72 t=15:03:19.977 BRANCH full-line -> TOGGLE line=7
+seq=73 t=15:03:19.979 TOGGLE CREATE line=7 total=5
+seq=74 t=15:03:21.363 SEL kind=Keyboard(1) n=1 [7:0-7:0(empty)] anchor=7:0 active=7:0 file=diag_demo.pkb
+seq=0 t=23:03:21.881 MARKER D4 :: shot done
+seq=0 t=23:03:21.883 MARKER D5 :: drag-L5col0-to-L6col0 :: shift=False
+seq=75 t=15:03:23.054 SEL kind=Mouse(2) n=1 [4:0-4:0(empty)] anchor=4:0 active=4:0 file=diag_demo.pkb
+seq=76 t=15:03:23.209 SEL kind=Mouse(2) n=1 [4:0-5:0] anchor=4:0 active=5:0 file=diag_demo.pkb
+seq=77 t=15:03:23.211 BRANCH full-line -> TOGGLE line=5
+seq=78 t=15:03:23.213 TOGGLE CREATE line=5 total=6
+seq=79 t=15:03:24.335 SEL kind=Keyboard(1) n=1 [5:0-5:0(empty)] anchor=5:0 active=5:0 file=diag_demo.pkb
+seq=0 t=23:03:24.852 MARKER D5 :: shot done
