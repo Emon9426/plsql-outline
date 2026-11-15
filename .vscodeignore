@@ -6,6 +6,8 @@ docs/**
 release/**
 .ai/**
 .zcode/**
+.qoder/**
+.qoder-credits/**
 .mimosa/**
 .github/**
 .vscode/**

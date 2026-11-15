@@ -25,8 +25,14 @@ type ∈ feat / fix / refactor / perf / docs / chore / test / release。
 3. README 若受影响（功能/设置/路径/联系方式）同步更新。
 4. `npm run package` → `release/plsql-outline-X.Y.Z.vsix`（不入库）。
 5. **打包审计**：`unzip -l release/*.vsix` 确认——
-   - 不得出现：tests/ corpus/ .ai/ docs/ src/ .mimosa/ tmp* *.log / 任何调查文件
-     （v1.7.3 曾把 3.5MB 调查截图打进包，根因是 .vscodeignore 缺规则）；
+   - 不得出现：tests/ corpus/ .ai/ docs/ src/ .mimosa/ .qoder/ .qoder-credits/ tmp*
+     *.log / 任何调查文件
+     （v1.7.3 曾把 3.5MB 调查截图打进包，根因是 .vscodeignore 缺规则；
+     v1.17.3 publish 报 "Item has already been added. Key in dictionary"，同一类根因：
+     `.qoder/repowiki` 的中文文件名进了包，市场侧按代码页把每个非 ASCII 字符转成 `?`
+     （一个汉字 = 3 字节 = 3 个 `?`），同目录内**字数相同的中文名塌成同一个键**
+     （`架构设计.md` 与 `编码规范.md` → 同为 12 个 `?`）。`vsce package` 本地不报错，
+     只有 publish 入库校验才炸。审计时除了看体积，还要断言包内**零个非 ASCII 条目名**）；
    - 必须存在：out/*.js、package.json、README.md、CHANGELOG.md、LICENSE.txt、
      language-configuration.json、res/Icon.png、**res/screenshots/**（marketplace
      渲染 README 只认包内图片，严禁排除）。
