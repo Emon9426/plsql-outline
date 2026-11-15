@@ -1,0 +1,51 @@
+﻿---- MARKER 23:29:50.753 W1 :: dblclick-linenumber-L3-expect-CREATE
+[bookmark-sel] 2026-11-15T15:29:52.105Z gutter-line line=3 focused=1 sel=2:0-3:0 n=1 all=2:0-3:0 anchor=2:0 active=3:0
+---- MARKER 23:29:53.852 W2 :: dblclick-linenumber-L4-expect-CREATE
+[bookmark-sel] 2026-11-15T15:29:55.153Z gutter-line line=4 focused=1 sel=3:0-4:0 n=1 all=3:0-4:0 anchor=3:0 active=4:0
+---- MARKER 23:29:56.859 W3 :: tripleclick-text-L5-expect-NONE
+[bookmark-sel] 2026-11-15T15:29:58.140Z collapse line=5 focused=1 sel=4:9-4:9 n=1 all=4:9-4:9 anchor=4:9 active=4:9
+[bookmark-sel] 2026-11-15T15:29:58.341Z other line=5 focused=1 sel=4:4-4:9 n=1 all=4:4-4:9 anchor=4:4 active=4:9
+[bookmark-sel] 2026-11-15T15:29:58.531Z text-gesture line=5 focused=1 sel=4:0-5:0 n=1 all=4:0-5:0 anchor=4:0 active=5:0
+---- MARKER 23:30:00.020 W5 :: dblclick-word-L8-then-drag-to-L9-start-expect-NONE
+[bookmark-sel] 2026-11-15T15:30:01.312Z collapse line=8 focused=1 sel=7:10-7:10 n=1 all=7:10-7:10 anchor=7:10 active=7:10
+[bookmark-sel] 2026-11-15T15:30:01.443Z other line=8 focused=1 sel=7:8-7:11 n=1 all=7:8-7:11 anchor=7:8 active=7:11
+[bookmark-sel] 2026-11-15T15:30:01.489Z text-gesture line=8 focused=1 sel=7:0-8:0 n=1 all=7:0-8:0 anchor=7:0 active=8:0
+[bookmark-sel] 2026-11-15T15:30:01.510Z other line=10 focused=1 sel=7:0-9:0 n=1 all=7:0-9:0 anchor=7:0 active=9:0
+[bookmark-sel] 2026-11-15T15:30:01.681Z text-gesture line=8 focused=1 sel=7:0-8:0 n=1 all=7:0-8:0 anchor=7:0 active=8:0
+---- MARKER 23:30:03.302 W6 :: dblclick-word-L10-then-shiftclick-L11-start-expect-NONE
+[bookmark-sel] 2026-11-15T15:30:04.622Z collapse line=10 focused=1 sel=9:22-9:22 n=1 all=9:22-9:22 anchor=9:22 active=9:22
+[bookmark-sel] 2026-11-15T15:30:04.744Z other line=10 focused=1 sel=9:12-9:23 n=1 all=9:12-9:23 anchor=9:12 active=9:23
+[bookmark-sel] 2026-11-15T15:30:05.214Z other line=11 focused=1 sel=9:12-10:0 n=1 all=9:12-10:0 anchor=9:12 active=10:0
+---- MARKER 23:30:06.688 W7 :: drag-L12mid-to-L13-start-expect-NONE
+[bookmark-sel] 2026-11-15T15:30:07.995Z collapse line=12 focused=1 sel=11:22-11:22 n=1 all=11:22-11:22 anchor=11:22 active=11:22
+[bookmark-sel] 2026-11-15T15:30:08.011Z other line=13 focused=1 sel=11:22-12:15 n=1 all=11:22-12:15 anchor=11:22 active=12:15
+[bookmark-sel] 2026-11-15T15:30:08.091Z other line=13 focused=1 sel=11:22-12:14 n=1 all=11:22-12:14 anchor=11:22 active=12:14
+[bookmark-sel] 2026-11-15T15:30:08.142Z other line=13 focused=1 sel=11:22-12:11 n=1 all=11:22-12:11 anchor=11:22 active=12:11
+[bookmark-sel] 2026-11-15T15:30:08.192Z other line=12 focused=1 sel=11:8-11:22 n=1 all=11:8-11:22 anchor=11:22 active=11:8
+[bookmark-sel] 2026-11-15T15:30:08.231Z other line=12 focused=1 sel=11:6-11:22 n=1 all=11:6-11:22 anchor=11:22 active=11:6
+[bookmark-sel] 2026-11-15T15:30:08.281Z other line=12 focused=1 sel=11:3-11:22 n=1 all=11:3-11:22 anchor=11:22 active=11:3
+[bookmark-sel] 2026-11-15T15:30:08.332Z other line=12 focused=1 sel=11:0-11:22 n=1 all=11:0-11:22 anchor=11:22 active=11:0
+---- MARKER 23:30:09.817 W14 :: click-midline-L21-then-gutter-L21-within-burst-expect-CREATE
+[bookmark-sel] 2026-11-15T15:30:11.080Z collapse line=21 focused=1 sel=20:13-20:13 n=1 all=20:13-20:13 anchor=20:13 active=20:13
+[bookmark-sel] 2026-11-15T15:30:11.436Z gutter-line line=21 focused=1 sel=20:0-21:0 n=1 all=20:0-21:0 anchor=20:0 active=21:0
+---- MARKER 23:30:12.918 W15 :: click-col0-L22-then-gutter-L22-within-burst-expect-NONE
+[bookmark-sel] 2026-11-15T15:30:14.560Z gutter-line line=22 focused=1 sel=21:0-22:0 n=1 all=21:0-22:0 anchor=21:0 active=22:0
+---- MARKER 23:30:16.068 W10a :: consecutive-gutter-L16-expect-CREATE
+[bookmark-sel] 2026-11-15T15:30:17.371Z gutter-line line=16 focused=1 sel=15:0-16:0 n=1 all=15:0-16:0 anchor=15:0 active=16:0
+---- MARKER 23:30:17.633 W10b :: consecutive-gutter-L17-expect-CREATE
+[bookmark-sel] 2026-11-15T15:30:17.872Z gutter-line line=17 focused=1 sel=16:0-17:0 n=1 all=16:0-17:0 anchor=16:0 active=17:0
+---- MARKER 23:30:19.379 W11 :: dblclick-gutter-L26-lastline-noBM-expect-NONE
+[bookmark-sel] 2026-11-15T15:30:20.670Z gutter-last-line line=26 focused=1 sel=25:0-25:14 n=1 all=25:0-25:14 anchor=25:0 active=25:14
+---- MARKER 23:30:22.367 W12a :: ctrlaltk-create-on-lastline-L26
+[bookmark-sel] 2026-11-15T15:30:23.666Z collapse line=26 focused=1 sel=25:3-25:3 n=1 all=25:3-25:3 anchor=25:3 active=25:3
+---- MARKER 23:30:25.542 W12b :: dblclick-gutter-L26-lastline-hasBM-expect-DELETE
+[bookmark-sel] 2026-11-15T15:30:26.827Z gutter-last-line line=26 focused=1 sel=25:0-25:14 n=1 all=25:0-25:14 anchor=25:0 active=25:14
+---- MARKER 23:30:28.520 W13a :: ctrlaltk-recreate-on-lastline-L26
+[bookmark-sel] 2026-11-15T15:30:29.808Z collapse line=26 focused=1 sel=25:3-25:3 n=1 all=25:3-25:3 anchor=25:3 active=25:3
+---- MARKER 23:30:31.689 W13b :: tripleclick-text-L26-lastline-hasBM-expect-KEEP
+[bookmark-sel] 2026-11-15T15:30:33.143Z other line=26 focused=1 sel=25:0-25:3 n=1 all=25:0-25:3 anchor=25:0 active=25:3
+[bookmark-sel] 2026-11-15T15:30:33.312Z text-gesture line=26 focused=1 sel=25:0-25:14 n=1 all=25:0-25:14 anchor=25:0 active=25:14
+---- MARKER 23:30:34.820 W4 :: drag-L19col0-to-L20col0-cursor-already-at-col0-KNOWN-RESIDUAL
+[bookmark-sel] 2026-11-15T15:30:36.134Z collapse line=19 focused=1 sel=18:0-18:0 n=1 all=18:0-18:0 anchor=18:0 active=18:0
+[bookmark-sel] 2026-11-15T15:30:36.445Z other line=19 focused=1 sel=18:0-18:3 n=1 all=18:0-18:3 anchor=18:0 active=18:3
+[bookmark-sel] 2026-11-15T15:30:36.590Z text-gesture line=19 focused=1 sel=18:0-19:0 n=1 all=18:0-19:0 anchor=18:0 active=19:0

@@ -11,9 +11,17 @@
  * 书签**（无签→建、有签→删；建签不弹表单，名称默认行内容）；编辑走悬停卡/
  * 右键菜单/书签视图/命令。同选区重复点击零事件=无操作（天然防误触）。
  *
+ * #50 收紧（2026-11-15 重测 33 个真实鼠标手势）：`onDidChangeTextEditorSelection`
+ * 不携带鼠标坐标，"整行选中"形状**并非行号点击独占**——三击正文、从行首拖到
+ * 下一行行首、双击词后拖拽、Shift+点击下一行行首都会产生同一形状，导致在代码
+ * 行上正常选代码就凭空冒出书签。现判定两层：① 形状必须是精确 [L,0)→[L+1,0)
+ * （补起点列 0）；② 该整行事件必须是本轮鼠标手势的第一个事件（前 500ms 内不得
+ * 有塌陷/词/部分选区等正文手势事件）。行号点击天然满足②，正文手势天然不满足。
+ *
  * 末行例外（#46，2026-10-16 实测补充）：末行（无换行符）行号单击的选区止于
  * 行尾 [line,0)→[line,len)，永不满足整行签名——末行书签无法单击删除。
- * 该形态可识别但与双击整词/三击选行同形 → 仅做删除（有签→删，无签不建）。
+ * 该形态可识别但与双击整词/三击选行同形 → 仅做删除（有签→删，无签不建），
+ * 并同样受 #50 两层判定约束。
  *
  * 纯逻辑（跟随算法 / 所属与摘要）在 src/bookmarks.ts（vscode-free，单测直连）。
  *
@@ -38,6 +46,16 @@ const STORAGE_KEY = 'plsqlOutline.bookmarks.v1';
 
 /** 悬停信息卡命令链接的受信命令白名单 */
 const HOVER_ENABLED_COMMANDS = ['plsqlOutline.bookmark.edit', 'plsqlOutline.bookmark.delete'];
+
+/**
+ * 鼠标手势突发窗口（毫秒，Issue #50）
+ *
+ * 判定"这次整行选中是点行号点出来的，还是在正文里选出来的"的时间窗。
+ * 取 500ms 与 Windows 多击阈值（GetDoubleClickTime 默认 500ms）对齐：
+ * VS Code 只要还把它算作同一次多击（双击/三击），簇内事件间隔就 < 500ms。
+ * 2026-11-15 SendInput 实测簇内间隔 2–181ms（三击、拖选、双击后拖拽）。
+ */
+const GUTTER_BURST_MS = 500;
 
 interface StoredFileEntry {
     line: number;
@@ -75,6 +93,12 @@ export class BookmarkManager implements vscode.Disposable {
     /** 选区事件轨迹开关（plsql-outline.debug.enabled） */
     private readonly traceEnabled: boolean =
         vscode.workspace.getConfiguration('plsql-outline').get('debug.enabled', false);
+    /**
+     * 最近一次"正文鼠标手势"选区事件的时刻（Issue #50 突发判定基准）：
+     * 塌陷/词选区/部分选区/扩选都算正文手势。行号点击的整行事件是本轮手势的
+     * 第一个事件，前面不会有簇内正文事件。
+     */
+    private lastTextGestureAt = 0;
     /** 表单重入保护：已有表单流程进行中时忽略新的打开请求 */
     private formOpen: boolean = false;
 
@@ -479,67 +503,108 @@ export class BookmarkManager implements vscode.Disposable {
             return;
         }
 
+        // 幽灵切换防护：窗口失焦/关闭瞬间 VS Code 偶发重放整行选区事件
+        // （kind=Mouse，实机两次捕获：窗口 WM_CLOSE 时、前台切换空档），会凭空
+        // 建签。真实行号点击必然发生在聚焦窗口 → 失焦期间一律忽略（也不计入
+        // 正文手势，避免重放事件把紧随其后的真实行号点击误杀）
+        const unfocused = vscode.window.state && vscode.window.state.focused === false;
+
         const selection = event.selections.length === 1 ? event.selections[0] : null;
         if (!selection || selection.isEmpty) {
-            // 点击正文塌陷选区等：与行号切换无关（单击建签已删后，同选区重复
-            // 点击零事件=无操作，平台天然防误触）
-            this.traceSelection('collapse', selection ? selection.active.line : -1, event);
+            // 塌陷/多光标：列 0 的塌陷是"从行首起拖"的起点特征（实测 D5
+            // sel=4:0-4:0 → 4:0-5:0），计入正文手势；多光标扩选同样计入。
+            // 行内其他列的塌陷只是光标落位——"点一下正文再点行号"是正常操作，
+            // 把它计入会让紧随其后的行号点击被误杀，故不计入
+            if (!unfocused && (!selection || selection.active.character === 0)) {
+                this.lastTextGestureAt = Date.now();
+            }
+            this.traceSelection(unfocused ? 'collapse-unfocused' : 'collapse',
+                selection ? selection.active.line : -1, event);
             return;
         }
         const a = selection.start;
         const b = selection.end;
-        // 幽灵切换防护：窗口失焦/关闭瞬间 VS Code 偶发重放整行选区事件
-        // （kind=Mouse，实机两次捕获：窗口 WM_CLOSE 时、前台切换空档），会凭空
-        // 建签。真实行号点击必然发生在聚焦窗口 → 失焦期间一律忽略
-        const unfocused = vscode.window.state && vscode.window.state.focused === false;
+        const doc = event.textEditor.document;
 
-        // 整行选中签名：[line,0) → [line+1,0)（点击行号/gutter 的原生效果）
-        if (b.line === a.line + 1 && b.character === 0) {
-            if (unfocused) {
-                this.traceSelection('full-line-unfocused', a.line, event);
-                return;
+        // 签名一 · 整行选中：[L,0) → [L+1,0)（点击行号的原生效果）
+        // #50 收紧：起点必须在列 0——原判定只看终点，"从行中拖选到下一行行首"
+        // 与"Shift+点击下一行行首"（实测 sel=12:8-13:0）同样满足，被误当行号点击
+        const gutterLineHit = b.line === a.line + 1 && a.character === 0 && b.character === 0;
+
+        // 签名二 · 末行整行选中（#46）：末行无换行符，行号单击的选区止于行尾
+        // [L,0) → [L,len)（2026-10-16 SendInput+trace 实测 sel=2:0-2:3），
+        // 数学上不可能满足签名一 → 末行书签此前无法单击删除。
+        // 该形态与双击末行整词/三击选行同形 → 仅做删除（有签→删，无签不建，
+        // 防幽灵建签；末行建签走 Ctrl+Alt+K）。空末行（len=0）与正文点击
+        // 同形，无法识别，同样走 Ctrl+Alt+K/悬停卡/右键菜单。
+        let gutterLastLineHit = false;
+        if (!gutterLineHit && a.line === b.line && a.character === 0 &&
+            a.line === doc.lineCount - 1 && b.character > 0) {
+            gutterLastLineHit = b.character === doc.lineAt(a.line).text.length;
+        }
+
+        if (!gutterLineHit && !gutterLastLineHit) {
+            // 词选区 / 部分选区 / 跨行扩选：本轮手势来自正文
+            if (!unfocused) {
+                this.lastTextGestureAt = Date.now();
             }
-            // 单击未选中的行号 → 必产生此事件（实测唯一可靠信号）→ 直接切换书签
-            this.traceSelection('full-line', a.line, event);
+            this.traceSelection(unfocused ? 'other-unfocused' : 'other',
+                selection.active.line, event);
+            return;
+        }
+
+        if (unfocused) {
+            this.traceSelection(gutterLineHit ? 'full-line-unfocused' : 'last-line-unfocused',
+                a.line, event);
+            return;
+        }
+
+        // #50 判定二 · 手势归属：形状合格仍不足以说明"点的是行号"。三击正文、
+        // 从行首拖到下一行行首、双击词后拖拽，产生的整行形状与行号点击**完全相同**
+        // （实测 sel=9:0-10:0 / 4:0-5:0 / 10:0-11:0），扩展 API 不携带鼠标坐标。
+        // 唯一可用的实测信号是事件簇位置：行号点击的整行事件是本轮鼠标手势的第一个
+        // 事件；正文手势在整行事件之前必然先派发塌陷/词/部分选区事件
+        // （2026-11-15 SendInput 33 手势实测，簇内间隔 2–181ms）。
+        // 连续点多个行号不受影响——合格行号点击不记为正文手势（判定用"上一个
+        // 事件是否合格"，不是"上一个事件是否存在"）。
+        const sinceGestureMs = Date.now() - this.lastTextGestureAt;
+        if (sinceGestureMs >= 0 && sinceGestureMs < GUTTER_BURST_MS) {
+            this.lastTextGestureAt = Date.now();
+            this.traceSelection('text-gesture', a.line, event);
+            return;
+        }
+
+        if (gutterLineHit) {
+            this.traceSelection('gutter-line', a.line, event);
             this.toggle(event.textEditor, a.line);
             return;
         }
-
-        // 末行整行签名（#46）：末行无换行符，行号单击的选区止于行尾——
-        // [line,0) → [line,len)（2026-10-16 SendInput+trace 实测 sel=2:0-2:3），
-        // 永不满足上面的整行签名 → 末行书签此前无法单击删除。该形态与双击
-        // 末行整词/三击选行同形、不可区分 → 仅做删除（有签→删，无签不建，
-        // 防幽灵建签；末行建签走 Ctrl+Alt+K）。空末行（len=0）与正文点击
-        // 同形，无法识别，同样走 Ctrl+Alt+K/悬停卡/右键菜单。
-        const doc = event.textEditor.document;
-        if (a.line === b.line && a.character === 0 &&
-            a.line === doc.lineCount - 1 && b.character > 0 &&
-            b.character === doc.lineAt(a.line).text.length) {
-            if (unfocused) {
-                this.traceSelection('last-line-unfocused', a.line, event);
-                return;
-            }
-            this.traceSelection('last-line', a.line, event);
-            if (this.findBookmark(doc.uri, a.line)) {
-                this.removeAt(doc.uri, a.line);
-            }
-            return;
+        this.traceSelection('gutter-last-line', a.line, event);
+        if (this.findBookmark(doc.uri, a.line)) {
+            this.removeAt(doc.uri, a.line);
         }
-
-        this.traceSelection('other', selection.active.line, event);
     }
 
     /** 调试轨迹（plsql-outline.debug.enabled 时把选区事件形态追加写入临时日志，
-     *  供行号双击等交互问题在真实环境定位：TEMP/plsql-outline-sel-trace.log） */
+     *  供行号双击等交互问题在真实环境定位：TEMP/plsql-outline-sel-trace.log）。
+     *  #50 起记录完整事件形态（全部选区 + anchor/active + 选区数），因为判定
+     *  "点的是行号还是正文"要靠同一轮手势内多个事件的先后形态，只记 selections[0]
+     *  不足以在用户机器上复现结论。 */
     private traceSelection(kind: string, line: number, event: vscode.TextEditorSelectionChangeEvent): void {
         if (!this.traceEnabled) {
             return;
         }
         const sel = event.selections[0];
         const winState = vscode.window.state as { focused?: boolean } | undefined;
+        const all = event.selections
+            .map(s => `${s.start.line}:${s.start.character}-${s.end.line}:${s.end.character}`)
+            .join('|');
         const entry = `[bookmark-sel] ${new Date().toISOString()} ${kind} line=${line + 1} ` +
             `focused=${winState && winState.focused === false ? 0 : 1} ` +
-            `sel=${sel.start.line}:${sel.start.character}-${sel.end.line}:${sel.end.character}\n`;
+            `sel=${sel ? `${sel.start.line}:${sel.start.character}-${sel.end.line}:${sel.end.character}` : 'none'} ` +
+            `n=${event.selections.length} all=${all}` +
+            (sel ? ` anchor=${sel.anchor.line}:${sel.anchor.character} active=${sel.active.line}:${sel.active.character}` : '') +
+            `\n`;
         const os = require('os');
         const fs = require('fs');
         const pathMod = require('path');
