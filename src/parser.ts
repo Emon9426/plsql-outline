@@ -66,11 +66,19 @@ export class PLSQLParser {
     // 当 END 让计数器回到该值时,关闭对应的匿名块而非外层方法。
     private anonBlockCounters: number[] = [];
 
+    // CASE 深度配对（Issue #55）：当前单元内未闭合的 CASE 表达式/语句数。
+    // 裸 END / END 列别名 行只有 caseExprDepth === 0 时才是块 END；
+    // 否则属于 CASE 表达式闭合，不计入 BEGIN/END 配对。
+    // CASE 不能跨单元边界，进入子程序/匿名块时保存并清零、闭合时恢复。
+    private caseExprDepth: number = 0;
+    // 匿名块进入时的宿主 caseExprDepth（与 anonBlockCounters 同步 push/pop）
+    private anonCaseDepths: number[] = [];
+
     // 子程序上下文保存栈：进入子程序时保存外层的 beginEndCounter 与匿名块水位，
     // 子程序 END 闭合时恢复。此前进入子程序直接清零/清空且从不恢复，导致
     // "单元内联匿名块内含子程序"时宿主单元的 BEGIN 计数永久丢失，父单元永不闭合
     // （endLine=null，其后的 END 计数漂移为负）。
-    private unitStateStack: Array<{ beginEndCounter: number; anonBlockCounters: number[]; currentLevel: number }> = [];
+    private unitStateStack: Array<{ beginEndCounter: number; anonBlockCounters: number[]; currentLevel: number; caseExprDepth: number }> = [];
 
     private version: string = '2.1.0';
 
@@ -207,6 +215,8 @@ export class PLSQLParser {
         this.controlStack = [];
         this.anonBlockCounters = [];
         this.unitStateStack = [];
+        this.caseExprDepth = 0;
+        this.anonCaseDepths = [];
         this.processedLines.clear();
         this.lastYieldTime = Date.now();
         this.originalLines = [];
@@ -223,6 +233,8 @@ export class PLSQLParser {
         this.controlStack = [];
         this.anonBlockCounters = [];
         this.unitStateStack = [];
+        this.caseExprDepth = 0;
+        this.anonCaseDepths = [];
         this.currentActiveNode = null;
         this.packageNode = null;
         this.originalLines = [];
@@ -683,7 +695,11 @@ export class PLSQLParser {
     }
 
     /**
-     * 解析单行 - handler-based 架构
+     * 解析单行 - handler-based 架构（Issue #55 重构）
+     *
+     * 行级判定（CREATE/DECLARE/子程序/IS/AS/EXCEPTION/控制结构）仍按原顺序敏感执行；
+     * BEGIN/END 改为令牌级配对（scanStructuralTokens），不再要求独占整行——
+     * 结构关键字与语句同占一行（压缩风格/生成代码）不再盲视。
      */
     private async parseLine(line: string, lineNumber: number, lines?: string[], lineIndex?: number): Promise<void> {
         // 检查变量/游标/异常/常量/类型声明
@@ -701,64 +717,115 @@ export class PLSQLParser {
             return;
         }
 
-        // DECLARE匿名块处理
+        // DECLARE匿名块处理（Issue #55：行首令牌即可，不再要求独占整行——
+        // 压缩形态 `DECLARE v NUMBER; BEGIN NULL; END;` 的同行 BEGIN/END 由令牌扫描接续）
         if (this.isDeclareStatement(line)) {
             this.handleDeclareStatement(lineNumber);
-            return;
         }
 
-        // 顶层裸 BEGIN 匿名块（无 DECLARE，Issue #5）：脚本文件中常见的块形式。
-        // 仅在无"未闭合"活动节点时创建节点——单元（包体/过程）END 之后
-        // currentActiveNode 仍指向已关闭单元，此时顶层 BEGIN 属于新匿名块；
-        // 方法体内的内联裸 BEGIN 仍走原计数路径，不产生匿名块节点。
-        const hasOpenUnit = this.currentActiveNode != null && this.currentActiveNode.endLine == null;
-        if (!hasOpenUnit && this.isBeginStatement(line)) {
-            this.startAnonymousBlock(lineNumber);
-            await this.handleBeginStatement(lineNumber);
-            return;
+        if (this.currentActiveNode) {
+            // FUNCTION/PROCEDURE 关键字处理（子函数/过程）
+            // Issue #55：处理完不提前返回——真实定义行可跟同行 BEGIN/END
+            // （`PROCEDURE p IS BEGIN NULL; END p;` 全一行形态）
+            const functionMatch = PLSQLParser.matchFunctionProcedure(line);
+            if (functionMatch) {
+                await this.handleSubFunctionProcedure(functionMatch, lineNumber, lines, lineIndex);
+            } else if (this.beginEndCounter === 0 && this.isIsAsStatement(line)) {
+                // IS/AS 关键字处理：仅在未进入方法体(beginEndCounter === 0)时识别为
+                // 声明关键字。否则方法体中的 "IF x IS NULL" / "x AS y" 等会被误判。
+                // 整行/行尾 IS/AS 无结构令牌，保持提前返回
+                await this.handleIsAsStatement(lineNumber);
+                return;
+            } else if (this.isExceptionStatement(line)) {
+                // EXCEPTION 关键字处理（独占一行；整行无结构令牌，保持提前返回）
+                await this.handleExceptionStatement(lineNumber);
+                return;
+            }
         }
 
-        // 如果没有当前活动节点，跳过后续处理
-        if (!this.currentActiveNode) {
-            return;
-        }
+        // BEGIN/END/CASE 令牌级配对（Issue #55）
+        await this.scanStructuralTokens(line, lineNumber);
 
-        // FUNCTION/PROCEDURE 关键字处理（子函数/过程）
-        const functionMatch = PLSQLParser.matchFunctionProcedure(line);
-        if (functionMatch) {
-            await this.handleSubFunctionProcedure(functionMatch, lineNumber, lines, lineIndex);
-            return;
-        }
-
-        // IS/AS 关键字处理
-        // 仅在未进入方法体(beginEndCounter === 0)时识别为声明关键字。
-        // 否则方法体中的 "IF x IS NULL" / "x AS y" 等会被误判，吞掉控制结构。
-        if (this.beginEndCounter === 0 && this.isIsAsStatement(line)) {
-            await this.handleIsAsStatement(lineNumber);
-            return;
-        }
-
-        // BEGIN 关键字处理
-        if (this.isBeginStatement(line)) {
-            await this.handleBeginStatement(lineNumber);
-            return;
-        }
-
-        // EXCEPTION 关键字处理
-        if (this.isExceptionStatement(line)) {
-            await this.handleExceptionStatement(lineNumber);
-            return;
-        }
-
-        // END 关键字处理（排除控制结构END）
-        if (this.isEndStatement(line)) {
-            await this.handleEndStatement(lineNumber);
-            return;
-        }
-
-        // 控制结构处理（仅在方法体内）
+        // 控制结构处理（仅在方法体内）。必须在令牌扫描之后：
+        // `BEGIN IF ... THEN` 同行形态先由令牌扫描递增计数器，控制结构才能过 bec>0 门控
         if (this.showControlStructures && this.beginEndCounter > 0) {
             this.parseControlStructures(line, lineNumber);
+        }
+    }
+
+    /** 结构令牌词法（Issue #55）：引号标识符整体视为一个令牌跳过，不参与配对 */
+    private static readonly STRUCT_TOKEN_RE = /"[^"]*"|[A-Za-z][A-Za-z0-9_$#]*/g;
+
+    /**
+     * 结构令牌扫描（Issue #55）：对清洗后的单行做词法级 BEGIN/END/CASE 配对。
+     *
+     * 背景：行级判定只认独占一行的 BEGIN/END，导致两类真实世界缺陷——
+     *  1. `BEGIN 语句;` 同行形态不计数 → 成员永不闭合，后续成员链式吞为其
+     *     嵌套子节点（大纲误现 "Sub Program" 文件夹）；
+     *  2. 多行 SQL/PLSQL CASE 表达式的裸 `END` / `END 列别名` 行被误当块 END →
+     *     成员提前闭合，endLine/折叠/跳转锚点错位。
+     *
+     * 规则（清洗行上字符串/注释已剥离，词法令牌天然纯净；引号标识符整体跳过）：
+     *  - CASE（"END CASE" 中的 CASE 除外）→ caseExprDepth++（表达式/语句 CASE 开启）
+     *  - BEGIN → 既有 handleBeginStatement；无开放单元时先启动匿名块
+     *    （等价原顶层裸 BEGIN 分支，Issue #5）
+     *  - END 后随 IF/LOOP → 控制结构 END，计数器不动（控制栈由行级识别维护）
+     *  - END CASE → caseExprDepth--（语句 CASE 闭合，其开启令牌已计数）
+     *  - 裸 END / END 名称：caseExprDepth>0 → CASE 表达式闭合，吞掉不动计数器；
+     *    否则 → 既有 handleEndStatement（块 END，可能闭合成员/匿名块/包体）
+     */
+    private async scanStructuralTokens(line: string, lineNumber: number): Promise<void> {
+        const tokens = line.match(PLSQLParser.STRUCT_TOKEN_RE);
+        if (!tokens) {
+            return;
+        }
+        // prevWasEnd 行内有效："END CASE" 复合词只在同一行内成立，
+        // 上一行行尾的 END 不得误伤下一行行首的 CASE。
+        // 性能：按首字符+长度粗筛（绝大多数令牌不是关键字），命中才 toUpperCase
+        let prevWasEnd = false;
+        for (let t = 0; t < tokens.length; t++) {
+            const raw = tokens[t];
+            const c0 = raw.charCodeAt(0) | 32; // ASCII 小写化
+            const len = raw.length;
+            const upper = (c0 === 98 && len === 5) || (c0 === 101 && len === 3) ||
+                (c0 === 99 && len === 4) ? raw.toUpperCase() : '';
+            if (upper === 'BEGIN') {
+                // 无"未闭合"活动节点时的 BEGIN 属于新匿名块（单元 END 之后/文件顶层）
+                const hasOpenUnit = this.currentActiveNode != null && this.currentActiveNode.endLine == null;
+                if (!hasOpenUnit) {
+                    this.startAnonymousBlock(lineNumber);
+                }
+                await this.handleBeginStatement(lineNumber);
+            } else if (upper === 'END') {
+                // 前看一个词判定复合词（END IF / END LOOP / END CASE；别名走裸 END 路径）
+                let next = '';
+                const rawNext = tokens[t + 1];
+                if (rawNext !== undefined) {
+                    const n0 = rawNext.charCodeAt(0) | 32;
+                    const nl = rawNext.length;
+                    if ((n0 === 105 && nl === 2) || (n0 === 108 && nl === 4) || (n0 === 99 && nl === 4)) {
+                        next = rawNext.toUpperCase();
+                    }
+                }
+                if (next === 'IF' || next === 'LOOP') {
+                    // 控制结构 END：BEGIN/END 计数器不动
+                } else if (next === 'CASE') {
+                    // 语句 CASE 闭合：抵消其 CASE 开启令牌
+                    this.caseExprDepth = Math.max(0, this.caseExprDepth - 1);
+                } else if (this.currentActiveNode == null || this.currentActiveNode.endLine != null) {
+                    // 无开放单元（孤儿 END）：忽略
+                } else if (this.caseExprDepth > 0) {
+                    // CASE 表达式闭合（裸 END / END 列别名）
+                    this.caseExprDepth--;
+                } else {
+                    await this.handleEndStatement(lineNumber);
+                }
+            } else if (upper === 'CASE' && !prevWasEnd) {
+                if (this.currentActiveNode != null && this.currentActiveNode.endLine == null) {
+                    this.caseExprDepth++;
+                }
+            }
+            prevWasEnd = upper === 'END';
         }
     }
 
@@ -780,8 +847,10 @@ export class PLSQLParser {
         this.beginEndCounter = 0;
         this.controlStack = [];
         this.anonBlockCounters = [];
-        // 新单元开始：丢弃上一个未正确闭合单元遗留的上下文帧
+        // 新单元开始：丢弃上一个未正确闭合单元遗留的上下文帧与 CASE 配对状态
         this.unitStateStack = [];
+        this.caseExprDepth = 0;
+        this.anonCaseDepths = [];
     }
 
     /**
@@ -838,17 +907,19 @@ export class PLSQLParser {
         // 防止方法体内的任何层级漂移带出宿主边界
         const hostLevel = this.currentLevel;
         this.currentLevel = hostLevel + 1;
-        // 保存外层上下文（计数器+匿名块水位+层级），子程序 END 闭合时恢复；
+        // 保存外层上下文（计数器+匿名块水位+层级+CASE 配对深度），子程序 END 闭合时恢复；
         // 直接清零会丢弃宿主单元的 BEGIN 计数与外层内联匿名块的水位
         this.unitStateStack.push({
             beginEndCounter: this.beginEndCounter,
             anonBlockCounters: this.anonBlockCounters,
-            currentLevel: hostLevel
+            currentLevel: hostLevel,
+            caseExprDepth: this.caseExprDepth
         });
         this.beginEndCounter = 0;
-        // 子程序拥有独立的控制结构与匿名块水位刻度
+        // 子程序拥有独立的控制结构、匿名块水位与 CASE 配对刻度
         this.controlStack = [];
         this.anonBlockCounters = [];
+        this.caseExprDepth = 0;
     }
 
     /**
@@ -956,6 +1027,7 @@ export class PLSQLParser {
             this.currentActiveNode = this.packageNode;
             this.controlStack = [];
             this.unitStateStack = [];
+            this.caseExprDepth = 0;
             return;
         }
 
@@ -973,6 +1045,8 @@ export class PLSQLParser {
                 this.currentActiveNode.endLine = lineNumber;
                 this.anonBlockCounters.pop();
                 this.controlStack = [];
+                // 恢复进入匿名块前的宿主 CASE 配对深度
+                this.caseExprDepth = this.anonCaseDepths.pop() ?? 0;
                 // 恢复外层方法为活动节点(它在 DECLARE 时被压入 nodeStack)
                 const parentNode = this.nodeStack.pop();
                 this.currentActiveNode = parentNode || this.packageNode;
@@ -1001,7 +1075,7 @@ export class PLSQLParser {
                 this.currentActiveNode = this.packageNode;
             }
 
-            // 子程序闭合：恢复进入它时保存的外层上下文（计数器+匿名块水位+层级），
+            // 子程序闭合：恢复进入它时保存的外层上下文（计数器+匿名块水位+层级+CASE 深度），
             // 使宿主单元/外层内联匿名块的 END 配对回到正确的计数刻度，
             // 层级按进入前的宿主值恢复（帧值优先于递减值，自愈体内漂移）
             const savedUnitState = this.unitStateStack.pop();
@@ -1009,6 +1083,10 @@ export class PLSQLParser {
                 this.beginEndCounter = savedUnitState.beginEndCounter;
                 this.anonBlockCounters = savedUnitState.anonBlockCounters;
                 this.currentLevel = savedUnitState.currentLevel;
+                this.caseExprDepth = savedUnitState.caseExprDepth;
+            } else {
+                // 无帧可恢复（状态漂移自愈）：清零防止残留 CASE 深度吞掉宿主的块 END
+                this.caseExprDepth = 0;
             }
 
             // 方法结束时清空控制栈
@@ -1058,6 +1136,9 @@ export class PLSQLParser {
 
         // 记录匿名块水位: 匿名块的 BEGIN 会让 bec +1, 其 END 应让 bec 回到该值
         this.anonBlockCounters.push(this.beginEndCounter);
+        // 匿名块拥有独立的 CASE 配对刻度；宿主深度随水位一并保存/恢复
+        this.anonCaseDepths.push(this.caseExprDepth);
+        this.caseExprDepth = 0;
     }
 
     // ====== 判断方法 ======
@@ -1086,13 +1167,6 @@ export class PLSQLParser {
     }
 
     /**
-     * 检查是否为BEGIN语句
-     */
-    private isBeginStatement(line: string): boolean {
-        return /^\s*BEGIN\s*$/i.test(line);
-    }
-
-    /**
      * 检查是否为EXCEPTION语句
      */
     private isExceptionStatement(line: string): boolean {
@@ -1100,24 +1174,11 @@ export class PLSQLParser {
     }
 
     /**
-     * 检查是否为END语句（排除控制结构END IF/LOOP/CASE）
-     * BUG-3修复：添加WHILE到排除列表
-     * BUG-4修复：分号/斜杠可选
-     */
-    private isEndStatement(line: string): boolean {
-        // 排除控制结构的END语句（含带标签形式：END IF lbl; / END LOOP lbl; / END CASE lbl;）
-        if (/^\s*END\s+(IF|LOOP|CASE|WHILE)(\s+\w+)?\s*;?\s*$/i.test(line)) {
-            return false;
-        }
-        // 匹配函数/过程/包/类型的END语句（分号/斜杠可选；别名支持带引号形态 END "PKG"，Issue #18）
-        return /^\s*END(\s+(?:"[^"]+"|\w+))?\s*[;/]?\s*$/i.test(line);
-    }
-
-    /**
-     * 检查是否为DECLARE语句
+     * 检查是否为DECLARE语句（Issue #55：行首令牌即可，不再要求独占整行——
+     * 压缩形态 `DECLARE v NUMBER; BEGIN NULL; END;` 的匿名块）
      */
     private isDeclareStatement(line: string): boolean {
-        return /^\s*DECLARE\s*$/i.test(line);
+        return /^\s*DECLARE\b/i.test(line);
     }
 
     // ====== 控制结构解析 ======

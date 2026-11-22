@@ -1,5 +1,6 @@
 import { ParseNode, ParseResult, NodeType } from './types';
 import { PLSQLParser } from './parser';
+import { buildCaseGroups } from './highlightCase';
 
 /**
  * 结构关键字配对高亮（Issue #31）——纯函数模块，vscode-free，供单元测试直接覆盖。
@@ -30,7 +31,7 @@ export interface KeywordSpan {
     end: number;
 }
 
-export type KeywordGroupKind = 'block' | 'if' | 'loop';
+export type KeywordGroupKind = 'block' | 'if' | 'loop' | 'case';
 
 export interface KeywordGroup {
     kind: KeywordGroupKind;
@@ -274,6 +275,8 @@ export function buildKeywordGroups(parseResult: ParseResult | null, maskedLines:
     if (parseResult && parseResult.nodes) {
         visit(parseResult.nodes);
     }
+    // case 组独立于解析树（表达式 CASE 无节点），掩码行上词法配对构造（Issue #55）
+    groups.push(...buildCaseGroups(maskedLines));
     return groups;
 }
 

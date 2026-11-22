@@ -9,11 +9,14 @@
    剥离字符串字面量（含 Oracle Q-quote）、`--` 与 `/* */` 注释，保留
    `originalLineNumber` 映射（lineMapping）。此层是 O(n) 且跨行状态感知的，质量高。
 2. `parseLines()` → `parseLine()`：对清洗后的行依次尝试：声明判定（常量→变量→类型→
-   游标→异常，顺序敏感）→ CREATE → DECLARE → 顶层裸 BEGIN → 子程序 → IS/AS →
-   BEGIN → EXCEPTION → END → 控制结构。
+   游标→异常，顺序敏感）→ CREATE → DECLARE（行首令牌）→ 子程序（真实定义行不提前
+   返回，同行可跟 BEGIN/END）→ IS/AS → EXCEPTION → **BEGIN/END/CASE 令牌级配对**
+   （`scanStructuralTokens`，Issue #55）→ 控制结构（必须在令牌扫描之后：同行
+   BEGIN 先递增计数器，`BEGIN IF ... THEN` 才能过 bec>0 门控）。
 3. 状态机构成：`currentLevel`、`beginEndCounter`(bec)、`nodeStack`、
    `currentActiveNode`、`controlStack`、`anonBlockCounters`（匿名块水位栈）、
-   `unitStateStack`（子程序上下文帧：bec + 匿名块水位 + currentLevel）。
+   `unitStateStack`（子程序上下文帧：bec + 匿名块水位 + currentLevel +
+   caseExprDepth）、`caseExprDepth`/`anonCaseDepths`（CASE 配对深度，Issue #55）。
 
 ## 关键不变量（改动后必须保持）
 
@@ -40,8 +43,17 @@
    RESULT_CACHE/PIPELINED/PARALLEL_ENABLE/AGGREGATE/ACCESSIBLE。
 5. **CREATE TYPE / TYPE BODY / VIEW** 是一等 NodeType；TYPE BODY 成员方法带
    MEMBER/STATIC/FINAL/OVERRIDING/CONSTRUCTOR/MAP 前缀。
-6. **BEGIN/END 识别是整行的**：`^\s*BEGIN\s*$` 等——解析器只对格式化 PL/SQL 保证正确。
-   `BEGIN stmt;` 同行、多行 SQL CASE 的裸 `END 别名` 行是已知未修缺陷（见下）。
+6. **BEGIN/END/CASE 是令牌级配对**（Issue #55，推翻旧的整行判定）：清洗行上
+   `scanStructuralTokens` 逐词法扫描——CASE（非 "END CASE" 中的 CASE）计
+   `caseExprDepth++`；BEGIN 走 handleBeginStatement（无开放单元时先启动匿名块）；
+   END 后随 IF/LOOP 为控制 END 不动计数器，后随 CASE 抵消语句 CASE 开启，裸 END /
+   END 别名仅当 `caseExprDepth===0` 才是块 END（否则为 CASE 表达式闭合）。
+   由此 `BEGIN stmt;` 同行、全一行成员（`PROCEDURE p IS BEGIN NULL; END p;`）、
+   压缩匿名块（`DECLARE v NUMBER; BEGIN NULL; END;`）、多行 SQL/PLSQL CASE 表达式
+   的裸 `END` / `END 列别名` 均正确处理。caseExprDepth 随子程序帧
+   （unitStateStack）与匿名块水位（anonCaseDepths）保存/恢复，单元边界重置。
+   `prevWasEnd` 行内有效：复合词 "END CASE" 只在同行成立，跨行残留会误伤下一行
+   行首的 CASE。EXCEPTION 仍要求独占一行（`EXCEPTION WHEN ... THEN` 同行不识别）。
 7. **匹配函数/过程**用模块级缓存正则（性能教训：勿在热路径 new RegExp）。
 8. `parsing.maxNestingDepth` 配置经 `parse(content, sourceFile, {maxNestingDepth})` 传入；
    文件大小（10MB）/行数（50k）保护为解析器内部常量。
@@ -89,11 +101,11 @@
 
 ## 已知未修缺陷（改动相关区域时留意）
 
-1. `isBeginStatement` 仅匹配独占一行 → `BEGIN stmt;` 同行时 BEGIN 不计数，
-   成员永不闭合、后继成员链式吞进 Sub Program。
-2. `isEndStatement` 匹配裸 `END`/`END 别名` 行 → 多行 SQL CASE 的标准写法可被
-   过早闭合 + 孤儿 `end;` 造成 bec 负漂移。调试手段：wrap
-   `PLSQLParser.prototype.handleBeginStatement/handleEndStatement` 逐行观察 bec。
-3. 包规格（PACKAGE_HEADER）只渲染成员声明，规格级常量/类型/游标/异常不显示
+1. 包规格（PACKAGE_HEADER）只渲染成员声明，规格级常量/类型/游标/异常不显示
    （createFlatChildren 不查 variableTable）——是否显示待 Emon 决定。
-4. PACKAGE_HEADER/TRIGGER/TYPE/TYPE_BODY/VIEW 根节点 endLine 保持 open 是**正常行为**。
+2. PACKAGE_HEADER/TRIGGER/TYPE/TYPE_BODY/VIEW 根节点 endLine 保持 open 是**正常行为**。
+3. 历史缺陷 #1/#2（`BEGIN stmt;` 同行不计数、多行 SQL CASE 的裸 `END 别名` 误当
+   块 END）已在 Issue #55 以令牌级配对修复（见 Gotcha 6）；调试计数器手段：wrap
+   `PLSQLParser.prototype.handleBeginStatement/handleEndStatement` 逐行观察 bec。
+   CASE 配对高亮组在 highlightCase.ts（掩码行上同构令牌配对，表达式 CASE 无解析
+   树节点），与解析器 STRUCT_TOKEN_RE 保持同一词法口径。
