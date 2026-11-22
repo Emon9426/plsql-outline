@@ -9,7 +9,7 @@ VS Code 扩展：解析 PL/SQL 代码为结构化大纲树，让 VS Code 拥有�
 ## 目录结构
 
 ```
-src/            扩展源码（12 个模块，编译到 out/）
+src/            扩展源码（18 个模块，编译到 out/）
 tests/
   unit/         解析器/渲染单元套件（自研断言，node tests/unit/run_all.js）
   regression/   回归套件（node tests/regression/run_all.js）

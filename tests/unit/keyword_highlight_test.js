@@ -9,7 +9,10 @@
  *    循环组（FOR|WHILE + LOOP + END LOOP）
  *  - matchKeywordGroup：词区间与组 span 重叠命中——覆盖 END IF / END LOOP 中的
  *    END 与 IF/LOOP 词、FOR..LOOP 行中的任一关键字
- *  - 负例：普通词/THEN 不命中、掩码区（字符串内）不命中、END CASE 不命中、
+ *  - case 组（Issue #55）：表达式 CASE（多行 / SQL 列 END 别名）与语句 CASE
+ *    （END CASE 复合 span）词法配对建组；嵌套各归其组；EXCEPTION 的 WHEN 排除；
+ *    字符串内（掩码区）CASE 不建组；END CASE 仍不建 block/IF/循环组
+ *  - 负例：普通词/THEN 不命中、掩码区（字符串内）词位不命中、
  *    无配对的 BEGIN-only 节点不建组（原生词高亮回退路径）
  *
  * 折叠保留首行为 VS Code 原生行为；原生词高亮回退由 provider 返回空数组实现，
@@ -157,8 +160,12 @@ async function run() {
     ].join('\n');
     const caseMasked = maskLiteralsAndComments(caseSrc);
     const caseGroups = buildKeywordGroups(await parseOne(caseSrc), caseMasked);
-    rec.assert('n4_end_case', 'END CASE 行不建 IF/循环组（END@4 不命中）',
-        matchKeywordGroup(caseGroups, 4, 2, 5) === null, JSON.stringify(caseGroups));
+    // Issue #55：case 组使 END CASE 可命中；但仍不建 block/IF/循环组（不误吃内层 END）
+    const n4Hit = matchKeywordGroup(caseGroups, 4, 2, 5);
+    rec.assert('n4_end_case', 'END CASE 行命中 case 组且不建 block/IF/循环组',
+        n4Hit !== null && n4Hit.kind === 'case' &&
+        !caseGroups.some(g => g.kind !== 'case' && g.spans.some(s => s.line === 4)),
+        JSON.stringify(caseGroups));
     rec.assert('n5_block_of_anon', '裸 BEGIN..END 匿名块仍有块组（BEGIN@1+END@5）',
         caseGroups.some(g => g.kind === 'block' && g.spans.some(s => s.line === 1)),
         JSON.stringify(caseGroups));
@@ -191,6 +198,62 @@ async function run() {
     // ---- Case 7: null 防御 ----
     rec.assert('c7_null_safe', 'buildKeywordGroups(null) 返回空数组',
         Array.isArray(buildKeywordGroups(null, [])) && buildKeywordGroups(null, []).length === 0,
+        'expected []');
+
+    // ---- Case 8: CASE 配对组（Issue #55）----
+    // 表达式 CASE（v := CASE ... END，无解析树节点）与语句 CASE（... END CASE）
+    // 均由掩码行词法配对构造 case 组；EXCEPTION 的 WHEN 不在 CASE 区间，天然排除
+    const c8Src = [
+        'CREATE OR REPLACE PACKAGE BODY pkg_c8 AS',      // 1
+        '  PROCEDURE p1 IS',                             // 2
+        '    v VARCHAR2(10);',                           // 3
+        '  BEGIN',                                       // 4
+        '    v := CASE',                                 // 5
+        "           WHEN 1 = 1 THEN 'OK'",               // 6
+        "           ELSE 'NO'",                          // 7
+        '         END;',                                 // 8
+        '    SELECT CASE WHEN t.a = 1 THEN 1 ELSE 0',    // 9
+        '             END status_flag',                  // 10
+        '      INTO v FROM t_tab t;',                    // 11
+        '    CASE v',                                    // 12
+        "      WHEN 'OK' THEN NULL;",                    // 13
+        '      ELSE NULL;',                              // 14
+        '    END CASE;',                                 // 15
+        '    v := CASE WHEN 1 = 1 THEN',                 // 16
+        '             CASE WHEN 2 = 2 THEN 2',           // 17
+        '             ELSE 3 END;',                      // 18
+        '           ELSE 4 END;',                        // 19
+        '    EXCEPTION',                                 // 20
+        '      WHEN OTHERS THEN NULL;',                  // 21
+        '  END p1;',                                     // 22
+        'END pkg_c8;'                                    // 23
+    ].join('\n');
+    const c8Masked = maskLiteralsAndComments(c8Src);
+    const c8Groups = buildKeywordGroups(await parseOne(c8Src), c8Masked).filter(g => g.kind === 'case');
+    rec.assert('c8_group_count', '表达式/语句/嵌套 CASE 各建组（共 5 组）',
+        c8Groups.length === 5, JSON.stringify(c8Groups));
+    const c8Spans = g => g.spans.map(s => s.line).join(',');
+    rec.assert('c8_expr_case', '多行表达式 CASE 组含 CASE@5 WHEN@6 ELSE@7 END@8',
+        c8Groups.some(g => c8Spans(g) === '5,6,7,8'), JSON.stringify(c8Groups));
+    rec.assert('c8_alias_case', 'SQL CASE...END 列别名组含 CASE@9 WHEN@9 ELSE@9 END@10',
+        c8Groups.some(g => c8Spans(g) === '9,9,9,10'), JSON.stringify(c8Groups));
+    rec.assert('c8_stmt_case', '语句 CASE 组含 CASE@12 WHEN@13 ELSE@14 END CASE@15（复合 span）',
+        c8Groups.some(g => c8Spans(g) === '12,13,14,15'), JSON.stringify(c8Groups));
+    // 嵌套：内层 CASE@17 吸收 WHEN@17/ELSE@18 后以 END@18 闭合（17,17,18,18）；
+    // 外层吸收自己的 WHEN@16 与内层闭合后的 ELSE@19，以 END@19 闭合（16,16,19,19）
+    const c8Inner = c8Groups.filter(g => c8Spans(g).startsWith('17'));
+    const c8Outer = c8Groups.filter(g => c8Spans(g).startsWith('16'));
+    rec.assert('c8_nested_case', '嵌套 CASE 各归其组（内层 17,17,18,18；外层 16,16,19,19）',
+        c8Inner.length === 1 && c8Spans(c8Inner[0]) === '17,17,18,18' &&
+        c8Outer.length === 1 && c8Spans(c8Outer[0]) === '16,16,19,19',
+        JSON.stringify(c8Groups));
+    rec.assert('c8_exception_when_excluded', 'EXCEPTION 的 WHEN@21 不进任何 case 组',
+        !c8Groups.some(g => g.spans.some(s => s.line === 21)), JSON.stringify(c8Groups));
+    rec.assert('c8_click_case', '点击表达式 CASE@5 命中 4-span 组；点击 END 别名@10 命中组',
+        matchKeywordGroup(c8Groups, 5, 10, 14)?.spans.length === 4 &&
+        matchKeywordGroup(c8Groups, 10, 12, 15) !== null, 'expected hits');
+    rec.assert('c8_masked_case_in_string', '字符串内 CASE 不建组（掩码区）',
+        buildKeywordGroups(null, maskLiteralsAndComments("v := 'CASE WHEN';")).length === 0,
         'expected []');
 
     return { suiteName: 'keyword_highlight_test', cases: rec.cases };

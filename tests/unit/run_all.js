@@ -32,6 +32,7 @@ const suites = [
     ['get_ddl_test', require('./get_ddl_test')],
     ['folding_test', require('./folding_test')],
     ['keyword_highlight_test', require('./keyword_highlight_test')],
+    ['token_pairing_test', require('./token_pairing_test')],
     ['cursor_sql_hover_test', require('./cursor_sql_hover_test')],
     ['control_expand_test', require('./control_expand_test')],
     ['control_icon_test', require('./control_icon_test')],

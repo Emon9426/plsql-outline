@@ -90,7 +90,8 @@ export class PLSQLOutlineExtension {
     private static readonly PARSE_CACHE_MAX = 8;
     // 结构关键字集合（Issue #31）：命中才尝试配对组；其余词直接返回空回退原生词高亮
     private static readonly STRUCTURAL_KEYWORDS: ReadonlySet<string> = new Set([
-        'DECLARE', 'BEGIN', 'EXCEPTION', 'END', 'IF', 'ELSIF', 'ELSE', 'LOOP', 'FOR', 'WHILE'
+        'DECLARE', 'BEGIN', 'EXCEPTION', 'END', 'IF', 'ELSIF', 'ELSE', 'LOOP', 'FOR', 'WHILE',
+        'CASE', 'WHEN' // Issue #55：CASE 配对高亮组入口
     ]);
     // 启动时延迟构建符号索引的定时器（dispose 时取消，防止停用后仍创建 watcher）
     private indexBuildTimer: NodeJS.Timeout | null = null;
