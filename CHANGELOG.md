@@ -3,6 +3,13 @@
 本文件记录 PL/SQL Outline 各版本的变化。完整的版本发布信息也可在
 [GitHub Releases](https://github.com/Emon9426/plsql-outline/releases) 查看。
 
+## v1.18.0 (2026-11-22)
+
+- 🔴 **修复（#55）：大文件中不是嵌套子程序的成员被识别成 Sub Program——BEGIN/END 识别从"整行"升级为"令牌级配对"**：行级状态机只认独占一行的 `BEGIN`/`END`，两类真实世界形态盲视且在大文件中级联放大——① `BEGIN 语句;`（压缩风格/生成代码常见，BEGIN 与语句同占一行）整行不可见 → 成员 `beginEndCounter` 永不增长 → 成员永不闭合 → **其后所有成员链式吞为该成员的嵌套子节点**（复现实测：30 成员包体被吞 15 个，大纲误现 "Sub Program (15)" 文件夹）；② 多行 SQL/PLSQL **CASE 表达式**的裸 `END;` / `END 列别名` 行被误当成员 END → 成员提前闭合 → 包体/成员 endLine、折叠范围、跳转锚点全部错位。修复为对清洗后的每行做词法级扫描（`scanStructuralTokens`）：BEGIN/END 不再要求独占整行；CASE↔END 深度配对（`caseExprDepth` 随子程序上下文帧与匿名块水位保存/恢复）——裸 END / END 别名仅在 CASE 深度为 0 时才是块 END；`DECLARE` 放宽为行首令牌（顺带修复压缩匿名块 `DECLARE v NUMBER; BEGIN NULL; END;` 与全一行成员 `PROCEDURE p IS BEGIN NULL; END p;`）；控制结构 END（END IF/LOOP/CASE）不参与块计数
+- ✨ **新增：CASE 关键字配对高亮**（结构关键字配对高亮此前只有 block/IF/循环三组）：双击 `CASE` / `WHEN` / `ELSE` / `END`（含 `END CASE` 复合关键字）高亮该 CASE 的全部配对关键字——表达式 CASE（`v := CASE ... END`、SELECT 列 `CASE ... END 别名`）与语句 CASE（`CASE ... END CASE`）统一支持，嵌套 CASE 各归其组，异常区 `WHEN OTHERS` 等异常分支关键字不参与；既有 block/IF/循环配对组亦因解析修复自动恢复正确（此前 END 高亮可能落在被 CASE 表达式污染的错误行上）
+- 🧪 新增单测套件 `token_pairing_test`（12 断言：同行 BEGIN / 全一行成员 / CASE 表达式 END / SQL END 列别名 / 压缩匿名块 / 游标 SQL 内 CASE / 嵌套混排 / 30 成员大文件零误吞 / 嵌套子程序不回归 / 前置声明替换 / 匿名块 CASE 深度帧恢复 / TYPE BODY 成员），`keyword_highlight_test` 新增 case 配对组 8 断言（既有 "END CASE 不命中" 负例升级为命中 case 组且不建 block/IF/循环组）。四件套全绿：corpus **35/35**、单测 **576/576**（33 套件，基线 556）、回归 **15/15**、e2e 五套件 exit 0；语料基准中位 90.6→103.4ms（+14%，令牌扫描成本，万行文件约 +1.5ms）
+- 🧹 删除被取代的整行判定死代码 `isBeginStatement` / `isEndStatement`；`.ai/` 知识库（testing 基线 / parser-playbook 令牌级配对规则与已修缺陷归档 / project 模块清单）已同步
+
 ## v1.17.3 (2026-11-15)
 
 - 🔴 **修复（#50）：在代码行上选代码就凭空冒出书签——书签触发面收紧为"只认行号列点击"**：切换条件原只判断"整行选中"这一**选区形状**，而 VS Code 的 `onDidChangeTextEditorSelection` 不携带任何鼠标坐标，该形状并非行号点击独占。用 OS 级真实鼠标输入（SendInput/mouse_event）在 VS Code 1.146 实测 33 个手势确认误触面：**双击正文词后拖到下一行行首**（先建签又删签）、**双击词后 Shift+点击下一行行首**、**三击正文**、**从行首拖到下一行行首**、**拖选止于下一行行首**——五类手势都会产生与点行号逐字段相同的整行事件。修复两层判定：① 形状必须是精确的 `[L,0)→[L+1,0)`（补上起点列 0，直接消灭"起点不在行首"的扩选/拖选）；② 该整行事件必须是本轮鼠标手势的**第一个**事件——正文手势在整行事件之前必然先派发塌陷/词/部分选区事件（实测簇内间隔 2–181ms，窗口取 500ms 对齐 Windows 多击阈值），行号点击天然没有簇内前导事件。合格行号点击不计入正文手势，**连续点多个行号照常逐个建签**；列 >0 的塌陷只是光标落位、同样不计入，**"点一下正文再点行号"不被误杀**。末行分支（#46）同受两层判定约束：末行行号单击仍可删签，末行三击正文不再误删。调试轨迹（`plsql-outline.debug.enabled`）升级为记录完整事件形态（全部选区 + anchor/active + 选区数），否则用户机器上无法复现判定依据
