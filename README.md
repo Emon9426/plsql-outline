@@ -125,8 +125,9 @@ ELSIF / ELSE / WHEN 分支不产生独立箭头（已包含在宿主块的折叠
 | DECLARE / BEGIN / EXCEPTION / END | 该层级的 DECLARE、BEGIN、EXCEPTION、END（子程序无 DECLARE 则高亮其 BEGIN/EXCEPTION/END；按块层级隔离，不含嵌套块） |
 | IF（含 END IF 中的 END / IF） | 该 IF 块的 IF、ELSIF、ELSE、END IF |
 | FOR / WHILE / LOOP（含 END LOOP 中的关键字） | 该循环的 FOR/WHILE、LOOP、END LOOP |
+| CASE / WHEN / ELSE（含 END CASE 中的关键字；v1.18.0 起） | 该 CASE 的 CASE、WHEN×n、ELSE、END（表达式 CASE 的 `END` / SQL 列别名 END）或 END CASE（语句 CASE）。表达式 CASE（`v := CASE ... END`、SELECT 列中的 `CASE ... END 别名`）与语句 CASE 均支持，嵌套 CASE 各归其组；异常区的 `WHEN OTHERS` 等异常分支关键字不参与 |
 
-非结构关键字（变量名等普通词）、字符串/注释内的关键字、END CASE 等暂未支持的结构，
+非结构关键字（变量名等普通词）、字符串/注释内的关键字，
 保持 VS Code **原生相同词高亮**不受影响。关键字定位与解析器同口径跳过字符串
 （含 Q-quote）与注释。
 
