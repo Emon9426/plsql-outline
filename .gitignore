@@ -16,8 +16,9 @@ out/
 .env
 .env.local
 
-# ZCode session artifacts
-.zcode/
+# ZCode session artifacts（会话产物不入库，只保留可复用的工作流定义）
+.zcode/*
+!.zcode/workflows/
 
 # Qoder 本地生成物（RepoWiki 知识卡 / 额度报告），非源码、非发布物
 .qoder/
