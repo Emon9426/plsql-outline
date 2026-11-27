@@ -1,0 +1,114 @@
+name: Publish vsix to VS Code Marketplace
+
+# Publishes an already-built .vsix that is attached to a release of this repository.
+# Authentication uses Marketplace trusted publishing (OIDC), so no Personal Access Token is stored.
+#
+# Usage: attach the .vsix to a (non-draft) release, then run this workflow with the release tag.
+# Set dry_run=true to verify the credential without publishing anything; no release is needed for that.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag of the release that has the .vsix attached (not needed for a dry run)
+        required: false
+      pre_release:
+        description: Publish as a pre-release version
+        type: boolean
+        default: false
+      dry_run:
+        description: Only verify the trusted publishing credential, do not publish
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write # required by Marketplace trusted publishing (OIDC)
+
+concurrency:
+  group: publish-vscode-marketplace
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Verify the trusted publishing credential
+        if: ${{ inputs.dry_run }}
+        env:
+          PUBLISHER_NAME: EmonZhang3438
+        run: |
+          cat > "$RUNNER_TEMP/verify-oidc.mjs" <<'EOF'
+          const requestUrl = process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+          const requestToken = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+          if (!requestUrl || !requestToken) {
+            throw new Error('GitHub Actions did not provide an OIDC token request URL and token. Add `permissions: id-token: write`.');
+          }
+
+          // Only https and only GitHub-hosted hosts: never loopback, private or reserved addresses.
+          function assertSafeUrl(raw, allowedHostSuffixes) {
+            const url = new URL(raw);
+            if (url.protocol !== 'https:') {
+              throw new Error(`Only https URLs are allowed, got: ${url.protocol}`);
+            }
+            const host = url.hostname.toLowerCase();
+            if (host === 'localhost' || host.endsWith('.localhost') || host === '::1' || host === '[::1]') {
+              throw new Error(`Blocked host: ${host}`);
+            }
+            if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+              throw new Error(`Blocked IP address host: ${host}`);
+            }
+            if (!allowedHostSuffixes.some((suffix) => host.endsWith(suffix))) {
+              throw new Error(`Unexpected host: ${host}`);
+            }
+          }
+
+          assertSafeUrl(requestUrl, ['.githubusercontent.com']);
+          const tokenUrl = new URL(requestUrl);
+          tokenUrl.searchParams.set('audience', 'marketplace.visualstudio.com');
+
+          const tokenResponse = await fetch(tokenUrl, {
+            headers: { Accept: 'application/json', Authorization: `Bearer ${requestToken}` },
+          });
+          if (!tokenResponse.ok) {
+            throw new Error(`OIDC token request failed: ${tokenResponse.status}`);
+          }
+          const { value } = await tokenResponse.json();
+
+          const exchangeResponse = await fetch('https://marketplace.visualstudio.com/_apis/gallery/token?api-version=7.2-preview.1', {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              Authorization: `FederatedToken ${value}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ publisherName: process.env.PUBLISHER_NAME }),
+          });
+          if (!exchangeResponse.ok) {
+            throw new Error(`Marketplace token exchange failed: ${exchangeResponse.status} ${await exchangeResponse.text()}`);
+          }
+          console.log(`Marketplace accepted the credential for publisher '${process.env.PUBLISHER_NAME}'. Nothing was published.`);
+          EOF
+          node "$RUNNER_TEMP/verify-oidc.mjs"
+
+      - name: Download the vsix from the release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if [ -z "$RELEASE_TAG" ]; then
+            echo "The 'tag' input is required unless dry_run is true." >&2
+            exit 1
+          fi
+          mkdir -p dist
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir dist --pattern '*.vsix'
+          ls -la dist
+
+      - name: Publish
+        if: ${{ !inputs.dry_run }}
+        run: npx --yes @vscode/vsce@latest publish --oidc -i dist/*.vsix ${{ inputs.pre_release && '--pre-release' || '' }}
