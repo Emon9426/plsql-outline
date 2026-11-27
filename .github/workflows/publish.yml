@@ -4,14 +4,14 @@ name: Publish vsix to VS Code Marketplace
 # Authentication uses Marketplace trusted publishing (OIDC), so no Personal Access Token is stored.
 #
 # Usage: attach the .vsix to a (non-draft) release, then run this workflow with the release tag.
-# Set dry_run=true to verify the credential without publishing anything.
+# Set dry_run=true to verify the credential without publishing anything; no release is needed for that.
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Tag of the release that has the .vsix attached
-        required: true
+        description: Tag of the release that has the .vsix attached (not needed for a dry run)
+        required: false
       pre_release:
         description: Publish as a pre-release version
         type: boolean
@@ -36,15 +36,6 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-
-      - name: Download the vsix from the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          mkdir -p dist
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir dist --pattern '*.vsix'
-          ls -la dist
 
       - name: Verify the trusted publishing credential
         if: ${{ inputs.dry_run }}
@@ -103,6 +94,20 @@ jobs:
           console.log(`Marketplace accepted the credential for publisher '${process.env.PUBLISHER_NAME}'. Nothing was published.`);
           EOF
           node "$RUNNER_TEMP/verify-oidc.mjs"
+
+      - name: Download the vsix from the release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if [ -z "$RELEASE_TAG" ]; then
+            echo "The 'tag' input is required unless dry_run is true." >&2
+            exit 1
+          fi
+          mkdir -p dist
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir dist --pattern '*.vsix'
+          ls -la dist
 
       - name: Publish
         if: ${{ !inputs.dry_run }}
